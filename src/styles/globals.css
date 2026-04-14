@@ -78,3 +78,35 @@ pre,
 ::selection {
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
+
+/* 细滚动条：默认透明，hover 变浅灰，拖动变深灰 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-fg) 18%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-fg) 32%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox 回退（electron 用不到，但顺手写上） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-fg) 22%, transparent) transparent;
+}
