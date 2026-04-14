@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
+import { ChevronLeft } from '../components/Icons';
 import ProviderEditDialog, { type DialogMode } from '../features/settings/ProviderEditDialog';
 import ProviderList from '../features/settings/ProviderList';
 import SkillList from '../features/settings/SkillList';
@@ -73,12 +75,23 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1120px] flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1120px] flex-col gap-6 overflow-y-auto px-8 py-8">
       <section className="rounded-2xl border border-border bg-surface p-6">
-        <h2 className="text-lg font-semibold text-fg">设置</h2>
-        <p className="mt-1 text-sm text-fg-muted">
-          Provider、API key 与 skills 在这里集中管理。env 变量仍可作为 fallback。
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-fg">设置</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Provider、API key 与 skills 在这里集中管理。env 变量仍可作为 fallback。
+            </p>
+          </div>
+          <Link
+            to="/chat"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-fg-muted transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+          >
+            <ChevronLeft size={14} />
+            <span>返回对话</span>
+          </Link>
+        </div>
       </section>
 
       {loadError && (

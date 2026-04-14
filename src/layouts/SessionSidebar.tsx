@@ -1,6 +1,6 @@
 // 会话侧边栏：展示品牌、会话历史与设置入口。
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { AlertCircle, Plus, RefreshCw, Settings, Wrench } from '../components/Icons';
 import SessionDetailDialog from '../features/chat/SessionDetailDialog';
@@ -17,6 +17,8 @@ export default function SessionSidebar() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SessionLogEntry | null>(null);
   const { onNewSession, chatState } = useChat();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const loadSessions = useCallback(async () => {
     try {
@@ -38,16 +40,23 @@ export default function SessionSidebar() {
 
   return (
     <>
-      <aside className="flex h-screen w-[272px] shrink-0 flex-col bg-sidebar">
+      <aside className="flex h-full w-[272px] shrink-0 flex-col bg-sidebar">
         <div className="px-4 pt-5">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/chat')}
+            className="flex w-full items-center gap-3 text-left"
+          >
             <span className="h-[18px] w-[18px] rounded-md bg-accent" />
             <span className="text-[15px] font-semibold tracking-tight text-fg">Coase</span>
             <span className="ml-auto text-[10px] text-fg-subtle">v2 alpha</span>
-          </div>
+          </button>
           <button
             type="button"
-            onClick={() => void onNewSession()}
+            onClick={() => {
+              void onNewSession();
+              navigate('/chat');
+            }}
             disabled={chatState === 'running'}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-sm text-fg transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:text-fg-subtle dark:hover:bg-white/[0.04]"
           >
@@ -111,7 +120,12 @@ export default function SessionSidebar() {
         </div>
 
         <div className="border-t border-border px-2 pb-4 pt-3">
-          <SidebarMenuLink to="/settings" icon={<Wrench size={15} />} label="技能与模型" />
+          <SidebarMenuLink
+            to="/settings"
+            icon={<Wrench size={15} />}
+            label="技能与模型"
+            active={location.pathname === '/settings'}
+          />
           <SidebarMenuLink to="/settings" icon={<Settings size={15} />} label="设置" />
         </div>
       </aside>
@@ -121,11 +135,24 @@ export default function SessionSidebar() {
   );
 }
 
-function SidebarMenuLink({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+function SidebarMenuLink({
+  to,
+  icon,
+  label,
+  active = false,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: string;
+  active?: boolean;
+}) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-fg transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+      className={[
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-fg transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
+        active ? 'bg-black/[0.04] dark:bg-white/[0.04]' : '',
+      ].join(' ')}
     >
       {icon}
       <span>{label}</span>

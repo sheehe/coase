@@ -12,7 +12,7 @@ export default function ChatConsole() {
         {transcript.length === 0 && chatState === 'idle' ? (
           <EmptyHero />
         ) : (
-          <div ref={scrollRef} className="h-full overflow-y-auto">
+          <div ref={scrollRef} className="h-full overflow-y-auto scroll-smooth">
             <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-6 py-8">
               {transcript.map((entry, i) => (
                 <TranscriptMessage key={i} entry={entry} />

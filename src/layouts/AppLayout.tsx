@@ -30,9 +30,9 @@ export default function AppLayout() {
 
   return (
     <ChatProvider>
-      <div className="flex min-h-screen bg-app text-fg">
+      <div className="flex h-screen overflow-hidden bg-app text-fg">
         <SessionSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <main className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
               <Outlet />
