@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
-import type { ChatEvent, CoaseApi } from '../../shared/ipc';
+import type { ChatEvent, CoaseApi, TranscriptEntryPersisted } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
 
 const api: CoaseApi = {
@@ -31,6 +31,9 @@ const api: CoaseApi = {
 
   sessions: {
     recent: (limit?: number) => ipcRenderer.invoke('sessions:recent', limit),
+    transcript: (sessionId: string) => ipcRenderer.invoke('sessions:transcript', sessionId),
+    persistTranscript: (sessionId: string, entries: TranscriptEntryPersisted[]) =>
+      ipcRenderer.invoke('sessions:persistTranscript', { sessionId, entries }),
   },
 
   skills: {

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
@@ -16,7 +17,12 @@ import {
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
 import { scanAllSkills } from '../../agent/skills/skill-scanner';
-import type { ChatEvent, ChatStartOutcome, REnvStatus } from '../../shared/ipc';
+import type {
+  ChatEvent,
+  ChatStartOutcome,
+  REnvStatus,
+  TranscriptEntryPersisted,
+} from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
 
 const isDev = !app.isPackaged;
@@ -159,9 +165,59 @@ function registerIpc(): void {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;
     return readRecentSessions(n);
   });
+  ipcMain.handle('sessions:transcript', async (_event, sessionId: string) =>
+    readSessionTranscript(sessionId),
+  );
+  ipcMain.handle(
+    'sessions:persistTranscript',
+    async (
+      _event,
+      payload: { sessionId: string; entries: TranscriptEntryPersisted[] },
+    ): Promise<void> => {
+      await persistSessionTranscript(payload.sessionId, payload.entries);
+    },
+  );
 
   ipcMain.handle('skills:list', () => scanAllSkills());
   ipcMain.handle('rEnv:check', async (): Promise<REnvStatus> => checkREnv());
+}
+
+function resolveTranscriptPath(sessionId: string): string {
+  return join(app.getPath('userData'), 'sessions', `${sessionId}.jsonl`);
+}
+
+async function readSessionTranscript(sessionId: string): Promise<TranscriptEntryPersisted[]> {
+  if (!sessionId.trim()) return [];
+  const filePath = resolveTranscriptPath(sessionId);
+  try {
+    const content = await readFile(filePath, 'utf8');
+    const entries: TranscriptEntryPersisted[] = [];
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        entries.push(JSON.parse(trimmed) as TranscriptEntryPersisted);
+      } catch (error) {
+        console.warn('failed to parse transcript line', { sessionId, error });
+      }
+    }
+    return entries;
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+    if (code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function persistSessionTranscript(
+  sessionId: string,
+  entries: TranscriptEntryPersisted[],
+): Promise<void> {
+  if (!sessionId.trim()) return;
+  const filePath = resolveTranscriptPath(sessionId);
+  await mkdir(join(app.getPath('userData'), 'sessions'), { recursive: true });
+  const body = entries.map((entry) => JSON.stringify(entry)).join('\n');
+  await writeFile(filePath, body ? `${body}\n` : '', 'utf8');
 }
 
 function validateProviderRecord(record: unknown): asserts record is ProviderRecord {

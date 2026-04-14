@@ -1,7 +1,7 @@
 // 会话状态 Hook：原封搬运 ChatConsole 的状态机与回调，并补充派生状态。
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { ChatEvent, Unsubscribe } from '../../../shared/ipc';
+import type { ChatEvent, TranscriptEntryPersisted, Unsubscribe } from '../../../shared/ipc';
 import type { TranscriptEntry } from './TranscriptMessage';
 
 type ChatState = 'idle' | 'running' | 'waiting';
@@ -56,12 +56,15 @@ export function useChatSession(): ChatSessionValue {
 
   const handleEvent = useCallback((ev: ChatEvent) => {
     const ts = Date.now();
+    let nextTranscriptSnapshot: TranscriptEntry[] = [];
+
     setTranscript((prev) => {
       switch (ev.type) {
         case 'session_started':
-          return [...prev, { kind: 'status', ts, text: '会话开始' }];
+          nextTranscriptSnapshot = [...prev, { kind: 'status', ts, text: '会话开始' }];
+          return nextTranscriptSnapshot;
         case 'session_finished':
-          return [
+          nextTranscriptSnapshot = [
             ...prev,
             {
               kind: 'status',
@@ -74,9 +77,10 @@ export function useChatSession(): ChatSessionValue {
                     : '会话结束',
             },
           ];
+          return nextTranscriptSnapshot;
         case 'provider': {
           const label = ev.providerLabel ?? (ev.source === 'env' ? 'env fallback' : '未命名');
-          return [
+          nextTranscriptSnapshot = [
             ...prev,
             {
               kind: 'provider',
@@ -88,26 +92,33 @@ export function useChatSession(): ChatSessionValue {
               baseURL: ev.baseURL,
             },
           ];
+          return nextTranscriptSnapshot;
         }
         case 'user_message_accepted':
-          return [...prev, { kind: 'user', ts, text: ev.text }];
+          nextTranscriptSnapshot = [...prev, { kind: 'user', ts, text: ev.text }];
+          return nextTranscriptSnapshot;
         case 'assistant_text':
-          return [...prev, { kind: 'assistant', ts, text: ev.text }];
+          nextTranscriptSnapshot = [...prev, { kind: 'assistant', ts, text: ev.text }];
+          return nextTranscriptSnapshot;
         case 'tool_use':
-          return [...prev, { kind: 'tool_use', ts, name: ev.name, input: ev.input }];
+          nextTranscriptSnapshot = [...prev, { kind: 'tool_use', ts, name: ev.name, input: ev.input }];
+          return nextTranscriptSnapshot;
         case 'tool_result':
-          return [...prev, { kind: 'tool_result', ts, text: ev.text, isError: ev.isError }];
+          nextTranscriptSnapshot = [...prev, { kind: 'tool_result', ts, text: ev.text, isError: ev.isError }];
+          return nextTranscriptSnapshot;
         case 'error':
-          return [...prev, { kind: 'error', ts, text: ev.message }];
+          nextTranscriptSnapshot = [...prev, { kind: 'error', ts, text: ev.message }];
+          return nextTranscriptSnapshot;
         case 'turn_result': {
           const parts: string[] = [];
           if (typeof ev.num_turns === 'number') parts.push(`turns=${ev.num_turns}`);
-          if (typeof ev.duration_ms === 'number')
+          if (typeof ev.duration_ms === 'number') {
             parts.push(`duration=${(ev.duration_ms / 1000).toFixed(1)}s`);
+          }
           if (typeof ev.cost_usd === 'number') parts.push(`cost=$${ev.cost_usd.toFixed(4)}`);
           if (!ev.ok && ev.subtype) parts.push(`subtype=${ev.subtype}`);
           if (!ev.ok && ev.errors?.length) parts.push(ev.errors.join('; '));
-          return [
+          nextTranscriptSnapshot = [
             ...prev,
             {
               kind: 'turn_result',
@@ -119,6 +130,7 @@ export function useChatSession(): ChatSessionValue {
               costUsd: ev.cost_usd,
             },
           ];
+          return nextTranscriptSnapshot;
         }
         default:
           return prev;
@@ -128,13 +140,16 @@ export function useChatSession(): ChatSessionValue {
     if (ev.type === 'turn_result') {
       setChatState('waiting');
     } else if (ev.type === 'session_finished') {
+      if (sessionId && nextTranscriptSnapshot.length > 0) {
+        void persistTranscriptSnapshot(sessionId, nextTranscriptSnapshot);
+      }
       setChatState('idle');
       setSessionId(null);
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
       setSummaryRefreshKey((k) => k + 1);
     }
-  }, []);
+  }, [sessionId]);
 
   const startSession = useCallback(
     async (firstMessage: string) => {
@@ -196,13 +211,16 @@ export function useChatSession(): ChatSessionValue {
 
   const onNewSession = useCallback(async () => {
     if (sessionId) {
+      if (transcript.length > 0) {
+        await persistTranscriptSnapshot(sessionId, transcript);
+      }
       await window.coase.chat.cancel(sessionId);
     }
     setTranscript([]);
     setSessionId(null);
     setChatState('idle');
     textareaRef.current?.focus();
-  }, [sessionId]);
+  }, [sessionId, transcript]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -305,4 +323,18 @@ function inferStage(transcript: TranscriptEntry[]): InferredStage {
   }
 
   return 'idle';
+}
+
+async function persistTranscriptSnapshot(
+  sessionId: string,
+  transcript: TranscriptEntry[],
+): Promise<void> {
+  try {
+    await window.coase.sessions.persistTranscript(
+      sessionId,
+      transcript as TranscriptEntryPersisted[],
+    );
+  } catch (error) {
+    console.warn('failed to persist transcript', { sessionId, error });
+  }
 }

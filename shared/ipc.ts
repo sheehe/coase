@@ -72,6 +72,11 @@ export interface ChatApi {
 
 export interface SessionsApi {
   recent: (limit?: number) => Promise<SessionLogEntry[]>;
+  transcript: (sessionId: string) => Promise<TranscriptEntryPersisted[]>;
+  persistTranscript: (
+    sessionId: string,
+    entries: TranscriptEntryPersisted[],
+  ) => Promise<void>;
 }
 
 export interface SkillsApi {
@@ -88,6 +93,32 @@ export interface REnvStatus {
 export interface REnvApi {
   check: () => Promise<REnvStatus>;
 }
+
+export type TranscriptEntryPersisted =
+  | { kind: 'status'; ts: number; text: string }
+  | {
+      kind: 'provider';
+      ts: number;
+      text: string;
+      providerId?: string;
+      providerLabel?: string;
+      model: string;
+      baseURL?: string;
+    }
+  | { kind: 'user'; ts: number; text: string }
+  | { kind: 'assistant'; ts: number; text: string }
+  | { kind: 'tool_use'; ts: number; name: string; input: unknown }
+  | { kind: 'tool_result'; ts: number; text: string; isError: boolean }
+  | { kind: 'error'; ts: number; text: string }
+  | {
+      kind: 'turn_result';
+      ts: number;
+      ok: boolean;
+      detail: string;
+      turns?: number;
+      durationMs?: number;
+      costUsd?: number;
+    };
 
 export interface CoaseApi {
   ping: () => Promise<PingResult>;
