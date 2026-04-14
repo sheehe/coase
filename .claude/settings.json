@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pnpm:*)",
+      "Bash(node:*)",
+      "Bash(where node:*)",
+      "Bash(where npm:*)"
+    ],
+    "additionalDirectories": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python c:/Projects/Coase/scripts/export_chat_turn.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

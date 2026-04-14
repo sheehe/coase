@@ -1,0 +1,32 @@
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+
+import AppLayout from './layouts/AppLayout';
+import ChatPage from './pages/ChatPage';
+import SettingsPage from './pages/SettingsPage';
+import type { CoaseApi } from '../shared/ipc';
+
+declare global {
+  interface Window {
+    coase: CoaseApi;
+  }
+}
+
+/**
+ * 顶层路由。用 HashRouter 而不是 BrowserRouter：
+ * Electron 打包后走 file:// 协议，没有服务器来响应 /chat /settings 之类的路径，
+ * BrowserRouter 在刷新或深链时会挂；HashRouter 走 `#/xxx` 是纯客户端路由，零服务器依赖。
+ */
+export default function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={<Navigate to="/chat" replace />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Route>
+      </Routes>
+    </HashRouter>
+  );
+}

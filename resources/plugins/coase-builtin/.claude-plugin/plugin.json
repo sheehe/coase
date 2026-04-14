@@ -1,0 +1,7 @@
+{
+  "name": "coase-builtin",
+  "description": "Built-in Coase skills shipped with the application. Skills here are the default research workflow primitives (planner / data fetcher / analyst / writer / reviewer). User-authored overrides live in the separate coase-user plugin under the app userData directory.",
+  "author": {
+    "name": "Coase"
+  }
+}

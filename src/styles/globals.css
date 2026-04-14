@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light dark;
+}
+
+@theme {
+  --color-app: #fafaf9;
+  --color-surface: #ffffff;
+  --color-sidebar: #f4f4f3;
+  --color-border: #e7e5e4;
+  --color-border-strong: #d6d3d1;
+  --color-fg: #171717;
+  --color-fg-muted: #737373;
+  --color-fg-subtle: #a3a3a3;
+  --color-accent: #0a0a0a;
+  --color-accent-fg: #ffffff;
+  --color-success: #10b981;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-app: #0a0a0a;
+    --color-surface: #141414;
+    --color-sidebar: #141414;
+    --color-border: #262626;
+    --color-border-strong: #404040;
+    --color-fg: #f5f5f5;
+    --color-fg-muted: #a3a3a3;
+    --color-fg-subtle: #737373;
+    --color-accent: #f5f5f5;
+    --color-accent-fg: #0a0a0a;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  background: var(--color-app);
+}
+
+body {
+  margin: 0;
+  background: var(--color-app);
+  color: var(--color-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Inter', sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'tnum';
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-feature-settings: 'cv11', 'ss01', 'tnum';
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
