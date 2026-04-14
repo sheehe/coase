@@ -1,15 +1,10 @@
 // 空会话 Hero：强调产品定位和建议起手式。
-import type { RefObject } from 'react';
-
+import { useChat } from './ChatContext';
 import SuggestionStarters from './SuggestionStarters';
 
-export default function EmptyHero({
-  onPick,
-  textareaRef,
-}: {
-  onPick: (text: string) => void;
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-}) {
+export default function EmptyHero() {
+  const { setInput, textareaRef } = useChat();
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-12">
       <div className="text-center">
@@ -20,7 +15,7 @@ export default function EmptyHero({
 
       <SuggestionStarters
         onPick={(text) => {
-          onPick(text);
+          setInput(text);
           textareaRef.current?.focus();
         }}
       />

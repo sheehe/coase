@@ -1,13 +1,11 @@
 // 顶部流水线阶段条：突出当前研究所处阶段与浓缩指标。
 import { ChevronRight } from '../components/Icons';
+import { useChat } from '../features/chat/ChatContext';
 
 type StageKey = 'planner' | 'datafetcher' | 'analyst' | 'writer' | 'reviewer';
 
 interface StageRailProps {
   currentStage?: StageKey;
-  turns?: string;
-  cost?: string;
-  model?: string;
 }
 
 const STAGES: { key: StageKey; label: string; english: string }[] = [
@@ -18,13 +16,15 @@ const STAGES: { key: StageKey; label: string; english: string }[] = [
   { key: 'reviewer', label: '审校', english: 'Reviewer' },
 ];
 
-export default function StageRail({
-  currentStage = 'planner',
-  turns = '--',
-  cost = '--',
-  model = '未建立会话',
-}: StageRailProps) {
-  const currentIndex = STAGES.findIndex((stage) => stage.key === currentStage);
+export default function StageRail({ currentStage }: StageRailProps) {
+  const { inferredStage, latestProvider, latestTurnMetrics } = useChat();
+  const activeStage = currentStage ?? (inferredStage === 'idle' ? 'planner' : inferredStage);
+  const currentIndex = STAGES.findIndex((stage) => stage.key === activeStage);
+  const turns = latestTurnMetrics?.turns ?? '—';
+  const cost =
+    latestTurnMetrics?.costUsd != null ? `$${latestTurnMetrics.costUsd.toFixed(4)}` : '—';
+  const model = latestProvider?.model ?? '—';
+  const label = latestProvider?.label ?? '—';
 
   return (
     <div className="flex h-[72px] items-center border-b border-border px-6">
@@ -60,7 +60,7 @@ export default function StageRail({
         </div>
 
         <div className="ml-auto whitespace-nowrap text-[11px] font-mono text-fg-muted">
-          {turns} turns · {cost} · {model}
+          {label} · {model} · turns={turns} · {cost}
         </div>
       </div>
     </div>

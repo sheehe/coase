@@ -1,46 +1,29 @@
 // 底部输入区：承载大号 composer、skills 弹窗和轻量 provider 展示。
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-  type RefObject,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArrowUp, Paperclip, RotateCcw, Square } from '../../components/Icons';
 import Dialog from '../../components/ui/Dialog';
 import Select from '../../components/ui/Select';
 import type { ProviderRecord } from '../../../shared/providers';
 import type { SkillInfo } from '../../../shared/skills';
+import { useChat } from './ChatContext';
 
-type ChatState = 'idle' | 'running' | 'waiting';
-
-interface ChatComposerProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-  onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
-  state: ChatState;
-  placeholder: string;
-  sessionId: string | null;
-  onNewSession: () => void;
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-}
-
-export default function ChatComposer({
-  value,
-  onChange,
-  onSubmit,
-  onCancel,
-  onKeyDown,
-  state,
-  placeholder,
-  sessionId,
-  onNewSession,
-  textareaRef,
-}: ChatComposerProps) {
+// TODO: 当前 provider 选择器依赖既有 providers IPC；本次仅接真实读取与 setActive。
+export default function ChatComposer() {
+  const {
+    input,
+    setInput,
+    onSubmit,
+    onCancel,
+    onKeyDown,
+    chatState,
+    placeholder,
+    sessionId,
+    onNewSession,
+    textareaRef,
+    latestProvider,
+    transcript,
+  } = useChat();
   const [providers, setProviders] = useState<ProviderRecord[] | null>(null);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -50,7 +33,7 @@ export default function ChatComposer({
     if (!el) return;
     el.style.height = '56px';
     el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
-  }, [value, textareaRef]);
+  }, [input, textareaRef]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,15 +62,24 @@ export default function ChatComposer({
     }
   }, []);
 
+  const selectedProviderId = useMemo(() => {
+    for (let i = transcript.length - 1; i >= 0; i -= 1) {
+      const entry = transcript[i];
+      if (entry.kind === 'provider') return entry.providerId ?? '';
+    }
+    return '';
+  }, [transcript]);
+
   const providerLabel = useMemo(() => {
+    if (latestProvider) return `${latestProvider.label} · ${latestProvider.model}`;
     if (!providers || providers.length === 0) return 'claude-opus-4-6';
-    return providers[0]?.model || 'claude-opus-4-6';
-  }, [providers]);
+    return `${providers[0]?.label} · ${providers[0]?.model}`;
+  }, [latestProvider, providers]);
 
   const footerHint =
-    state === 'idle'
+    chatState === 'idle'
       ? '按 Enter 开始一项新研究'
-      : state === 'waiting'
+      : chatState === 'waiting'
         ? 'Enter 发送 · Shift+Enter 换行'
         : '正在调用 agent，⌘. 取消';
 
@@ -96,11 +88,11 @@ export default function ChatComposer({
       <div className="border-t border-border bg-app px-6 pb-5 pt-4">
         <div className="mx-auto w-full max-w-[760px]">
           <div className="relative rounded-3xl border border-border bg-surface shadow-[0_1px_0_rgba(0,0,0,0.02)]">
-            {sessionId !== null && state !== 'running' && (
+            {sessionId !== null && chatState !== 'running' && (
               <button
                 type="button"
                 title="开新会话"
-                onClick={onNewSession}
+                onClick={() => void onNewSession()}
                 className="absolute right-4 top-4 rounded-full p-2 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
               >
                 <RotateCcw size={13} />
@@ -109,12 +101,12 @@ export default function ChatComposer({
 
             <textarea
               ref={textareaRef}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={placeholder}
               rows={3}
-              disabled={state === 'running'}
+              disabled={chatState === 'running'}
               className="min-h-[56px] max-h-[240px] w-full resize-none border-0 bg-transparent px-5 pt-4 text-[14px] text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
             />
 
@@ -130,8 +122,8 @@ export default function ChatComposer({
 
               {providers && providers.length > 0 ? (
                 <Select
-                  disabled
-                  value={providers[0]?.id}
+                  value={selectedProviderId || providers[0]?.id}
+                  onChange={(e) => void window.coase.providers.setActive(e.target.value || null)}
                   className="w-auto min-w-[220px] rounded-full py-1.5 pl-3 pr-8 text-[12px] text-fg-muted"
                 >
                   {providers.map((provider) => (
@@ -155,10 +147,10 @@ export default function ChatComposer({
               </button>
 
               <div className="ml-auto">
-                {state === 'running' ? (
+                {chatState === 'running' ? (
                   <button
                     type="button"
-                    onClick={onCancel}
+                    onClick={() => void onCancel()}
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-danger/30 text-danger transition hover:bg-danger/5"
                   >
                     <Square size={14} />
@@ -167,7 +159,7 @@ export default function ChatComposer({
                   <button
                     type="button"
                     onClick={onSubmit}
-                    disabled={!value.trim()}
+                    disabled={!input.trim()}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-fg transition hover:opacity-92 disabled:bg-border disabled:text-fg-subtle"
                   >
                     <ArrowUp size={16} />

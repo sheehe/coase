@@ -6,13 +6,29 @@ import RExecBlock from './RExecBlock';
 
 export type TranscriptEntry =
   | { kind: 'status'; ts: number; text: string }
-  | { kind: 'provider'; ts: number; text: string }
+  | {
+      kind: 'provider';
+      ts: number;
+      text: string;
+      providerId?: string;
+      providerLabel?: string;
+      model: string;
+      baseURL?: string;
+    }
   | { kind: 'user'; ts: number; text: string }
   | { kind: 'assistant'; ts: number; text: string }
   | { kind: 'tool_use'; ts: number; name: string; input: unknown }
   | { kind: 'tool_result'; ts: number; text: string; isError: boolean }
   | { kind: 'error'; ts: number; text: string }
-  | { kind: 'turn_result'; ts: number; ok: boolean; detail: string };
+  | {
+      kind: 'turn_result';
+      ts: number;
+      ok: boolean;
+      detail: string;
+      turns?: number;
+      durationMs?: number;
+      costUsd?: number;
+    };
 
 export default function TranscriptMessage({ entry }: { entry: TranscriptEntry }) {
   const time = new Date(entry.ts).toLocaleTimeString('zh-CN', { hour12: false });

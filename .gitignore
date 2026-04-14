@@ -1,42 +1,26 @@
-# === 构建产物 ===
 node_modules/
 dist/
 out/
 release/
 *.tsbuildinfo
-
-# === Electron ===
 .vite/
 .electron-vite/
-
-# === 对话归档（敏感 + 体积大，不入库）===
 doc/message/
 !doc/message/.gitkeep
-
-# === 环境变量和密钥 ===
 .env
 .env.*
 !.env.example
-
-# === IDE / OS ===
 .vscode/
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea/
 .DS_Store
 Thumbs.db
-
-# === 日志 ===
 *.log
 logs/
-
-# === 临时脚本 / Codex 输出 / 调度草稿 ===
+sessions.jsonl
 tmp/
-
-# === 测试 ===
 coverage/
 playwright-report/
 test-results/
-
-# === Claude Code 本地状态 ===
 .claude/settings.local.json

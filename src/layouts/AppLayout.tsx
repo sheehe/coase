@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import type { PingResult } from '../../shared/ipc';
+import { ChatProvider } from '../features/chat/ChatContext';
 import SessionSidebar from './SessionSidebar';
 import StatusFooter from './StatusFooter';
 
@@ -28,18 +29,20 @@ export default function AppLayout() {
   }, [ping]);
 
   return (
-    <div className="flex min-h-screen bg-app text-fg">
-      <SessionSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1">
-            <Outlet />
-          </div>
-        </main>
-        <StatusFooter />
+    <ChatProvider>
+      <div className="flex min-h-screen bg-app text-fg">
+        <SessionSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1">
+              <Outlet />
+            </div>
+          </main>
+          <StatusFooter />
+        </div>
+        <RuntimeBadge pong={pong} />
       </div>
-      <RuntimeBadge pong={pong} />
-    </div>
+    </ChatProvider>
   );
 }
 

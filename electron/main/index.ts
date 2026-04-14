@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
@@ -15,13 +16,11 @@ import {
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
 import { scanAllSkills } from '../../agent/skills/skill-scanner';
-import type { ChatEvent, ChatStartOutcome } from '../../shared/ipc';
+import type { ChatEvent, ChatStartOutcome, REnvStatus } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
 
 const isDev = !app.isPackaged;
 
-// 每个 sessionId 对应一个 ChatSessionHandle + AbortController，
-// 用于 send / cancel 以及进程退出时的 cleanup。
 interface ActiveSession {
   handle: ChatSessionHandle;
   queue: PromptQueue;
@@ -64,7 +63,6 @@ function createMainWindow(): BrowserWindow {
 }
 
 function registerIpc(): void {
-  // Phase 0 最小 IPC 证明：ping → pong
   ipcMain.handle('app:ping', () => ({
     pong: true,
     version: app.getVersion(),
@@ -73,15 +71,11 @@ function registerIpc(): void {
     chrome: process.versions.chrome,
   }));
 
-  // ---- Phase 3: 多轮 chat 会话 --------------------------------------------
   ipcMain.handle(
     'chat:start',
-    async (
-      event: IpcMainInvokeEvent,
-      firstMessage: unknown,
-    ): Promise<ChatStartOutcome> => {
+    async (event: IpcMainInvokeEvent, firstMessage: unknown): Promise<ChatStartOutcome> => {
       if (typeof firstMessage !== 'string' || !firstMessage.trim()) {
-        throw new Error('chat:start 需要非空 firstMessage string');
+        throw new Error('chat:start needs a non-empty firstMessage string');
       }
 
       const sessionId = randomUUID();
@@ -105,7 +99,6 @@ function registerIpc(): void {
 
       activeSessions.set(sessionId, { handle, queue, abortController });
 
-      // 会话主循环一旦跑完就把注册项清掉，避免内存泄漏。
       void handle.done.finally(() => {
         activeSessions.delete(sessionId);
       });
@@ -116,14 +109,14 @@ function registerIpc(): void {
 
   ipcMain.handle('chat:send', (_event, sessionId: unknown, text: unknown) => {
     if (typeof sessionId !== 'string' || !sessionId) {
-      throw new Error('chat:send 需要非空 sessionId');
+      throw new Error('chat:send needs a non-empty sessionId');
     }
     if (typeof text !== 'string' || !text.trim()) {
-      throw new Error('chat:send 需要非空 text');
+      throw new Error('chat:send needs a non-empty text');
     }
     const session = activeSessions.get(sessionId);
     if (!session) {
-      throw new Error(`chat:send 找不到会话 ${sessionId}`);
+      throw new Error(`chat:send cannot find session ${sessionId}`);
     }
     session.handle.sendUserMessage(text.trim());
   });
@@ -136,7 +129,6 @@ function registerIpc(): void {
     session.abortController.abort();
   });
 
-  // ---- Phase 2: providers CRUD --------------------------------------------
   ipcMain.handle('providers:list', () => listProviders());
 
   ipcMain.handle('providers:upsert', async (_event, record: ProviderRecord) => {
@@ -145,13 +137,13 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('providers:delete', async (_event, id: string) => {
-    if (typeof id !== 'string' || !id) throw new Error('providers:delete 需要非空 id');
+    if (typeof id !== 'string' || !id) throw new Error('providers:delete needs a non-empty id');
     await deleteProvider(id);
   });
 
   ipcMain.handle('providers:setActive', async (_event, id: string | null) => {
     if (id !== null && (typeof id !== 'string' || !id)) {
-      throw new Error('providers:setActive 参数必须是非空 string 或 null');
+      throw new Error('providers:setActive expects a non-empty string or null');
     }
     await setActiveProvider(id);
   });
@@ -163,20 +155,18 @@ function registerIpc(): void {
     return testProviderConnection(record);
   });
 
-  // ---- Phase 3: session history -------------------------------------------
   ipcMain.handle('sessions:recent', async (_event, limit?: number) => {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;
     return readRecentSessions(n);
   });
 
-  // ---- Phase 3: skill 列表 ------------------------------------------------
   ipcMain.handle('skills:list', () => scanAllSkills());
+  ipcMain.handle('rEnv:check', async (): Promise<REnvStatus> => checkREnv());
 }
 
-// renderer 送上来的任意 JSON 都得在 main 里校验一次，不能信 renderer 的类型标注。
 function validateProviderRecord(record: unknown): asserts record is ProviderRecord {
   if (!record || typeof record !== 'object') {
-    throw new Error('provider record 必须是对象');
+    throw new Error('provider record must be an object');
   }
   const r = record as Record<string, unknown>;
   const requiredStrings: (keyof ProviderRecord)[] = [
@@ -190,16 +180,94 @@ function validateProviderRecord(record: unknown): asserts record is ProviderReco
   ];
   for (const key of requiredStrings) {
     if (typeof r[key] !== 'string') {
-      throw new Error(`provider.${String(key)} 必须是 string`);
+      throw new Error(`provider.${String(key)} must be a string`);
     }
   }
-  if (!(r.id as string).trim()) throw new Error('provider.id 不能为空');
+  if (!(r.id as string).trim()) throw new Error('provider.id cannot be empty');
   if (r.protocol !== 'anthropic' && r.protocol !== 'openai') {
-    throw new Error(`provider.protocol 必须是 anthropic | openai，收到 ${String(r.protocol)}`);
+    throw new Error(`provider.protocol must be anthropic | openai, got ${String(r.protocol)}`);
   }
   if (r.authMode !== 'api_key' && r.authMode !== 'auth_token') {
-    throw new Error(`provider.authMode 必须是 api_key | auth_token，收到 ${String(r.authMode)}`);
+    throw new Error(`provider.authMode must be api_key | auth_token, got ${String(r.authMode)}`);
   }
+}
+
+async function checkREnv(): Promise<REnvStatus> {
+  return new Promise((resolve) => {
+    const child = spawn('Rscript', ['--version'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill();
+      resolve({
+        available: false,
+        error: 'Rscript --version 超时（>3s）',
+      });
+    }, 3000);
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.once('error', (err: NodeJS.ErrnoException) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        available: false,
+        error: err.code === 'ENOENT' ? '未在 PATH 中找到 Rscript' : err.message,
+      });
+    });
+    child.once('close', async (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+
+      const version = (stderr || stdout).trim().split(/\r?\n/)[0]?.trim();
+      if (code === 0 && version) {
+        const path = await resolveRscriptPath();
+        resolve({
+          available: true,
+          version,
+          path,
+        });
+        return;
+      }
+
+      resolve({
+        available: false,
+        error: version || `Rscript 退出码 ${code ?? 'unknown'}`,
+      });
+    });
+  });
+}
+
+async function resolveRscriptPath(): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const child = spawn(process.platform === 'win32' ? 'where.exe' : 'which', ['Rscript'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    });
+    let output = '';
+    child.stdout.on('data', (chunk) => {
+      output += String(chunk);
+    });
+    child.once('error', () => resolve(undefined));
+    child.once('close', () => {
+      const line = output.trim().split(/\r?\n/)[0]?.trim();
+      resolve(line || undefined);
+    });
+  });
 }
 
 app.whenReady().then(() => {
