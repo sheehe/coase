@@ -83,6 +83,14 @@ export function ChevronRight(props: IconProps) {
   );
 }
 
+export function ChevronLeft(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </IconBase>
+  );
+}
+
 export function Copy(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -147,6 +155,14 @@ export function Square(props: IconProps) {
   return (
     <IconBase {...props}>
       <rect x="6" y="6" width="12" height="12" rx="1" />
+    </IconBase>
+  );
+}
+
+export function Check(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m5 12 5 5L20 7" />
     </IconBase>
   );
 }

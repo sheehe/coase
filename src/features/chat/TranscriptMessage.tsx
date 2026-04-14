@@ -1,7 +1,13 @@
 // 单条 transcript 消息：按消息类型切换视觉表达。
 import { useState } from 'react';
 
-import { AlertCircle, ChevronDown, ChevronUp, Wrench } from '../../components/Icons';
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Wrench,
+} from '../../components/Icons';
 import RExecBlock from './RExecBlock';
 
 export type TranscriptEntry =
@@ -72,9 +78,9 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
     case 'tool_use':
       if (entry.name === 'r_exec') {
         return (
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[11px] text-fg-muted">
-              <Wrench size={12} />
+          <div className="-mt-3 space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">
+              <Wrench size={11} className="text-fg-subtle" />
               <span>{entry.name}</span>
             </div>
             <RExecBlock input={entry.input} />
@@ -82,44 +88,46 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
         );
       }
       return (
-        <div className="space-y-2">
+        <div className="-mt-3">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[11px] text-fg-muted transition hover:border-border-strong hover:text-fg"
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
-            <span>🔧 {entry.name}</span>
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            <Wrench size={11} className="text-fg-subtle" />
+            <span>{entry.name}</span>
+            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
           {expanded && (
-            <pre className="overflow-x-auto rounded-2xl border border-border bg-surface p-3 text-[11px] whitespace-pre-wrap text-fg-muted">
+            <pre className="mt-1 overflow-x-auto rounded-2xl border border-border/60 bg-surface p-2 text-[10.5px] whitespace-pre-wrap text-fg-muted">
               {JSON.stringify(entry.input, null, 2)}
             </pre>
           )}
         </div>
       );
     case 'tool_result': {
-      const label = entry.isError ? '✕ 工具失败' : `✓ 工具结果（${entry.text.length} 字）`;
+      const label = entry.isError ? '工具失败' : `工具结果 · ${entry.text.length} 字`;
       return (
-        <div className="space-y-2">
+        <div className="-mt-3">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
             className={[
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] transition',
+              'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] transition',
               entry.isError
-                ? 'border-danger/30 text-danger'
-                : 'border-border text-fg-muted hover:border-border-strong hover:text-fg',
+                ? 'text-danger/80 hover:bg-danger/5'
+                : 'text-fg-subtle hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
             ].join(' ')}
           >
+            {entry.isError ? <AlertCircle size={10} /> : <Check size={10} />}
             <span>{label}</span>
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
           {expanded && (
             <pre
               className={[
-                'overflow-x-auto rounded-2xl border bg-surface p-3 text-[11px] whitespace-pre-wrap',
-                entry.isError ? 'border-danger/30 text-danger' : 'border-border text-fg-muted',
+                'mt-1 overflow-x-auto rounded-2xl border bg-surface p-2 text-[10.5px] whitespace-pre-wrap',
+                entry.isError ? 'border-danger/30 text-danger' : 'border-border/60 text-fg-muted',
               ].join(' ')}
             >
               {entry.text}
