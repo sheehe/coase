@@ -18,8 +18,8 @@ const STAGES: { key: StageKey; label: string; english: string }[] = [
 
 export default function StageRail({ currentStage }: StageRailProps) {
   const { inferredStage, latestProvider, latestTurnMetrics } = useChat();
-  const activeStage = currentStage ?? (inferredStage === 'idle' ? 'planner' : inferredStage);
-  const currentIndex = STAGES.findIndex((stage) => stage.key === activeStage);
+  const activeStage = currentStage ?? inferredStage;
+  const currentIndex = activeStage === 'idle' ? -1 : STAGES.findIndex((stage) => stage.key === activeStage);
   const turns = latestTurnMetrics?.turns ?? '—';
   const cost =
     latestTurnMetrics?.costUsd != null ? `$${latestTurnMetrics.costUsd.toFixed(4)}` : '—';
