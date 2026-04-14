@@ -149,7 +149,7 @@ export function useChatSession(): ChatSessionValue {
       unsubscribeRef.current = null;
       setSummaryRefreshKey((k) => k + 1);
     }
-  }, [sessionId]);
+  }, [sessionId, transcript]);
 
   const startSession = useCallback(
     async (firstMessage: string) => {
