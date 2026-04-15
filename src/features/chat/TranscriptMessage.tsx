@@ -1,14 +1,15 @@
-// 单条 transcript 消息：按消息类型切换视觉表达。
-import { useState } from 'react';
+// 单条 transcript 消息：按消息类型切换视觉表达，并支持 Markdown 正文显示。
+import { useEffect, useState } from 'react';
 
+import MarkdownContent from '../../components/MarkdownContent';
 import {
   AlertCircle,
   Check,
   ChevronDown,
   ChevronUp,
+  CoaseMark,
   Wrench,
 } from '../../components/Icons';
-import RExecBlock from './RExecBlock';
 
 export type TranscriptEntry =
   | { kind: 'status'; ts: number; text: string }
@@ -22,9 +23,49 @@ export type TranscriptEntry =
       baseURL?: string;
     }
   | { kind: 'user'; ts: number; text: string }
-  | { kind: 'assistant'; ts: number; text: string }
-  | { kind: 'tool_use'; ts: number; name: string; input: unknown }
-  | { kind: 'tool_result'; ts: number; text: string; isError: boolean }
+  | {
+      kind: 'assistant';
+      ts: number;
+      text: string;
+      messageId?: string;
+      streaming?: boolean;
+    }
+  | { kind: 'guidance'; ts: number; text: string }
+  | {
+      kind: 'subagent';
+      ts: number;
+      phase: 'started' | 'progress' | 'completed' | 'failed' | 'stopped';
+      text: string;
+      taskId?: string;
+      description?: string;
+      lastToolName?: string;
+      toolUses?: number;
+      durationMs?: number;
+      totalTokens?: number;
+    }
+  | {
+      kind: 'thinking';
+      ts: number;
+      text: string;
+      messageId?: string;
+    }
+  | {
+      kind: 'tool_use';
+      ts: number;
+      name: string;
+      input: unknown;
+      toolUseId?: string;
+      parentToolUseId?: string | null;
+      elapsedSeconds?: number;
+      status?: 'running' | 'done';
+    }
+  | {
+      kind: 'tool_result';
+      ts: number;
+      text: string;
+      isError: boolean;
+      toolUseId?: string;
+    }
   | { kind: 'error'; ts: number; text: string }
   | {
       kind: 'turn_result';
@@ -34,7 +75,14 @@ export type TranscriptEntry =
       turns?: number;
       durationMs?: number;
       costUsd?: number;
+      totalTokens?: number;
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheCreationInputTokens?: number;
+      cacheReadInputTokens?: number;
     };
+
+type SubagentPhase = 'started' | 'progress' | 'completed' | 'failed' | 'stopped';
 
 export default function TranscriptMessage({ entry }: { entry: TranscriptEntry }) {
   const time = new Date(entry.ts).toLocaleTimeString('zh-CN', { hour12: false });
@@ -42,16 +90,12 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
 
   switch (entry.kind) {
     case 'status':
+      if (shouldHideStatus(entry.text)) return null;
       return <DividerLabel text={entry.text} />;
     case 'provider':
-      return <DividerLabel text={entry.text} />;
+      return null;
     case 'turn_result':
-      return (
-        <DividerLabel
-          text={`turn ${entry.ok ? 'ok' : 'failed'} · ${entry.detail}`}
-          danger={!entry.ok}
-        />
-      );
+      return <DividerLabel text={`回合${entry.ok ? '完成' : '失败'} · ${entry.detail}`} danger={!entry.ok} />;
     case 'user':
       return (
         <div className="flex self-end">
@@ -63,30 +107,78 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           </div>
         </div>
       );
-    case 'assistant':
+    case 'guidance':
       return (
-        <div className="flex gap-3">
-          <div className="mt-1 h-6 w-6 rounded-full bg-accent" />
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 text-[11px] text-fg-subtle">Coase · {time}</div>
-            <div className="whitespace-pre-wrap text-[14px] leading-[1.65] text-fg">
+        <div className="flex self-end">
+          <div className="max-w-[80%]">
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 · {time}</div>
+            <div className="rounded-2xl rounded-tr-md border border-border-strong bg-app px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
           </div>
         </div>
       );
-    case 'tool_use':
-      if (entry.name === 'r_exec') {
-        return (
-          <div className="-mt-3 space-y-2">
-            <div className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">
-              <Wrench size={11} className="text-fg-subtle" />
-              <span>{entry.name}</span>
+    case 'subagent': {
+      const label = getSubagentPhaseLabel(entry.phase);
+      const metaParts: string[] = [];
+      if (typeof entry.toolUses === 'number') metaParts.push(`${entry.toolUses} 调用`);
+      if (typeof entry.durationMs === 'number') metaParts.push(formatDuration(entry.durationMs));
+      if (typeof entry.totalTokens === 'number') metaParts.push(formatTokens(entry.totalTokens));
+      const headline = entry.lastToolName ? `最近：${entry.lastToolName}` : entry.text;
+      return (
+        <div className="-mt-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+          >
+            <CoaseMark size={11} className="text-fg-subtle" />
+            <span>Subagent</span>
+            <span className="text-[10px] uppercase tracking-wide text-fg-subtle/90">{label}</span>
+            {metaParts.length > 0 && (
+              <span className="text-[10px] text-fg-subtle/80">{metaParts.join(' · ')}</span>
+            )}
+            {entry.phase === 'progress' && (
+              <span className="text-[10px] text-fg-subtle/70">{headline}</span>
+            )}
+            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+          {expanded && (
+            <div className="mt-1 space-y-1 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted">
+              {entry.description && entry.description !== entry.text && (
+                <div className="text-fg-subtle">{entry.description}</div>
+              )}
+              <div>{entry.text}</div>
+              {entry.lastToolName && (
+                <div className="text-fg-subtle">当前工具：{entry.lastToolName}</div>
+              )}
             </div>
-            <RExecBlock input={entry.input} />
+          )}
+        </div>
+      );
+    }
+    case 'thinking':
+      return <ThinkingPill text={entry.text} />;
+    case 'assistant':
+      return (
+        <div className="flex gap-3">
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-fg-muted">
+            <CoaseMark size={15} />
           </div>
-        );
-      }
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2 text-[11px] text-fg-subtle">
+              <span>Coase · {time}</span>
+              {entry.streaming && <span className="text-accent">正在生成…</span>}
+            </div>
+            <MarkdownContent
+              content={entry.text}
+              className="text-[14px] leading-[1.7] text-fg [&_a]:text-fg [&_code]:text-[0.95em]"
+            />
+          </div>
+        </div>
+      );
+    case 'tool_use': {
+      const running = entry.status === 'running';
       return (
         <div className="-mt-3">
           <button
@@ -96,6 +188,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           >
             <Wrench size={11} className="text-fg-subtle" />
             <span>{entry.name}</span>
+            {running && <LiveTimer elapsedSeconds={entry.elapsedSeconds ?? 0} baseTs={entry.ts} />}
             {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
           {expanded && (
@@ -105,31 +198,26 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           )}
         </div>
       );
+    }
     case 'tool_result': {
-      const label = entry.isError ? '工具失败' : `工具结果 · ${entry.text.length} 字`;
+      const label = entry.isError ? 'Execution Failed' : 'Execution Result';
       return (
         <div className="-mt-3">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className={[
-              'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] transition',
-              entry.isError
-                ? 'text-danger/80 hover:bg-danger/5'
-                : 'text-fg-subtle hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
-            ].join(' ')}
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
-            {entry.isError ? <AlertCircle size={10} /> : <Check size={10} />}
+            {entry.isError ? (
+              <AlertCircle size={10} className="text-fg-subtle" />
+            ) : (
+              <Check size={10} className="text-fg-subtle" />
+            )}
             <span>{label}</span>
             {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
           {expanded && (
-            <pre
-              className={[
-                'mt-1 overflow-x-auto rounded-2xl border bg-surface p-2 text-[10.5px] whitespace-pre-wrap',
-                entry.isError ? 'border-danger/30 text-danger' : 'border-border/60 text-fg-muted',
-              ].join(' ')}
-            >
+            <pre className="mt-1 overflow-x-auto rounded-2xl border border-border/60 bg-surface p-2 text-[10.5px] whitespace-pre-wrap text-fg-muted">
               {entry.text}
             </pre>
           )}
@@ -146,6 +234,10 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
   }
 }
 
+function shouldHideStatus(text: string) {
+  return /^本次研究可按需调用\s+\d+\s+个子代理$/.test(text.trim());
+}
+
 function DividerLabel({ text, danger = false }: { text: string; danger?: boolean }) {
   const cls = danger ? 'text-danger' : 'text-fg-subtle';
   return (
@@ -155,4 +247,82 @@ function DividerLabel({ text, danger = false }: { text: string; danger?: boolean
       <div className="h-px flex-1 border-t border-dashed border-border" />
     </div>
   );
+}
+
+function getSubagentPhaseLabel(phase: SubagentPhase) {
+  switch (phase) {
+    case 'started':
+      return 'Start';
+    case 'progress':
+      return 'Running';
+    case 'completed':
+      return 'Done';
+    case 'failed':
+      return 'Failed';
+    default:
+      return 'Stopped';
+  }
+}
+
+/**
+ * Live elapsed timer for running tool_use entries.
+ * - Initializes from the SDK's last-reported `elapsedSeconds` (tool_progress),
+ *   so after a first ping the pill snaps onto the true SDK clock.
+ * - Advances locally every second using `baseTs` + SDK offset so users still
+ *   see motion between pings and during the quiet interval before the first
+ *   tool_progress arrives.
+ */
+function LiveTimer({ elapsedSeconds, baseTs }: { elapsedSeconds: number; baseTs: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const local = Math.max(0, Math.floor((now - baseTs) / 1000));
+  const display = Math.max(elapsedSeconds, local);
+  if (display < 1) return null;
+  return (
+    <span className="text-[10px] tabular-nums text-fg-subtle/80">{formatSeconds(display)}</span>
+  );
+}
+
+function ThinkingPill({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const preview = text.trim().split(/\r?\n/)[0]?.slice(0, 60) ?? '思考中';
+  return (
+    <div className="-mt-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] italic text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+      >
+        <CoaseMark size={11} className="text-fg-subtle" />
+        <span>思考</span>
+        <span className="text-[10px] text-fg-subtle/80">{preview}</span>
+        {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+      </button>
+      {expanded && (
+        <div className="mt-1 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted whitespace-pre-wrap">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s === 0 ? `${m}m` : `${m}m${s}s`;
+}
+
+function formatDuration(ms: number): string {
+  return formatSeconds(Math.round(ms / 1000));
+}
+
+function formatTokens(tokens: number): string {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M tok`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k tok`;
+  return `${tokens} tok`;
 }

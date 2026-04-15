@@ -5,9 +5,17 @@
   "description": "Coase · Multi-Agent Research System Desktop (v2)",
   "main": "./out/main/index.js",
   "author": "Coase",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sheehe/coase.git"
+  },
   "scripts": {
     "dev": "node scripts/run-electron-vite.mjs dev",
     "build": "electron-vite build",
+    "dist:dir": "pnpm build && electron-builder --dir",
+    "dist": "pnpm build && electron-builder",
+    "dist:win": "pnpm build && electron-builder --win nsis portable",
+    "dist:mac": "pnpm build && electron-builder --mac dmg zip",
     "preview": "node scripts/run-electron-vite.mjs preview",
     "start": "node scripts/run-electron-vite.mjs preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
@@ -18,9 +26,13 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.107",
+    "electron-updater": "^6.3.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.14.1",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -45,5 +57,57 @@
       "electron",
       "esbuild"
     ]
+  },
+  "build": {
+    "appId": "com.coase.desktop",
+    "productName": "Coase",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/plugins",
+        "to": "plugins"
+      },
+      {
+        "from": "resources/default-skills",
+        "to": "default-skills"
+      }
+    ],
+    "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sheehe",
+        "repo": "coase"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable-${arch}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    }
   }
 }

@@ -1,0 +1,28 @@
+
+% Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
+% Date and time: 周二, 4月 14, 2026 - 10:21:54
+\begin{table}[!htbp] \centering 
+  \caption{表2  稳健性检验——e-CNY对移动支付的影响} 
+  \label{tab:robustness} 
+\begin{tabular}{@{\extracolsep{5pt}}lccccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{5}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-6} 
+\\[-1.8ex] & \multicolumn{2}{c}{mobile\_pay\_share} & logit\_mobile & \multicolumn{2}{c}{mobile\_pay\_share} \\ 
+\\[-1.8ex] & (1) & (2) & (3) & (4) & (5)\\ 
+\hline \\[-1.8ex] 
+ did\_clean & 0.096$^{***}$ & 0.095$^{***}$ & 0.377$^{***}$ & 0.102$^{***}$ & 0.094$^{***}$ \\ 
+  & (0.005) & (0.006) & (0.020) & (0.010) & (0.005) \\ 
+  & & & & & \\ 
+\hline \\[-1.8ex] 
+城市FE & 是 & 是 & 是 & 是 & 是 \\ 
+年份FE & 是 & 是 & 是 & 是 & 是 \\ 
+Observations & 84 & 63 & 84 & 42 & 77 \\ 
+Adjusted R$^{2}$ & 0.957 & 0.952 & 0.954 & 0.883 & 0.958 \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{5}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+ & \multicolumn{5}{r}{(1)基准；(2)排除直辖市；(3)logit变换；(4)低收入城市；(5)排除雄安新区；所有规格均控制城市FE和年份FE；括号内为城市层面聚类稳健标准误} \\ 
+\end{tabular} 
+\end{table} 

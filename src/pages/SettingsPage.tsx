@@ -5,10 +5,11 @@ import { ChevronLeft } from '../components/Icons';
 import ProviderEditDialog, { type DialogMode } from '../features/settings/ProviderEditDialog';
 import ProviderList from '../features/settings/ProviderList';
 import SkillList from '../features/settings/SkillList';
+import UpdateCard from '../features/settings/UpdateCard';
 import type { ProviderPreset, ProviderRecord, ProvidersFile } from '../../shared/providers';
 
 /**
- * Settings 页面：展示 provider 管理和 skill 列表。
+ * 设置页面：展示模型提供方管理和技能列表。
  */
 export default function SettingsPage() {
   const [file, setFile] = useState<ProvidersFile | null>(null);
@@ -50,7 +51,7 @@ export default function SettingsPage() {
     async (id: string) => {
       const target = file?.providers.find((p) => p.id === id);
       if (!target) return;
-      const ok = window.confirm(`确定要删除 provider "${target.label}" 吗？`);
+      const ok = window.confirm(`确定要删除模型提供方“${target.label}”吗？`);
       if (!ok) return;
       await window.coase.providers.delete(id);
       await reload();
@@ -81,7 +82,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-lg font-semibold text-fg">设置</h2>
             <p className="mt-1 text-sm text-fg-muted">
-              Provider、API key 与 skills 在这里集中管理。env 变量仍可作为 fallback。
+              模型提供方、API Key 与技能在这里集中管理。环境变量仍可作为回退。
             </p>
           </div>
           <Link
@@ -112,6 +113,8 @@ export default function SettingsPage() {
       )}
 
       <SkillList />
+
+      <UpdateCard />
 
       <ProviderEditDialog
         open={editing !== null}

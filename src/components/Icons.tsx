@@ -166,3 +166,64 @@ export function Check(props: IconProps) {
     </IconBase>
   );
 }
+
+export function Minus(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 12h14" />
+    </IconBase>
+  );
+}
+
+export function X(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m18 6-12 12" />
+      <path d="m6 6 12 12" />
+    </IconBase>
+  );
+}
+
+export function Trash(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </IconBase>
+  );
+}
+
+export function Folder(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </IconBase>
+  );
+}
+
+export function FileText(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v5h5" />
+      <path d="M9 13h6" />
+      <path d="M9 17h6" />
+      <path d="M9 9h1" />
+    </IconBase>
+  );
+}
+
+export function CoaseMark(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 9.5c1.1-1.4 2.3-2 3.5-2 1.6 0 3 .9 4 2.5" />
+      <path d="M15.5 14.5c-1.1 1.4-2.3 2-3.5 2-1.6 0-3-.9-4-2.5" />
+      <path d="M10.2 8.2 8 11l2.2 2.8" />
+      <path d="M13.8 15.8 16 13l-2.2-2.8" />
+    </IconBase>
+  );
+}

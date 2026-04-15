@@ -39,12 +39,13 @@ function emptyRecord(): ProviderRecord {
 function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, string>> {
   const errors: Partial<Record<keyof ProviderRecord, string>> = {};
   if (!record.id.trim()) errors.id = 'ID 不能为空';
-  else if (!/^[a-z0-9][a-z0-9-_]*$/i.test(record.id)) errors.id = 'ID 只能包含字母、数字、- 和 _';
+  else if (!/^[a-z0-9][a-z0-9-_]*$/i.test(record.id))
+    errors.id = 'ID 只能包含字母、数字、- 和 _';
   if (!record.label.trim()) errors.label = '名称不能为空';
-  if (!record.baseURL.trim()) errors.baseURL = 'baseURL 不能为空';
-  else if (!/^https?:\/\//.test(record.baseURL)) errors.baseURL = 'baseURL 必须以 http(s):// 开头';
+  if (!record.baseURL.trim()) errors.baseURL = '接口地址不能为空';
+  else if (!/^https?:\/\//.test(record.baseURL)) errors.baseURL = '接口地址必须以 http(s):// 开头';
   if (!record.model.trim()) errors.model = '模型名不能为空';
-  if (!record.credential.trim()) errors.credential = 'API key / token 不能为空';
+  if (!record.credential.trim()) errors.credential = 'API Key / Token 不能为空';
   return errors;
 }
 
@@ -131,7 +132,7 @@ export default function ProviderEditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={mode === 'new' ? '新增 Provider' : `编辑 Provider · ${form.label || form.id}`}
+      title={mode === 'new' ? '新增模型提供方' : `编辑模型提供方 · ${form.label || form.id}`}
       footer={
         <>
           <Button
@@ -153,7 +154,7 @@ export default function ProviderEditDialog({
     >
       <div className="flex flex-col gap-4">
         {mode === 'new' && (
-          <Field label="从预设快速填充" hint="选择预设后会覆盖 id、名称、baseURL、模型与鉴权方式。">
+          <Field label="从预设快速填充" hint="选择预设后会覆盖 ID、名称、接口地址、模型与鉴权方式。">
             <Select value={selectedPresetId} onChange={(e) => applyPreset(e.target.value)}>
               <option value="">不使用预设，手动填写</option>
               {presets.map((p) => (
@@ -181,7 +182,7 @@ export default function ProviderEditDialog({
           <Input
             value={form.label}
             onChange={(e) => updateField('label', e.target.value)}
-            placeholder="Moonshot (Kimi)"
+            placeholder="Moonshot（Kimi）"
           />
         </Field>
 
@@ -197,7 +198,7 @@ export default function ProviderEditDialog({
           </Select>
         </Field>
 
-        <Field label="Base URL" error={errors.baseURL}>
+        <Field label="接口地址" error={errors.baseURL}>
           <Input
             value={form.baseURL}
             onChange={(e) => updateField('baseURL', e.target.value)}
@@ -215,7 +216,7 @@ export default function ProviderEditDialog({
 
         <Field
           label="鉴权方式"
-          hint="Anthropic 官方通常用 api_key，第三方兼容端点通常使用 auth_token。"
+          hint="Anthropic 官方通常使用 api_key，第三方兼容端点通常使用 auth_token。"
         >
           <Select
             value={form.authMode}
@@ -249,7 +250,7 @@ function TestResultBanner({ result }: { result: TestConnectionResult }) {
   return (
     <div className={`rounded-xl border px-3 py-2 text-xs font-mono ${tone}`}>
       <div className="flex items-center gap-2">
-        <span>{result.ok ? '✓' : '✕'}</span>
+        <span>{result.ok ? '成功' : '失败'}</span>
         <span className="break-all">{result.message}</span>
       </div>
     </div>

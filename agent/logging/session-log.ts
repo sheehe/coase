@@ -7,7 +7,7 @@
 // 这个模块只能在 main process 调（依赖 electron.app）。
 
 import { app } from 'electron';
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { SessionLogEntry } from '../../shared/runs';
@@ -46,4 +46,32 @@ export async function readRecentSessions(limit = 100): Promise<SessionLogEntry[]
   }
   entries.sort((a, b) => b.startedAt - a.startedAt);
   return entries.slice(0, limit);
+}
+
+export async function deleteSessionLog(sessionId: string): Promise<void> {
+  if (!sessionId.trim()) return;
+
+  let raw: string;
+  try {
+    raw = await readFile(getLogPath(), 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw err;
+  }
+
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const kept: string[] = [];
+
+  for (const line of lines) {
+    try {
+      const entry = JSON.parse(line) as SessionLogEntry;
+      if (entry.sessionId !== sessionId) {
+        kept.push(JSON.stringify(entry));
+      }
+    } catch (err) {
+      console.warn('[session-log] skip malformed line during delete:', err);
+    }
+  }
+
+  await writeFile(getLogPath(), kept.length > 0 ? `${kept.join('\n')}\n` : '', 'utf-8');
 }

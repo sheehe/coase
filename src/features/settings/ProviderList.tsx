@@ -24,24 +24,24 @@ export default function ProviderList({
     <Card>
       <CardHeader className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-fg">模型供应商</h2>
+          <h2 className="text-sm font-semibold text-fg">模型提供方</h2>
           <p className="mt-0.5 text-[11px] text-fg-muted">
             {providers.length === 0
-              ? '还没有 provider。点击“新增”或者继续使用环境变量启动。'
-              : `${providers.length} 个 provider · 当前 active: ${
+              ? '还没有模型提供方。点击“新增”或者继续使用环境变量启动。'
+              : `${providers.length} 个模型提供方 · 当前启用：${
                   providers.find((p) => p.id === activeId)?.label ?? '未设置'
                 }`}
           </p>
         </div>
         <Button size="sm" onClick={onAdd}>
-          + 新增 Provider
+          + 新增模型提供方
         </Button>
       </CardHeader>
 
       <CardBody className="p-0">
         {providers.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-fg-subtle">
-            还没有 provider。新增一个，或者继续使用 env 变量。
+            还没有模型提供方。新增一个，或者继续使用环境变量。
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -84,14 +84,14 @@ function ProviderRow({
           'h-4 w-4 shrink-0 rounded-full border-2 transition',
           isActive ? 'border-success bg-success' : 'border-border-strong hover:border-fg-muted',
         ].join(' ')}
-        aria-label={isActive ? '当前 active' : '设为 active'}
+        aria-label={isActive ? '当前已启用' : '设为已启用'}
         aria-pressed={isActive}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-fg">{provider.label}</span>
           <Badge tone="neutral">{provider.protocol}</Badge>
-          {isActive && <Badge tone="emerald">ACTIVE</Badge>}
+          {isActive && <Badge tone="emerald">已启用</Badge>}
         </div>
         <div className="mt-1 truncate text-[11px] font-mono text-fg-muted">
           {provider.model} · {provider.baseURL}

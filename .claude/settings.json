@@ -1,4 +1,8 @@
 {
+  "enabledPlugins": {
+    "coase-builtin@local": true,
+    "coase-user@local": true
+  },
   "permissions": {
     "allow": [
       "WebSearch",

@@ -1,12 +1,21 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, extname, join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  type IpcMainInvokeEvent,
+  type OpenDialogOptions,
+} from 'electron';
 
+import { coaseAppUpdater } from './app-updater';
 import { PromptQueue } from '../../agent/chat/prompt-queue';
-import { readRecentSessions } from '../../agent/logging/session-log';
+import { deleteSessionLog, readRecentSessions } from '../../agent/logging/session-log';
 import { startChatSession, type ChatSessionHandle } from '../../agent/orchestrator/run-chat';
 import {
   deleteProvider,
@@ -18,10 +27,17 @@ import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
 import { scanAllSkills } from '../../agent/skills/skill-scanner';
 import type {
+  AttachedPath,
+  AttachmentKind,
+  ChatMessageInput,
   ChatEvent,
+  ChatResumeInput,
   ChatStartOutcome,
   REnvStatus,
+  RunInsightsPersisted,
   TranscriptEntryPersisted,
+  WorkspaceFilePreview,
+  WorkspaceTreeNode,
 } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
 
@@ -31,8 +47,18 @@ interface ActiveSession {
   handle: ChatSessionHandle;
   queue: PromptQueue;
   abortController: AbortController;
+  workspaceRoot: string;
 }
+
+interface ChatEventStream {
+  sender: Electron.WebContents;
+  channel: string;
+  attached: boolean;
+  buffer: ChatEvent[];
+}
+
 const activeSessions = new Map<string, ActiveSession>();
+const chatEventStreams = new Map<string, ChatEventStream>();
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -42,7 +68,13 @@ function createMainWindow(): BrowserWindow {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0b0b0f',
+    backgroundColor: '#ffffff',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#ffffff',
+      symbolColor: '#171717',
+      height: 40,
+    },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -77,54 +109,59 @@ function registerIpc(): void {
     chrome: process.versions.chrome,
   }));
 
+  ipcMain.handle('updates:getState', () => coaseAppUpdater.getState());
+  ipcMain.handle('updates:check', () => coaseAppUpdater.check());
+  ipcMain.handle('updates:download', () => coaseAppUpdater.download());
+  ipcMain.handle('updates:install', () => {
+    coaseAppUpdater.install();
+  });
+
   ipcMain.handle(
     'chat:start',
-    async (event: IpcMainInvokeEvent, firstMessage: unknown): Promise<ChatStartOutcome> => {
-      if (typeof firstMessage !== 'string' || !firstMessage.trim()) {
-        throw new Error('chat:start needs a non-empty firstMessage string');
+    async (event: IpcMainInvokeEvent, payload: unknown): Promise<ChatStartOutcome> => {
+      const message = validateChatMessageInput(payload, 'chat:start');
+      if (!message.text.trim()) {
+        throw new Error('chat:start needs a non-empty message');
       }
-
-      const sessionId = randomUUID();
-      const abortController = new AbortController();
-      const queue = new PromptQueue();
-
-      const sender = event.sender;
-      const channel = `chat:event:${sessionId}`;
-      const push = (ev: ChatEvent): void => {
-        if (sender.isDestroyed()) return;
-        sender.send(channel, ev);
-      };
-
-      const handle = await startChatSession({
-        sessionId,
-        firstMessage: firstMessage.trim(),
-        queue,
-        onEvent: push,
-        signal: abortController.signal,
-      });
-
-      activeSessions.set(sessionId, { handle, queue, abortController });
-
-      void handle.done.finally(() => {
-        activeSessions.delete(sessionId);
-      });
-
-      return { sessionId };
+      return openChatSession(
+        event,
+        message.text.trim(),
+        withLocalContext(message.text.trim(), message.attachments, message.workspaceRoot),
+        true,
+        message.workspaceRoot,
+      );
     },
   );
 
-  ipcMain.handle('chat:send', (_event, sessionId: unknown, text: unknown) => {
+  ipcMain.handle(
+    'chat:resume',
+    async (event: IpcMainInvokeEvent, payload: ChatResumeInput): Promise<ChatStartOutcome> => {
+      validateResumePayload(payload);
+      const guidance = payload.guidance.trim();
+      return openChatSession(
+        event,
+        guidance,
+        withLocalContext(guidance, payload.attachments, payload.workspaceRoot),
+        false,
+        payload.workspaceRoot,
+        payload.sdkSessionId.trim(),
+      );
+    },
+  );
+
+  ipcMain.handle('chat:send', (_event, sessionId: unknown, payload: unknown) => {
     if (typeof sessionId !== 'string' || !sessionId) {
       throw new Error('chat:send needs a non-empty sessionId');
     }
-    if (typeof text !== 'string' || !text.trim()) {
-      throw new Error('chat:send needs a non-empty text');
-    }
+    const message = validateChatMessageInput(payload, 'chat:send');
     const session = activeSessions.get(sessionId);
     if (!session) {
       throw new Error(`chat:send cannot find session ${sessionId}`);
     }
-    session.handle.sendUserMessage(text.trim());
+    session.handle.sendUserMessage(
+      message.text.trim(),
+      withLocalContext(message.text.trim(), message.attachments, session.workspaceRoot),
+    );
   });
 
   ipcMain.handle('chat:cancel', (_event, sessionId: unknown) => {
@@ -135,7 +172,33 @@ function registerIpc(): void {
     session.abortController.abort();
   });
 
+  ipcMain.handle('chat:interrupt', (_event, sessionId: unknown) => {
+    if (typeof sessionId !== 'string' || !sessionId) return;
+    const session = activeSessions.get(sessionId);
+    if (!session) return;
+    session.handle.cancel('user_interrupt');
+    session.abortController.abort();
+  });
+
+  ipcMain.handle('chat:attach', (_event, sessionId: unknown): ChatEvent[] => {
+    if (typeof sessionId !== 'string' || !sessionId) return [];
+    const stream = chatEventStreams.get(sessionId);
+    if (!stream) return [];
+    stream.attached = true;
+    const backlog = [...stream.buffer];
+    stream.buffer.length = 0;
+    return backlog;
+  });
+
+  ipcMain.handle('chat:detach', (_event, sessionId: unknown) => {
+    if (typeof sessionId !== 'string' || !sessionId) return;
+    const stream = chatEventStreams.get(sessionId);
+    if (!stream) return;
+    stream.attached = false;
+  });
+
   ipcMain.handle('providers:list', () => listProviders());
+  ipcMain.handle('providers:presets', () => PROVIDER_PRESETS);
 
   ipcMain.handle('providers:upsert', async (_event, record: ProviderRecord) => {
     validateProviderRecord(record);
@@ -143,7 +206,9 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('providers:delete', async (_event, id: string) => {
-    if (typeof id !== 'string' || !id) throw new Error('providers:delete needs a non-empty id');
+    if (typeof id !== 'string' || !id) {
+      throw new Error('providers:delete needs a non-empty id');
+    }
     await deleteProvider(id);
   });
 
@@ -154,8 +219,6 @@ function registerIpc(): void {
     await setActiveProvider(id);
   });
 
-  ipcMain.handle('providers:presets', () => PROVIDER_PRESETS);
-
   ipcMain.handle('providers:test', async (_event, record: ProviderRecord) => {
     validateProviderRecord(record);
     return testProviderConnection(record);
@@ -165,9 +228,15 @@ function registerIpc(): void {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;
     return readRecentSessions(n);
   });
+  ipcMain.handle('sessions:delete', async (_event, sessionId: string) => deleteSession(sessionId));
+
   ipcMain.handle('sessions:transcript', async (_event, sessionId: string) =>
     readSessionTranscript(sessionId),
   );
+  ipcMain.handle('sessions:insights', async (_event, sessionId: string) =>
+    readSessionInsights(sessionId),
+  );
+
   ipcMain.handle(
     'sessions:persistTranscript',
     async (
@@ -178,12 +247,464 @@ function registerIpc(): void {
     },
   );
 
+  ipcMain.handle(
+    'sessions:persistInsights',
+    async (
+      _event,
+      payload: { sessionId: string; insights: RunInsightsPersisted },
+    ): Promise<void> => {
+      await persistSessionInsights(payload.sessionId, payload.insights);
+    },
+  );
+
+  ipcMain.handle('artifacts:openPath', async (_event, filePath: string) => openArtifactPath(filePath));
+
+  ipcMain.handle('window:minimize', (event: IpcMainInvokeEvent) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
+  ipcMain.handle('window:toggleMaximize', (event: IpcMainInvokeEvent) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    if (window.isMaximized()) {
+      window.unmaximize();
+      return;
+    }
+    window.maximize();
+  });
+  ipcMain.handle('window:toggleDevTools', (event: IpcMainInvokeEvent) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    if (window.webContents.isDevToolsOpened()) {
+      window.webContents.closeDevTools();
+      return;
+    }
+    window.webContents.openDevTools({ mode: 'right' });
+  });
+  ipcMain.handle('window:close', (event: IpcMainInvokeEvent) => {
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
+
   ipcMain.handle('skills:list', () => scanAllSkills());
   ipcMain.handle('rEnv:check', async (): Promise<REnvStatus> => checkREnv());
+  ipcMain.handle('files:pick', (event, kind: AttachmentKind) =>
+    pickPathsForAttachment(event, kind),
+  );
+  ipcMain.handle('workspaces:pickDirectory', (event) => pickWorkspaceDirectory(event));
+  ipcMain.handle('workspaces:getRoot', (_event, sessionId: string) => readSessionWorkspaceRoot(sessionId));
+  ipcMain.handle('workspaces:listTree', (_event, sessionId: string) => listWorkspaceTree(sessionId));
+  ipcMain.handle('workspaces:previewFile', (_event, filePath: string) => previewWorkspaceFile(filePath));
 }
 
 function resolveTranscriptPath(sessionId: string): string {
   return join(app.getPath('userData'), 'sessions', `${sessionId}.jsonl`);
+}
+
+function resolveInsightsPath(sessionId: string): string {
+  return join(app.getPath('userData'), 'session-insights', `${sessionId}.json`);
+}
+
+function resolveWorkspaceMetaPath(sessionId: string): string {
+  return join(app.getPath('userData'), 'session-workspaces', `${sessionId}.json`);
+}
+
+function resolveDefaultWorkspaceRoot(sessionId: string): string {
+  return join(app.getPath('userData'), 'workspaces', sessionId);
+}
+
+async function deleteSession(sessionId: string): Promise<void> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    throw new Error('sessions:delete needs a non-empty sessionId');
+  }
+  if (activeSessions.has(normalizedSessionId)) {
+    throw new Error('cannot delete an active session');
+  }
+
+  const workspaceRoot = await readSessionWorkspaceRoot(normalizedSessionId);
+
+  await deleteSessionLog(normalizedSessionId);
+  await Promise.all([
+    removePathIfExists(resolveTranscriptPath(normalizedSessionId)),
+    removePathIfExists(resolveInsightsPath(normalizedSessionId)),
+    removePathIfExists(resolveWorkspaceMetaPath(normalizedSessionId)),
+  ]);
+
+  if (workspaceRoot && workspaceRoot === resolveDefaultWorkspaceRoot(normalizedSessionId)) {
+    await removePathIfExists(workspaceRoot);
+  }
+}
+
+async function openChatSession(
+  event: IpcMainInvokeEvent,
+  firstMessage: string,
+  runtimeMessage: string,
+  showFirstMessage: boolean,
+  requestedWorkspaceRoot?: string,
+  resumeSessionId?: string,
+): Promise<ChatStartOutcome> {
+  const sessionId = randomUUID();
+  const workspaceRoot = await ensureSessionWorkspaceRoot(sessionId, requestedWorkspaceRoot);
+  const abortController = new AbortController();
+  const queue = new PromptQueue();
+
+  const sender = event.sender;
+  const channel = `chat:event:${sessionId}`;
+  const stream: ChatEventStream = {
+    sender,
+    channel,
+    attached: false,
+    buffer: [],
+  };
+  chatEventStreams.set(sessionId, stream);
+  const push = (ev: ChatEvent): void => {
+    const currentStream = chatEventStreams.get(sessionId);
+    if (!currentStream || currentStream.sender.isDestroyed()) return;
+    if (currentStream.attached) {
+      currentStream.sender.send(currentStream.channel, ev);
+      return;
+    }
+    currentStream.buffer.push(ev);
+  };
+
+  const handle = await startChatSession({
+    sessionId,
+    firstMessage,
+    runtimeMessage,
+    queue,
+    onEvent: push,
+    signal: abortController.signal,
+    showFirstMessage,
+    resumeSessionId,
+    workspaceRoot,
+  });
+
+  activeSessions.set(sessionId, { handle, queue, abortController, workspaceRoot });
+  void handle.done.finally(() => {
+    activeSessions.delete(sessionId);
+    setTimeout(() => {
+      const currentStream = chatEventStreams.get(sessionId);
+      if (!currentStream || currentStream.attached) return;
+      chatEventStreams.delete(sessionId);
+    }, 60_000);
+  });
+
+  return { sessionId, workspaceRoot };
+}
+
+function validateChatMessageInput(payload: unknown, source: string): ChatMessageInput {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error(`${source} needs a message payload`);
+  }
+  const candidate = payload as ChatMessageInput;
+  if (typeof candidate.text !== 'string' || !candidate.text.trim()) {
+    throw new Error(`${source} needs a non-empty text`);
+  }
+  if (candidate.attachments && !Array.isArray(candidate.attachments)) {
+    throw new Error(`${source} attachments must be an array`);
+  }
+  return {
+    text: candidate.text,
+    workspaceRoot:
+      typeof candidate.workspaceRoot === 'string' && candidate.workspaceRoot.trim()
+        ? candidate.workspaceRoot.trim()
+        : undefined,
+    attachments: (candidate.attachments ?? []).filter(
+      (attachment): attachment is AttachedPath =>
+        !!attachment &&
+        typeof attachment.path === 'string' &&
+        attachment.path.trim().length > 0 &&
+        typeof attachment.kind === 'string',
+    ),
+  };
+}
+
+function withAttachedPaths(text: string, attachments?: AttachedPath[]): string {
+  if (!attachments || attachments.length === 0) return text;
+  const lines = attachments.map(
+    (attachment) => `- ${attachmentLabel(attachment.kind)}: ${attachment.path}`,
+  );
+  return [
+    '以下路径是当前任务明确提供给你的本地资源，请直接使用可用文件工具访问它们；不要要求用户重复提供路径。',
+    ...lines,
+    '',
+    text,
+  ].join('\n');
+}
+
+function withLocalContext(
+  text: string,
+  attachments?: AttachedPath[],
+  workspaceRoot?: string,
+): string {
+  const lines: string[] = [];
+  if (workspaceRoot) {
+    lines.push(
+      `当前会话的 workspace 根目录是：${workspaceRoot}`,
+      '默认在这个目录内读写、搜索和组织研究文件；只有在任务明确需要时才跨出这个目录。',
+    );
+  }
+  if (attachments && attachments.length > 0) {
+    lines.push(
+      '以下路径是当前任务明确提供给你的本地资源，请直接使用可用文件工具访问它们；不要要求用户重复提供路径。',
+      ...attachments.map((attachment) => `- ${attachmentLabel(attachment.kind)}: ${attachment.path}`),
+    );
+  }
+  if (lines.length === 0) return text;
+  return [...lines, '', text].join('\n');
+}
+
+function attachmentLabel(kind: AttachmentKind): string {
+  switch (kind) {
+    case 'dataset_folder':
+      return '数据集文件夹';
+    case 'data_file':
+      return '数据文件';
+    case 'paper_file':
+      return '参考论文';
+    default:
+      return '附加文件';
+  }
+}
+
+async function pickPathsForAttachment(
+  event: IpcMainInvokeEvent,
+  kind: AttachmentKind,
+): Promise<string[]> {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  const options: OpenDialogOptions =
+    kind === 'dataset_folder'
+      ? {
+          title: '选择数据集文件夹',
+          properties: ['openDirectory', 'multiSelections'],
+        }
+      : {
+          title:
+            kind === 'data_file'
+              ? '选择数据文件'
+              : kind === 'paper_file'
+                ? '选择参考论文'
+                : '选择文件',
+          properties: ['openFile', 'multiSelections'],
+          filters: fileFiltersForKind(kind),
+        };
+
+  const filePaths = owner
+    ? dialog.showOpenDialogSync(owner, options)
+    : dialog.showOpenDialogSync(options);
+  return filePaths ?? [];
+}
+
+function fileFiltersForKind(kind: AttachmentKind) {
+  switch (kind) {
+    case 'data_file':
+      return [
+        {
+          name: '数据文件',
+          extensions: [
+            'csv',
+            'tsv',
+            'xlsx',
+            'xls',
+            'dta',
+            'sav',
+            'parquet',
+            'rds',
+            'fst',
+            'json',
+            'jsonl',
+            'txt',
+            'zip',
+            'gz',
+          ],
+        },
+        { name: '所有文件', extensions: ['*'] },
+      ];
+    case 'paper_file':
+      return [
+        { name: '论文与引用文件', extensions: ['pdf', 'tex', 'bib', 'docx', 'md', 'txt'] },
+        { name: '所有文件', extensions: ['*'] },
+      ];
+    default:
+      return [{ name: '所有文件', extensions: ['*'] }];
+  }
+}
+
+async function ensureSessionWorkspaceRoot(
+  sessionId: string,
+  requestedRoot?: string,
+): Promise<string> {
+  const workspaceRoot = requestedRoot?.trim() || resolveDefaultWorkspaceRoot(sessionId);
+  await mkdir(workspaceRoot, { recursive: true });
+  await persistSessionWorkspaceRoot(sessionId, workspaceRoot);
+  return workspaceRoot;
+}
+
+async function persistSessionWorkspaceRoot(sessionId: string, workspaceRoot: string): Promise<void> {
+  if (!sessionId.trim() || !workspaceRoot.trim()) return;
+  const filePath = resolveWorkspaceMetaPath(sessionId);
+  await mkdir(join(app.getPath('userData'), 'session-workspaces'), { recursive: true });
+  await writeFile(filePath, JSON.stringify({ workspaceRoot }, null, 2), 'utf8');
+}
+
+async function readSessionWorkspaceRoot(sessionId: string): Promise<string | null> {
+  if (!sessionId.trim()) return null;
+  try {
+    const content = await readFile(resolveWorkspaceMetaPath(sessionId), 'utf8');
+    const parsed = JSON.parse(content) as { workspaceRoot?: string };
+    return typeof parsed.workspaceRoot === 'string' && parsed.workspaceRoot.trim()
+      ? parsed.workspaceRoot
+      : null;
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+    if (code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function pickWorkspaceDirectory(event: IpcMainInvokeEvent): string | null {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  const options: OpenDialogOptions = {
+    title: '选择工作区目录',
+    properties: ['openDirectory'],
+  };
+  const filePaths = owner
+    ? dialog.showOpenDialogSync(owner, options)
+    : dialog.showOpenDialogSync(options);
+  return filePaths?.[0] ?? null;
+}
+
+async function listWorkspaceTree(sessionId: string): Promise<WorkspaceTreeNode[]> {
+  const workspaceRoot = await readSessionWorkspaceRoot(sessionId);
+  if (!workspaceRoot) return [];
+  try {
+    return await scanWorkspaceDirectory(workspaceRoot, workspaceRoot, 0, {
+      count: 0,
+      limit: 800,
+    });
+  } catch (error) {
+    console.warn('failed to list workspace tree', { sessionId, workspaceRoot, error });
+    return [];
+  }
+}
+
+async function previewWorkspaceFile(filePath: string): Promise<WorkspaceFilePreview | null> {
+  if (!filePath.trim()) return null;
+  const mediaType = getPreviewMediaType(filePath);
+  if (!mediaType) return null;
+  try {
+    const info = await stat(filePath);
+    if (info.size > 512 * 1024) {
+      return {
+        filePath,
+        name: basename(filePath),
+        content: '文件过大，暂不在侧栏内预览，请直接打开原文件查看。',
+        mediaType,
+      };
+    }
+    return {
+      filePath,
+      name: basename(filePath),
+      content: await readFile(filePath, 'utf8'),
+      mediaType,
+    };
+  } catch (error) {
+    console.warn('failed to preview workspace file', { filePath, error });
+    return null;
+  }
+}
+
+async function scanWorkspaceDirectory(
+  rootPath: string,
+  currentPath: string,
+  depth: number,
+  budget: { count: number; limit: number },
+): Promise<WorkspaceTreeNode[]> {
+  if (depth > 6 || budget.count >= budget.limit) return [];
+  const entries = await readdir(currentPath, { withFileTypes: true });
+  const nodes: WorkspaceTreeNode[] = [];
+
+  for (const entry of entries) {
+    if (budget.count >= budget.limit) break;
+    if (shouldIgnoreWorkspaceEntry(entry.name)) continue;
+    const fullPath = join(currentPath, entry.name);
+    const relativePath = toWorkspaceRelativePath(rootPath, fullPath);
+    budget.count += 1;
+
+    if (entry.isDirectory()) {
+      const children = await scanWorkspaceDirectory(rootPath, fullPath, depth + 1, budget);
+      nodes.push({
+        name: entry.name,
+        path: relativePath,
+        kind: 'directory',
+        filePath: fullPath,
+        children,
+      });
+    } else {
+      nodes.push({
+        name: entry.name,
+        path: relativePath,
+        kind: 'file',
+        filePath: fullPath,
+      });
+    }
+  }
+
+  return nodes.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+    return a.name.localeCompare(b.name, 'zh-CN');
+  });
+}
+
+function shouldIgnoreWorkspaceEntry(name: string): boolean {
+  return [
+    '.git',
+    '.idea',
+    '.vscode',
+    'node_modules',
+    'dist',
+    'out',
+    '__pycache__',
+    '.DS_Store',
+  ].includes(name);
+}
+
+function toWorkspaceRelativePath(rootPath: string, targetPath: string): string {
+  const normalizedRoot = rootPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const normalizedTarget = targetPath.replace(/\\/g, '/');
+  return normalizedTarget.startsWith(`${normalizedRoot}/`)
+    ? normalizedTarget.slice(normalizedRoot.length + 1)
+    : basename(targetPath);
+}
+
+function getPreviewMediaType(filePath: string): string | null {
+  const extension = extname(filePath).toLowerCase();
+  if (extension === '.md') return 'text/markdown';
+  if (
+    [
+      '.txt',
+      '.csv',
+      '.tsv',
+      '.json',
+      '.jsonl',
+      '.r',
+      '.rmd',
+      '.tex',
+      '.bib',
+      '.log',
+      '.yaml',
+      '.yml',
+      '.xml',
+      '.html',
+      '.css',
+      '.js',
+      '.ts',
+      '.py',
+      '.sql',
+    ].includes(extension)
+  ) {
+    return 'text/plain';
+  }
+  return null;
 }
 
 async function readSessionTranscript(sessionId: string): Promise<TranscriptEntryPersisted[]> {
@@ -218,6 +739,58 @@ async function persistSessionTranscript(
   await mkdir(join(app.getPath('userData'), 'sessions'), { recursive: true });
   const body = entries.map((entry) => JSON.stringify(entry)).join('\n');
   await writeFile(filePath, body ? `${body}\n` : '', 'utf8');
+}
+
+async function readSessionInsights(sessionId: string): Promise<RunInsightsPersisted | null> {
+  if (!sessionId.trim()) return null;
+  const filePath = resolveInsightsPath(sessionId);
+  try {
+    const content = await readFile(filePath, 'utf8');
+    return JSON.parse(content) as RunInsightsPersisted;
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+    if (code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function persistSessionInsights(
+  sessionId: string,
+  insights: RunInsightsPersisted,
+): Promise<void> {
+  if (!sessionId.trim()) return;
+  const filePath = resolveInsightsPath(sessionId);
+  await mkdir(join(app.getPath('userData'), 'session-insights'), { recursive: true });
+  await writeFile(filePath, JSON.stringify(insights, null, 2), 'utf8');
+}
+
+async function removePathIfExists(targetPath: string): Promise<void> {
+  try {
+    await rm(targetPath, { recursive: true, force: true });
+  } catch (error) {
+    console.warn('failed to remove path', { targetPath, error });
+  }
+}
+
+async function openArtifactPath(filePath: string): Promise<{ ok: boolean; error?: string }> {
+  if (typeof filePath !== 'string' || !filePath.trim()) {
+    return { ok: false, error: 'invalid file path' };
+  }
+  const error = await shell.openPath(filePath);
+  return error ? { ok: false, error } : { ok: true };
+}
+
+function validateResumePayload(payload: unknown): asserts payload is ChatResumeInput {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('chat:resume expects an object payload');
+  }
+  const record = payload as Record<string, unknown>;
+  if (typeof record.guidance !== 'string' || !record.guidance.trim()) {
+    throw new Error('chat:resume requires a non-empty guidance string');
+  }
+  if (typeof record.sdkSessionId !== 'string' || !record.sdkSessionId.trim()) {
+    throw new Error('chat:resume requires a non-empty sdkSessionId');
+  }
 }
 
 function validateProviderRecord(record: unknown): asserts record is ProviderRecord {
@@ -265,7 +838,7 @@ async function checkREnv(): Promise<REnvStatus> {
       child.kill();
       resolve({
         available: false,
-        error: 'Rscript --version 超时（>3s）',
+        error: 'Rscript --version 超时（3s）',
       });
     }, 3000);
 
@@ -275,6 +848,7 @@ async function checkREnv(): Promise<REnvStatus> {
     child.stderr.on('data', (chunk) => {
       stderr += String(chunk);
     });
+
     child.once('error', (err: NodeJS.ErrnoException) => {
       if (settled) return;
       settled = true;
@@ -284,6 +858,7 @@ async function checkREnv(): Promise<REnvStatus> {
         error: err.code === 'ENOENT' ? '未在 PATH 中找到 Rscript' : err.message,
       });
     });
+
     child.once('close', async (code) => {
       if (settled) return;
       settled = true;
@@ -327,8 +902,10 @@ async function resolveRscriptPath(): Promise<string | undefined> {
 }
 
 app.whenReady().then(() => {
+  coaseAppUpdater.init();
   registerIpc();
   createMainWindow();
+  coaseAppUpdater.maybeCheckOnStartup();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

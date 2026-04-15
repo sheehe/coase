@@ -44,19 +44,19 @@ export default function Dialog({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className={`w-full bg-transparent p-0 backdrop:bg-black/24 backdrop:backdrop-blur-sm dark:backdrop:bg-black/56 ${widthClass}`}
+      className="m-auto border-0 bg-transparent p-0 text-left backdrop:bg-black/10 dark:backdrop:bg-black/16"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-sm"
+        className={`mx-auto w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-border bg-surface text-fg shadow-sm ${widthClass}`}
       >
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+        <header className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="text-sm font-semibold text-fg">{title}</h2>
           <button
             type="button"
             aria-label="关闭"
             onClick={onClose}
-            className="text-lg leading-none text-fg-subtle transition hover:text-fg"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[26px] leading-none text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
           >
             ×
           </button>

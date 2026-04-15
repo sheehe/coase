@@ -1,68 +1,147 @@
-// 顶部流水线阶段条：突出当前研究所处阶段与浓缩指标。
+// 顶部阶段栏：弱化成页面级二级导航，同时保留会话统计。
 import { ChevronRight } from '../components/Icons';
 import { useChat } from '../features/chat/ChatContext';
+import type { TranscriptEntry } from '../features/chat/TranscriptMessage';
 
-type StageKey = 'planner' | 'datafetcher' | 'analyst' | 'writer' | 'reviewer';
+type DisplayStageKey = 'idea' | 'execute' | 'writer' | 'reviewer';
 
-interface StageRailProps {
-  currentStage?: StageKey;
-}
-
-const STAGES: { key: StageKey; label: string; english: string }[] = [
-  { key: 'planner', label: '规划', english: 'Planner' },
-  { key: 'datafetcher', label: '取数', english: 'DataFetcher' },
-  { key: 'analyst', label: '分析', english: 'Analyst' },
-  { key: 'writer', label: '写作', english: 'Writer' },
-  { key: 'reviewer', label: '审校', english: 'Reviewer' },
+const STAGES: Array<{ key: DisplayStageKey; label: string }> = [
+  { key: 'idea', label: 'Idea' },
+  { key: 'execute', label: 'Execute' },
+  { key: 'writer', label: 'Writer' },
+  { key: 'reviewer', label: 'Reviewer' },
 ];
 
-export default function StageRail({ currentStage }: StageRailProps) {
-  const { inferredStage, latestProvider, latestTurnMetrics } = useChat();
-  const activeStage = currentStage ?? inferredStage;
-  const currentIndex = activeStage === 'idle' ? -1 : STAGES.findIndex((stage) => stage.key === activeStage);
-  const turns = latestTurnMetrics?.turns ?? '—';
-  const cost =
-    latestTurnMetrics?.costUsd != null ? `$${latestTurnMetrics.costUsd.toFixed(4)}` : '—';
-  const model = latestProvider?.model ?? '—';
-  const label = latestProvider?.label ?? '—';
+export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'hero' }) {
+  const { inferredStage, transcript, chatState } = useChat();
+  const activeStage = mapStage(inferredStage);
+  const currentIndex =
+    activeStage === 'idle' ? -1 : STAGES.findIndex((stage) => stage.key === activeStage);
+  const metrics = summarizeTranscript(transcript, chatState === 'running');
 
-  return (
-    <div className="flex h-[72px] items-center border-b border-border px-6">
-      <div className="mx-auto flex w-full max-w-[1120px] items-center gap-1">
-        <div className="flex min-w-0 items-center">
-          {STAGES.map((stage, index) => {
-            const isCurrent = index === currentIndex;
-            const isDone = index < currentIndex;
-            const dotClass = isCurrent ? 'bg-accent' : isDone ? 'bg-success' : 'bg-border-strong';
+  const rail = (
+    <div
+      className={[
+        'flex items-center',
+        variant === 'page'
+          ? 'mx-auto w-full max-w-[980px] gap-8'
+          : 'w-auto justify-center gap-0',
+      ].join(' ')}
+    >
+      <div className="flex min-w-0 items-center">
+        {STAGES.map((stage, index) => {
+          const isCurrent = index === currentIndex;
+          const isDone = index < currentIndex;
+          const dotClass = isCurrent ? 'bg-accent' : isDone ? 'bg-success' : 'bg-border-strong';
 
-            return (
-              <div key={stage.key} className="flex items-center">
-                <div
-                  className={[
-                    'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium',
-                    isCurrent
-                      ? 'bg-accent text-accent-fg'
-                      : isDone
-                        ? 'border border-border text-fg'
-                        : 'border border-border/50 text-fg-subtle',
-                  ].join(' ')}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-                  <span>{stage.label}</span>
-                  <span className="text-[11px] opacity-70">{stage.english}</span>
-                </div>
-                {index < STAGES.length - 1 && (
-                  <ChevronRight size={12} className="mx-1 text-fg-subtle" />
-                )}
+          return (
+            <div key={stage.key} className="flex items-center">
+              <div
+                className={[
+                  'inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
+                  isCurrent
+                    ? 'bg-accent text-accent-fg'
+                    : variant === 'hero'
+                      ? 'text-fg-muted'
+                      : 'text-fg-subtle hover:text-fg-muted',
+                ].join(' ')}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+                <span>{stage.label}</span>
               </div>
-            );
-          })}
-        </div>
-
-        <div className="ml-auto whitespace-nowrap text-[11px] font-mono text-fg-muted">
-          {label} · {model} · turns={turns} · {cost}
-        </div>
+              {index < STAGES.length - 1 && (
+                <ChevronRight size={12} className="mx-1.5 text-fg-subtle" />
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {variant === 'page' && (
+        <div className="ml-auto flex items-center gap-4 text-[11px] font-mono text-fg-muted">
+          <span>Input {formatNumber(metrics.inputTokens)}</span>
+          <span>Output {formatNumber(metrics.outputTokens)}</span>
+          <span>{formatDuration(metrics.durationMs)}</span>
+          <span>{metrics.costUsd == null ? '—' : `$${metrics.costUsd.toFixed(4)}`}</span>
+        </div>
+      )}
     </div>
   );
+
+  if (variant === 'hero') {
+    return <div className="flex w-full justify-center">{rail}</div>;
+  }
+
+  return (
+    <div className="flex h-[58px] items-center border-b border-border px-6">
+      {rail}
+    </div>
+  );
+}
+
+function mapStage(
+  stage: 'planner' | 'datafetcher' | 'analyst' | 'writer' | 'reviewer' | 'idle',
+): DisplayStageKey | 'idle' {
+  switch (stage) {
+    case 'planner':
+      return 'idea';
+    case 'datafetcher':
+    case 'analyst':
+      return 'execute';
+    case 'writer':
+      return 'writer';
+    case 'reviewer':
+      return 'reviewer';
+    default:
+      return 'idle';
+  }
+}
+
+function summarizeTranscript(transcript: TranscriptEntry[], isRunning: boolean) {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let costUsd = 0;
+  let hasTurnUsage = false;
+
+  for (const entry of transcript) {
+    if (entry.kind !== 'turn_result') continue;
+    hasTurnUsage = true;
+    inputTokens += entry.inputTokens ?? 0;
+    outputTokens += entry.outputTokens ?? 0;
+    costUsd += entry.costUsd ?? 0;
+  }
+
+  const firstTs = transcript[0]?.ts;
+  const lastTs = transcript[transcript.length - 1]?.ts;
+  const durationMs =
+    firstTs != null
+      ? Math.max((isRunning ? Date.now() : lastTs ?? firstTs) - firstTs, 0)
+      : 0;
+
+  return {
+    inputTokens: hasTurnUsage ? inputTokens : null,
+    outputTokens: hasTurnUsage ? outputTokens : null,
+    costUsd: hasTurnUsage ? costUsd : null,
+    durationMs,
+  };
+}
+
+function formatNumber(value: number | null) {
+  if (value == null) return '—';
+  if (value >= 1000) {
+    const compact = value / 1000;
+    return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}k`;
+  }
+  return `${value}`;
+}
+
+function formatDuration(durationMs: number) {
+  const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return `${hours}h ${restMinutes}m`;
 }
