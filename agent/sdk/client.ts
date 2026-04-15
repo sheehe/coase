@@ -228,7 +228,6 @@ export async function createChatQuery({
     agents: COASE_AGENTS,
     model: provider.model,
     cwd,
-    executable: 'node',
     maxTurns: 200,
     env: childEnv,
     ...(resume ? { resume } : {}),
