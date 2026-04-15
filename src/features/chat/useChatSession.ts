@@ -12,6 +12,10 @@ import type {
 import type { SessionLogEntry } from '../../../shared/runs';
 import type { TranscriptEntry } from './TranscriptMessage';
 import { deriveRunInsights, type ArtifactRecord, type MilestoneRecord } from './run-insights';
+import {
+  injectSlashCommandContext,
+  type SelectedSlashCommand,
+} from './slash-commands';
 
 type ChatState = 'idle' | 'running' | 'waiting';
 type InferredStage = 'planner' | 'datafetcher' | 'analyst' | 'writer' | 'reviewer' | 'idle';
@@ -70,11 +74,15 @@ export interface ChatSessionValue {
   milestones: MilestoneRecord[];
   artifacts: ArtifactRecord[];
   attachments: ComposerAttachment[];
+  selectedCommands: SelectedSlashCommand[];
   guidanceHistory: GuidanceRecord[];
   summaryRefreshKey: number;
   setInput: (value: string) => void;
   addAttachments: (kind: AttachmentKind, paths: string[]) => void;
   removeAttachment: (id: string) => void;
+  addSelectedCommand: (command: SelectedSlashCommand) => void;
+  removeSelectedCommand: (id: string) => void;
+  clearSelectedCommands: () => void;
   chooseWorkspaceRoot: () => Promise<void>;
   resetWorkspaceRoot: () => void;
   onSubmit: () => void;
@@ -100,6 +108,7 @@ export function useChatSession(): ChatSessionValue {
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const [contextUsage, setContextUsage] = useState<ChatSessionValue['contextUsage']>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [selectedCommands, setSelectedCommands] = useState<SelectedSlashCommand[]>([]);
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<'auto' | 'custom'>('auto');
 
@@ -506,11 +515,17 @@ export function useChatSession(): ChatSessionValue {
 
   const onSubmit = useCallback(() => {
     const text = input.trim();
-    if (!text || chatState === 'running') return;
+    if ((!text && selectedCommands.length === 0) || chatState === 'running') return;
 
     setInput('');
+    const submittedCommands = selectedCommands;
+    setSelectedCommands([]);
     const submittedAttachments = attachments.map(({ kind, path }) => ({ kind, path }));
     setAttachments([]);
+    const commandAwareText = injectSlashCommandContext(
+      withAttachmentSummary(text, attachments),
+      submittedCommands,
+    );
 
     if (
       (runStatus === 'awaiting_user_guidance' || runStatus === 'completed') &&
@@ -521,11 +536,11 @@ export function useChatSession(): ChatSessionValue {
       const guidanceEntry: TranscriptEntry = {
         kind: 'guidance',
         ts: Date.now(),
-        text,
+        text: commandAwareText,
       };
       setTranscript((prev) => [...prev, guidanceEntry]);
       void startSession(
-        withAttachmentSummary(text, attachments),
+        commandAwareText,
         'resume',
         submittedAttachments,
       );
@@ -533,9 +548,9 @@ export function useChatSession(): ChatSessionValue {
     }
 
     if (chatState === 'idle' || !sessionId) {
-      void startSession(withAttachmentSummary(text, attachments), 'fresh', submittedAttachments);
+      void startSession(commandAwareText, 'fresh', submittedAttachments);
     } else {
-      void sendFollowup(sessionId, withAttachmentSummary(text, attachments), submittedAttachments);
+      void sendFollowup(sessionId, commandAwareText, submittedAttachments);
     }
   }, [
     attachments,
@@ -546,6 +561,7 @@ export function useChatSession(): ChatSessionValue {
     runId,
     sdkSessionId,
     sessionId,
+    selectedCommands,
     startSession,
     sendFollowup,
   ]);
@@ -588,6 +604,7 @@ export function useChatSession(): ChatSessionValue {
     setSdkSessionId(null);
     setTranscript([]);
     setAttachments([]);
+    setSelectedCommands([]);
     setSessionId(null);
     setContextUsage(null);
     if (workspaceMode === 'auto') {
@@ -621,6 +638,7 @@ export function useChatSession(): ChatSessionValue {
       setSdkSessionId(session.sdkSessionId);
       setTranscript(finalizeHistoricalTranscript(history as TranscriptEntry[]));
       setAttachments([]);
+      setSelectedCommands([]);
       setSessionId(null);
       setContextUsage(null);
       const historicalWorkspaceRoot =
@@ -661,6 +679,7 @@ export function useChatSession(): ChatSessionValue {
       setSdkSessionId(session.sdkSessionId ?? null);
       setTranscript(finalizeHistoricalTranscript(history as TranscriptEntry[]));
       setAttachments([]);
+      setSelectedCommands([]);
       setSessionId(null);
       setContextUsage(null);
       const historicalWorkspaceRoot =
@@ -759,6 +778,21 @@ export function useChatSession(): ChatSessionValue {
     setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
   }, []);
 
+  const addSelectedCommand = useCallback((command: SelectedSlashCommand) => {
+    setSelectedCommands((prev) => {
+      if (prev.some((entry) => entry.id === command.id)) return prev;
+      return [...prev, command];
+    });
+  }, []);
+
+  const removeSelectedCommand = useCallback((id: string) => {
+    setSelectedCommands((prev) => prev.filter((command) => command.id !== id));
+  }, []);
+
+  const clearSelectedCommands = useCallback(() => {
+    setSelectedCommands([]);
+  }, []);
+
   const placeholder =
     runStatus === 'awaiting_user_guidance'
       ? '输入你的纠偏建议，Enter 继续当前研究'
@@ -789,11 +823,15 @@ export function useChatSession(): ChatSessionValue {
     milestones: insights.milestones,
     artifacts: insights.artifacts,
     attachments,
+    selectedCommands,
     guidanceHistory,
     summaryRefreshKey,
     setInput,
     addAttachments,
     removeAttachment,
+    addSelectedCommand,
+    removeSelectedCommand,
+    clearSelectedCommands,
     chooseWorkspaceRoot,
     resetWorkspaceRoot,
     onSubmit,

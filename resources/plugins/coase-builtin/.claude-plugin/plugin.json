@@ -1,6 +1,6 @@
 {
   "name": "coase-builtin",
-  "description": "Built-in Coase skills shipped with the application. Skills here come directly from the econometrics skill set used by Coase for research, data work, estimation, writing, tables, figures, and review. User-authored overrides live in the separate coase-user plugin under the app userData directory.",
+  "description": "Built-in Coase workflow skills shipped with the application. This bundle currently focuses on the compact planner-executor-writer workflow set plus LaTeX compile repair. User-authored overrides live in the separate coase-user plugin under the app userData directory.",
   "author": {
     "name": "Coase"
   }

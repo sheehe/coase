@@ -3,9 +3,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AttachmentKind } from '../../../shared/ipc';
 import type { ProviderRecord } from '../../../shared/providers';
+import type { SkillInfo } from '../../../shared/skills';
 import { AlertCircle, ArrowUp, Paperclip, RotateCcw, Square, X } from '../../components/Icons';
 import Select from '../../components/ui/Select';
 import { useChat } from './ChatContext';
+import {
+  buildSlashCommands,
+  filterSlashCommands,
+  findSlashTriggerMatch,
+  type SlashCommandDef,
+} from './slash-commands';
 
 const ATTACHMENT_ACTIONS: Array<{
   kind: AttachmentKind;
@@ -85,13 +92,20 @@ export default function ChatComposer() {
     attachments,
     addAttachments,
     removeAttachment,
+    selectedCommands,
+    addSelectedCommand,
+    removeSelectedCommand,
   } = useChat();
 
   const [providers, setProviders] = useState<ProviderRecord[] | null>(null);
+  const [skills, setSkills] = useState<SkillInfo[] | null>(null);
   const [attachmentPanelOpen, setAttachmentPanelOpen] = useState(false);
   const [pickingKind, setPickingKind] = useState<AttachmentKind | null>(null);
+  const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
+  const [caretPosition, setCaretPosition] = useState(0);
   const attachmentButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentPanelRef = useRef<HTMLDivElement>(null);
+  const commandPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -102,15 +116,24 @@ export default function ChatComposer() {
 
   useEffect(() => {
     let cancelled = false;
-    const loadProviders = async () => {
+    const loadData = async () => {
       try {
-        const file = await window.coase.providers.list();
-        if (!cancelled) setProviders(file.providers);
+        const [providerFile, skillList] = await Promise.all([
+          window.coase.providers.list(),
+          window.coase.skills.list(),
+        ]);
+        if (!cancelled) {
+          setProviders(providerFile.providers);
+          setSkills(skillList);
+        }
       } catch {
-        if (!cancelled) setProviders(null);
+        if (!cancelled) {
+          setProviders(null);
+          setSkills(null);
+        }
       }
     };
-    void loadProviders();
+    void loadData();
     return () => {
       cancelled = true;
     };
@@ -141,6 +164,21 @@ export default function ChatComposer() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [attachmentPanelOpen]);
+
+  const slashCommands = useMemo(() => buildSlashCommands(skills ?? []), [skills]);
+  const slashMatch = useMemo(
+    () => findSlashTriggerMatch(input, caretPosition),
+    [input, caretPosition],
+  );
+  const visibleSlashCommands = useMemo(
+    () => filterSlashCommands(slashCommands, slashMatch?.query ?? ''),
+    [slashCommands, slashMatch?.query],
+  );
+  const slashPickerOpen = !!slashMatch && visibleSlashCommands.length > 0;
+
+  useEffect(() => {
+    setHighlightedCommandIndex(0);
+  }, [slashMatch?.query]);
 
   const selectedProviderId = useMemo(() => {
     for (let i = transcript.length - 1; i >= 0; i -= 1) {
@@ -198,6 +236,71 @@ export default function ChatComposer() {
     }
   };
 
+  const replaceSlashTriggerWithSelection = (command: SlashCommandDef) => {
+    if (!slashMatch) return;
+    addSelectedCommand({
+      id: command.id,
+      trigger: command.trigger,
+      title: command.title,
+      description: command.description,
+      kind: command.kind,
+      targetSkills: command.targetSkills,
+      guidance: command.guidance,
+    });
+
+    const nextInput = `${input.slice(0, slashMatch.start)}${input.slice(slashMatch.end)}`;
+    const normalizedInput = nextInput.replace(/\s{2,}/g, ' ');
+    const nextCaret = Math.min(slashMatch.start, normalizedInput.length);
+
+    setInput(normalizedInput);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(nextCaret, nextCaret);
+      setCaretPosition(nextCaret);
+    });
+  };
+
+  const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashPickerOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedCommandIndex((index) =>
+          Math.min(index + 1, visibleSlashCommands.length - 1),
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedCommandIndex((index) => Math.max(index - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const candidate = visibleSlashCommands[highlightedCommandIndex];
+        if (candidate) replaceSlashTriggerWithSelection(candidate);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        const el = textareaRef.current;
+        if (!el || !slashMatch) return;
+        el.setSelectionRange(slashMatch.end, slashMatch.end);
+        setCaretPosition(slashMatch.end);
+        return;
+      }
+    }
+
+    if (e.key === 'Backspace' && !input && selectedCommands.length > 0) {
+      e.preventDefault();
+      removeSelectedCommand(selectedCommands[selectedCommands.length - 1]?.id ?? '');
+      return;
+    }
+
+    onKeyDown(e);
+  };
+
   return (
     <div className="border-t border-border bg-app px-6 pb-5 pt-4">
       <div className="mx-auto w-full max-w-[820px]">
@@ -227,11 +330,76 @@ export default function ChatComposer() {
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={handleComposerKeyDown}
+            onClick={(e) => setCaretPosition(e.currentTarget.selectionStart ?? 0)}
+            onKeyUp={(e) => setCaretPosition(e.currentTarget.selectionStart ?? 0)}
+            onSelect={(e) => setCaretPosition(e.currentTarget.selectionStart ?? 0)}
             placeholder={placeholder}
             rows={3}
             className="min-h-[52px] max-h-[220px] w-full resize-none border-0 bg-transparent px-5 pt-4 text-[14px] leading-7 text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
           />
+
+          {selectedCommands.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-4 pb-1">
+              {selectedCommands.map((command) => (
+                <div
+                  key={command.id}
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-[12px] text-accent"
+                  title={command.description}
+                >
+                  <span className="font-medium">{command.title}</span>
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
+                    {command.kind}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`移除 ${command.title}`}
+                    onClick={() => removeSelectedCommand(command.id)}
+                    className="shrink-0 text-fg-subtle transition hover:text-fg"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {slashPickerOpen && (
+            <div
+              ref={commandPanelRef}
+              className="mx-4 mb-2 overflow-hidden rounded-[22px] border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+            >
+              <div className="border-b border-border px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-fg-subtle">
+                Slash Commands
+              </div>
+              <div className="max-h-[280px] overflow-y-auto py-1">
+                {visibleSlashCommands.map((command, index) => (
+                  <button
+                    key={command.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      replaceSlashTriggerWithSelection(command);
+                    }}
+                    className={`block w-full px-4 py-3 text-left transition ${
+                      index === highlightedCommandIndex ? 'bg-app' : 'hover:bg-app'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-fg">{command.title}</span>
+                      <span className="text-[11px] text-fg-subtle">{command.trigger}</span>
+                      <span className="ml-auto text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
+                        {command.kind}
+                      </span>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-fg-subtle">
+                      {command.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 pb-3">
@@ -381,7 +549,7 @@ export default function ChatComposer() {
               <button
                 type="button"
                 onClick={onSubmit}
-                disabled={!input.trim()}
+                disabled={!input.trim() && selectedCommands.length === 0}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-fg transition hover:opacity-92 disabled:bg-border disabled:text-fg-subtle"
               >
                 <ArrowUp size={15} />

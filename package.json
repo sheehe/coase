@@ -1,7 +1,7 @@
 {
   "name": "coase",
   "private": true,
-  "version": "2.0.0-alpha.11",
+  "version": "2.0.0-alpha.12",
   "description": "Coase · Multi-Agent Research System Desktop (v2)",
   "main": "./out/main/index.js",
   "author": "Coase",
