@@ -74,8 +74,10 @@ export function buildRuntimeErrorLogEntry(args: {
   firstPrompt: string;
   provider?: ResolvedProvider;
   error: unknown;
+  stderr?: string;
 }): RuntimeErrorLogEntry {
-  const { phase, sessionId, sdkSessionId, workspaceRoot, firstPrompt, provider, error } = args;
+  const { phase, sessionId, sdkSessionId, workspaceRoot, firstPrompt, provider, error, stderr } =
+    args;
   const described = describeError(error);
 
   return {
@@ -101,5 +103,6 @@ export function buildRuntimeErrorLogEntry(args: {
       cause: error instanceof Error ? sanitizeUnknown(error.cause) : undefined,
       details: pickExtraFields(error),
     },
+    stderr: stderr?.trim() || undefined,
   };
 }

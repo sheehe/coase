@@ -23,6 +23,7 @@ export interface RuntimeErrorLogEntry {
     cause?: unknown;
     details?: Record<string, unknown>;
   };
+  stderr?: string;
 }
 
 export function getRuntimeErrorLogPath(): string {

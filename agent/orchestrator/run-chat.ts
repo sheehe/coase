@@ -72,6 +72,7 @@ export async function startChatSession(
   }
 
   const internalAbort = new AbortController();
+  const stderrChunks: string[] = [];
   if (signal) {
     if (signal.aborted) {
       internalAbort.abort();
@@ -87,6 +88,13 @@ export async function startChatSession(
       signal: internalAbort.signal,
       resume: resumeSessionId,
       cwd: workspaceRoot,
+      onStderr: (data) => {
+        if (!data) return;
+        stderrChunks.push(data);
+        if (stderrChunks.length > 200) {
+          stderrChunks.splice(0, stderrChunks.length - 200);
+        }
+      },
     });
   } catch (err) {
     const errorLogPath = await safeAppendRuntimeErrorLog(
@@ -96,6 +104,7 @@ export async function startChatSession(
         workspaceRoot,
         firstPrompt: truncate(firstMessage, 500),
         error: err,
+        stderr: joinStderr(stderrChunks),
       }),
     );
     const message =
@@ -174,6 +183,7 @@ export async function startChatSession(
           firstPrompt: truncate(firstMessage, 500),
           provider,
           error: err,
+          stderr: joinStderr(stderrChunks),
         }),
       );
       const runtimeError = formatRuntimeErrorMessage('运行期错误', err, errorLogPath);
@@ -914,6 +924,13 @@ function formatRuntimeErrorMessage(
   const described = describeError(error);
   const resolvedLogPath = errorLogPath ?? getRuntimeErrorLogPath();
   return `${prefix}：${described.message}\n详细日志：${resolvedLogPath}`;
+}
+
+function joinStderr(chunks: string[]): string | undefined {
+  if (chunks.length === 0) return undefined;
+  const merged = chunks.join('');
+  if (merged.length <= 16_000) return merged;
+  return merged.slice(-16_000);
 }
 
 function truncate(text: string, max: number): string {

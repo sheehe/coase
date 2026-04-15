@@ -162,6 +162,7 @@ export interface ChatQueryParams {
   signal?: AbortSignal;
   resume?: string;
   cwd?: string;
+  onStderr?: (data: string) => void;
 }
 
 export interface ChatQueryBundle {
@@ -174,6 +175,7 @@ export async function createChatQuery({
   signal,
   resume,
   cwd,
+  onStderr,
 }: ChatQueryParams): Promise<ChatQueryBundle> {
   const provider = await resolveActiveProvider();
   const pluginPaths = await resolveCoasePluginPaths();
@@ -230,6 +232,7 @@ export async function createChatQuery({
     cwd,
     maxTurns: 200,
     env: childEnv,
+    stderr: onStderr,
     ...(resume ? { resume } : {}),
   };
 
