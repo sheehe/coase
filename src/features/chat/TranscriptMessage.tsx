@@ -1,4 +1,3 @@
-// 单条 transcript 消息：按消息类型切换视觉表达，并支持 Markdown 正文显示。
 import { useEffect, useState } from 'react';
 
 import MarkdownContent from '../../components/MarkdownContent';
@@ -84,6 +83,11 @@ export type TranscriptEntry =
 
 type SubagentPhase = 'started' | 'progress' | 'completed' | 'failed' | 'stopped';
 
+const COLLAPSIBLE_PILL_CLASS =
+  'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-muted transition hover:bg-black/[0.035] hover:text-fg-subtle dark:hover:bg-white/[0.04]';
+const COLLAPSIBLE_ICON_CLASS = 'text-fg-subtle/90';
+const COLLAPSIBLE_CHEVRON_CLASS = 'text-fg-subtle/80';
+
 export default function TranscriptMessage({ entry }: { entry: TranscriptEntry }) {
   const time = new Date(entry.ts).toLocaleTimeString('zh-CN', { hour12: false });
   const [expanded, setExpanded] = useState(false);
@@ -95,12 +99,17 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
     case 'provider':
       return null;
     case 'turn_result':
-      return <DividerLabel text={`回合${entry.ok ? '完成' : '失败'} · ${entry.detail}`} danger={!entry.ok} />;
+      return (
+        <DividerLabel
+          text={`回合${entry.ok ? '完成' : '失败'} 路 ${entry.detail}`}
+          danger={!entry.ok}
+        />
+      );
     case 'user':
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">你 · {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">你 路 {time}</div>
             <div className="rounded-2xl rounded-tr-md border border-border bg-surface px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -111,7 +120,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 · {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 路 {time}</div>
             <div className="rounded-2xl rounded-tr-md border border-border-strong bg-app px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -130,18 +139,22 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+            className={COLLAPSIBLE_PILL_CLASS}
           >
-            <CoaseMark size={11} className="text-fg-subtle" />
-            <span>Subagent</span>
+            <CoaseMark size={10} className={COLLAPSIBLE_ICON_CLASS} />
+            <span className="font-medium text-fg-muted">Subagent</span>
             <span className="text-[10px] uppercase tracking-wide text-fg-subtle/90">{label}</span>
             {metaParts.length > 0 && (
-              <span className="text-[10px] text-fg-subtle/80">{metaParts.join(' · ')}</span>
+              <span className="text-[10px] text-fg-subtle/80">{metaParts.join(' 路 ')}</span>
             )}
             {entry.phase === 'progress' && (
               <span className="text-[10px] text-fg-subtle/70">{headline}</span>
             )}
-            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            {expanded ? (
+              <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            ) : (
+              <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            )}
           </button>
           {expanded && (
             <div className="mt-1 space-y-1 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted">
@@ -167,7 +180,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center gap-2 text-[11px] text-fg-subtle">
-              <span>Coase · {time}</span>
+              <span>Coase 路 {time}</span>
               {entry.streaming && <span className="text-accent">正在生成…</span>}
             </div>
             <MarkdownContent
@@ -184,12 +197,16 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+            className={COLLAPSIBLE_PILL_CLASS}
           >
-            <Wrench size={11} className="text-fg-subtle" />
-            <span>{entry.name}</span>
+            <Wrench size={10} className={COLLAPSIBLE_ICON_CLASS} />
+            <span className="font-medium text-fg-muted">{entry.name}</span>
             {running && <LiveTimer elapsedSeconds={entry.elapsedSeconds ?? 0} baseTs={entry.ts} />}
-            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            {expanded ? (
+              <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            ) : (
+              <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            )}
           </button>
           {expanded && (
             <pre className="mt-1 overflow-x-auto rounded-2xl border border-border/60 bg-surface p-2 text-[10.5px] whitespace-pre-wrap text-fg-muted">
@@ -200,21 +217,25 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       );
     }
     case 'tool_result': {
-      const label = entry.isError ? 'Execution Failed' : 'Execution Result';
+      const label = entry.isError ? 'Error' : 'Output';
       return (
         <div className="-mt-3">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+            className={COLLAPSIBLE_PILL_CLASS}
           >
             {entry.isError ? (
-              <AlertCircle size={10} className="text-fg-subtle" />
+              <AlertCircle size={10} className={COLLAPSIBLE_ICON_CLASS} />
             ) : (
-              <Check size={10} className="text-fg-subtle" />
+              <Check size={10} className={COLLAPSIBLE_ICON_CLASS} />
             )}
-            <span>{label}</span>
-            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            <span className="font-medium text-fg-muted">{label}</span>
+            {expanded ? (
+              <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            ) : (
+              <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            )}
           </button>
           {expanded && (
             <pre className="mt-1 overflow-x-auto rounded-2xl border border-border/60 bg-surface p-2 text-[10.5px] whitespace-pre-wrap text-fg-muted">
@@ -264,14 +285,6 @@ function getSubagentPhaseLabel(phase: SubagentPhase) {
   }
 }
 
-/**
- * Live elapsed timer for running tool_use entries.
- * - Initializes from the SDK's last-reported `elapsedSeconds` (tool_progress),
- *   so after a first ping the pill snaps onto the true SDK clock.
- * - Advances locally every second using `baseTs` + SDK offset so users still
- *   see motion between pings and during the quiet interval before the first
- *   tool_progress arrives.
- */
 function LiveTimer({ elapsedSeconds, baseTs }: { elapsedSeconds: number; baseTs: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -288,18 +301,22 @@ function LiveTimer({ elapsedSeconds, baseTs }: { elapsedSeconds: number; baseTs:
 
 function ThinkingPill({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const preview = text.trim().split(/\r?\n/)[0]?.slice(0, 60) ?? '思考中';
+  const preview = text.trim().split(/\r?\n/)[0]?.slice(0, 60) ?? 'thinking';
   return (
     <div className="-mt-3">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
-        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10.5px] italic text-fg-subtle transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+        className={`${COLLAPSIBLE_PILL_CLASS} italic`}
       >
-        <CoaseMark size={11} className="text-fg-subtle" />
-        <span>思考</span>
+        <CoaseMark size={10} className={COLLAPSIBLE_ICON_CLASS} />
+        <span className="font-medium text-fg-muted">thinking</span>
         <span className="text-[10px] text-fg-subtle/80">{preview}</span>
-        {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+        {expanded ? (
+          <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+        ) : (
+          <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+        )}
       </button>
       {expanded && (
         <div className="mt-1 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted whitespace-pre-wrap">

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AttachmentKind } from '../../../shared/ipc';
 import type { ProviderRecord } from '../../../shared/providers';
 import type { SkillInfo } from '../../../shared/skills';
-import { AlertCircle, ArrowUp, Paperclip, RotateCcw, Square, X } from '../../components/Icons';
+import { AlertCircle, ArrowUp, Box, Paperclip, RotateCcw, Square, X } from '../../components/Icons';
 import Select from '../../components/ui/Select';
 import { useChat } from './ChatContext';
 import {
@@ -244,6 +244,7 @@ export default function ChatComposer() {
       title: command.title,
       description: command.description,
       kind: command.kind,
+      sourceLabel: command.sourceLabel,
       targetSkills: command.targetSkills,
       guidance: command.guidance,
     });
@@ -336,7 +337,7 @@ export default function ChatComposer() {
             onSelect={(e) => setCaretPosition(e.currentTarget.selectionStart ?? 0)}
             placeholder={placeholder}
             rows={3}
-            className="min-h-[52px] max-h-[220px] w-full resize-none border-0 bg-transparent px-5 pt-4 text-[14px] leading-7 text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
+            className="min-h-[52px] max-h-[220px] w-full resize-none border-0 bg-transparent px-5 pb-1 pt-4 text-[14px] leading-7 text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
           />
 
           {selectedCommands.length > 0 && (
@@ -344,12 +345,14 @@ export default function ChatComposer() {
               {selectedCommands.map((command) => (
                 <div
                   key={command.id}
-                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-[12px] text-accent"
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-app px-3 py-1 text-[12px] text-fg"
                   title={command.description}
                 >
+                  <Box size={12} className="shrink-0 text-fg-subtle" />
                   <span className="font-medium">{command.title}</span>
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
-                    {command.kind}
+                  <span className="text-[11px] text-fg-subtle">{command.trigger}</span>
+                  <span className="text-[11px] text-fg-subtle">
+                    {command.sourceLabel}
                   </span>
                   <button
                     type="button"
@@ -367,12 +370,12 @@ export default function ChatComposer() {
           {slashPickerOpen && (
             <div
               ref={commandPanelRef}
-              className="mx-4 mb-2 overflow-hidden rounded-[22px] border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+              className="mx-3 mb-1 overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
             >
-              <div className="border-b border-border px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-fg-subtle">
-                Slash Commands
+              <div className="flex items-center gap-2 border-b border-border/80 px-4 py-2 text-[13px] text-fg">
+                <span className="font-medium">技能</span>
               </div>
-              <div className="max-h-[280px] overflow-y-auto py-1">
+              <div className="slash-command-scroll max-h-[320px] overflow-y-auto py-0.5">
                 {visibleSlashCommands.map((command, index) => (
                   <button
                     key={command.id}
@@ -381,19 +384,29 @@ export default function ChatComposer() {
                       e.preventDefault();
                       replaceSlashTriggerWithSelection(command);
                     }}
-                    className={`block w-full px-4 py-3 text-left transition ${
-                      index === highlightedCommandIndex ? 'bg-app' : 'hover:bg-app'
+                    className={`slash-command-row block w-full px-4 py-1.5 text-left ${
+                      index === highlightedCommandIndex
+                        ? 'is-active bg-[color:color-mix(in_srgb,var(--color-fg)_5%,white)]'
+                        : ''
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-fg">{command.title}</span>
-                      <span className="text-[11px] text-fg-subtle">{command.trigger}</span>
-                      <span className="ml-auto text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
-                        {command.kind}
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-muted">
+                        <Box size={13} />
                       </span>
-                    </div>
-                    <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-fg-subtle">
-                      {command.description}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2.5">
+                          <span className="shrink-0 text-[14px] leading-5 text-fg">
+                            {command.title}
+                          </span>
+                          <span className="min-w-0 truncate text-[14px] leading-5 text-fg-muted">
+                            {command.description}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[12px] text-fg-muted">
+                        {command.sourceLabel}
+                      </span>
                     </div>
                   </button>
                 ))}

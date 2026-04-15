@@ -9,6 +9,7 @@ export interface SlashCommandDef {
   description: string;
   kind: SlashCommandKind;
   source: 'alias' | 'skill';
+  sourceLabel: string;
   aliases: string[];
   targetSkills: string[];
   guidance: string;
@@ -20,6 +21,7 @@ export interface SelectedSlashCommand {
   title: string;
   description: string;
   kind: SlashCommandKind;
+  sourceLabel: string;
   targetSkills: string[];
   guidance: string;
 }
@@ -33,6 +35,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       'Workflow 1: 从研究方向或初步想法出发，收敛成可执行研究方案，并沉淀规划文档。',
     kind: 'workflow',
     source: 'alias',
+    sourceLabel: '工作流',
     aliases: ['找idea', '选题探索', '方向探索', '研究规划'],
     targetSkills: ['planner_workflow'],
     guidance:
@@ -46,6 +49,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       'Workflow 2: 已经有方案或 baseline design 后，进入实验执行与结果沉淀流程。',
     kind: 'workflow',
     source: 'alias',
+    sourceLabel: '工作流',
     aliases: ['实验桥接', '实现实验', '跑实验', '实验执行'],
     targetSkills: ['executor_workflow'],
     guidance:
@@ -59,6 +63,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       'Workflow 3: 基于已有实验结果与材料，组织 claims、证据、章节和 LaTeX 论文产物。',
     kind: 'workflow',
     source: 'alias',
+    sourceLabel: '工作流',
     aliases: ['论文写作', '写论文', 'paper'],
     targetSkills: ['writer_workflow'],
     guidance:
@@ -134,6 +139,12 @@ export function buildSlashCommands(skills: SkillInfo[]): SlashCommandDef[] {
       description: override?.description ?? skill.description,
       kind: override?.kind ?? inferKind(id),
       source: override?.source ?? 'skill',
+      sourceLabel:
+        skill.source === 'coase-user'
+          ? '个人'
+          : (override?.kind ?? inferKind(id)) === 'workflow'
+            ? '工作流'
+            : '内置',
       aliases: override?.aliases ?? [],
       targetSkills: override?.targetSkills ?? [id],
       guidance:
