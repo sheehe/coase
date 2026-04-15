@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 
 import {
   app,
@@ -15,7 +15,13 @@ import {
 
 import { coaseAppUpdater } from './app-updater';
 import { PromptQueue } from '../../agent/chat/prompt-queue';
-import { deleteSessionLog, readRecentSessions } from '../../agent/logging/session-log';
+import {
+  appendSessionLog,
+  deleteSessionLog,
+  readRecentSessions,
+  sealOrphanedSessions,
+} from '../../agent/logging/session-log';
+import type { SessionLogEntry } from '../../shared/runs';
 import { startChatSession, type ChatSessionHandle } from '../../agent/orchestrator/run-chat';
 import {
   deleteProvider,
@@ -125,7 +131,7 @@ function registerIpc(): void {
       }
       return openChatSession(
         event,
-        message.text.trim(),
+        message.displayText?.trim() || message.text.trim(),
         withLocalContext(message.text.trim(), message.attachments, message.workspaceRoot),
         true,
         message.workspaceRoot,
@@ -140,7 +146,7 @@ function registerIpc(): void {
       const guidance = payload.guidance.trim();
       return openChatSession(
         event,
-        guidance,
+        payload.displayGuidance?.trim() || guidance,
         withLocalContext(guidance, payload.attachments, payload.workspaceRoot),
         false,
         payload.workspaceRoot,
@@ -159,7 +165,7 @@ function registerIpc(): void {
       throw new Error(`chat:send cannot find session ${sessionId}`);
     }
     session.handle.sendUserMessage(
-      message.text.trim(),
+      message.displayText?.trim() || message.text.trim(),
       withLocalContext(message.text.trim(), message.attachments, session.workspaceRoot),
     );
   });
@@ -307,8 +313,40 @@ function resolveWorkspaceMetaPath(sessionId: string): string {
   return join(app.getPath('userData'), 'session-workspaces', `${sessionId}.json`);
 }
 
-function resolveDefaultWorkspaceRoot(sessionId: string): string {
-  return join(app.getPath('userData'), 'workspaces', sessionId);
+function resolveDefaultWorkspaceBaseDir(): string {
+  if (app.isPackaged) {
+    return join(dirname(process.execPath), 'workspace');
+  }
+  return join(app.getAppPath(), 'workspace');
+}
+
+function isManagedPaperWorkspaceName(name: string): boolean {
+  return /^paper_id_\d+$/i.test(name);
+}
+
+function formatPaperWorkspaceName(paperId: number): string {
+  return `paper_id_${String(paperId).padStart(4, '0')}`;
+}
+
+async function allocateManagedWorkspaceRoot(baseDir: string): Promise<string> {
+  await mkdir(baseDir, { recursive: true });
+  const entries = await readdir(baseDir, { withFileTypes: true });
+  let maxPaperId = 0;
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const match = /^paper_id_(\d+)$/i.exec(entry.name);
+    if (!match) continue;
+    const paperId = Number.parseInt(match[1], 10);
+    if (Number.isFinite(paperId)) {
+      maxPaperId = Math.max(maxPaperId, paperId);
+    }
+  }
+
+  const nextPaperId = maxPaperId + 1;
+  const workspaceRoot = join(baseDir, formatPaperWorkspaceName(nextPaperId));
+  await mkdir(workspaceRoot, { recursive: true });
+  return workspaceRoot;
 }
 
 async function deleteSession(sessionId: string): Promise<void> {
@@ -329,7 +367,7 @@ async function deleteSession(sessionId: string): Promise<void> {
     removePathIfExists(resolveWorkspaceMetaPath(normalizedSessionId)),
   ]);
 
-  if (workspaceRoot && workspaceRoot === resolveDefaultWorkspaceRoot(normalizedSessionId)) {
+  if (workspaceRoot && isManagedPaperWorkspaceName(basename(workspaceRoot))) {
     await removePathIfExists(workspaceRoot);
   }
 }
@@ -344,6 +382,34 @@ async function openChatSession(
 ): Promise<ChatStartOutcome> {
   const sessionId = randomUUID();
   const workspaceRoot = await ensureSessionWorkspaceRoot(sessionId, requestedWorkspaceRoot);
+  const startedAt = Date.now();
+
+  // 立刻写一条"运行中"占位 session log，这样侧边栏在会话还在跑的时候就能
+  // 看到这个条目。provider / 统计字段留占位值，等 run-chat.ts 的 finally 块
+  // 写入最终条目时会按 sessionId 被 readRecentSessions 去重覆盖掉。
+  const startedLogEntry: SessionLogEntry = {
+    sessionId,
+    sdkSessionId: resumeSessionId,
+    workspaceRoot,
+    finishReason: undefined,
+    startedAt,
+    endedAt: startedAt,
+    firstPrompt: firstMessage.slice(0, 120),
+    providerSource: 'config',
+    model: '(运行中)',
+    userMessageCount: 1,
+    agentTurnCount: 0,
+    totalDurationMs: 0,
+    totalCostUsd: 0,
+    totalTokens: 0,
+    ok: true,
+  };
+  try {
+    await appendSessionLog(startedLogEntry);
+  } catch (err) {
+    console.warn('[chat] failed to persist started placeholder log:', err);
+  }
+
   const abortController = new AbortController();
   const queue = new PromptQueue();
 
@@ -404,6 +470,10 @@ function validateChatMessageInput(payload: unknown, source: string): ChatMessage
   }
   return {
     text: candidate.text,
+    displayText:
+      typeof candidate.displayText === 'string' && candidate.displayText.trim()
+        ? candidate.displayText.trim()
+        : undefined,
     workspaceRoot:
       typeof candidate.workspaceRoot === 'string' && candidate.workspaceRoot.trim()
         ? candidate.workspaceRoot.trim()
@@ -533,8 +603,8 @@ async function ensureSessionWorkspaceRoot(
   sessionId: string,
   requestedRoot?: string,
 ): Promise<string> {
-  const workspaceRoot = requestedRoot?.trim() || resolveDefaultWorkspaceRoot(sessionId);
-  await mkdir(workspaceRoot, { recursive: true });
+  const baseDir = requestedRoot?.trim() || resolveDefaultWorkspaceBaseDir();
+  const workspaceRoot = await allocateManagedWorkspaceRoot(baseDir);
   await persistSessionWorkspaceRoot(sessionId, workspaceRoot);
   return workspaceRoot;
 }
@@ -788,6 +858,13 @@ function validateResumePayload(payload: unknown): asserts payload is ChatResumeI
   if (typeof record.guidance !== 'string' || !record.guidance.trim()) {
     throw new Error('chat:resume requires a non-empty guidance string');
   }
+  if (
+    'displayGuidance' in record &&
+    record.displayGuidance !== undefined &&
+    typeof record.displayGuidance !== 'string'
+  ) {
+    throw new Error('chat:resume displayGuidance must be a string when provided');
+  }
   if (typeof record.sdkSessionId !== 'string' || !record.sdkSessionId.trim()) {
     throw new Error('chat:resume requires a non-empty sdkSessionId');
   }
@@ -903,6 +980,17 @@ async function resolveRscriptPath(): Promise<string | undefined> {
 
 app.whenReady().then(() => {
   coaseAppUpdater.init();
+  // 上次运行中的会话如果因为崩溃/强退没写完 finish 记录，会永久显示为"运行中"。
+  // 启动时补一条 error seal，把它们规整成"上次未正常结束"。
+  void sealOrphanedSessions()
+    .then((sealed) => {
+      if (sealed.length > 0) {
+        console.info(`[session-log] sealed ${sealed.length} orphaned session(s)`);
+      }
+    })
+    .catch((err) => {
+      console.warn('[session-log] sealOrphanedSessions failed:', err);
+    });
   registerIpc();
   createMainWindow();
   coaseAppUpdater.maybeCheckOnStartup();

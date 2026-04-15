@@ -116,12 +116,14 @@ const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
 ]);
 
 const WORKFLOW_ALIAS_IDS = new Set(WORKFLOW_ALIASES.map((command) => command.id));
+const HIDDEN_SKILL_IDS = new Set(['planner_workflow', 'executor_workflow', 'writer_workflow']);
 
 export function buildSlashCommands(skills: SkillInfo[]): SlashCommandDef[] {
   const merged = new Map<string, SlashCommandDef>();
 
   for (const skill of skills) {
     const id = normalizeSkillId(skill.name);
+    if (HIDDEN_SKILL_IDS.has(id)) continue;
     const override = SKILL_OVERRIDES.get(id);
     const trigger = `/${id}`;
 

@@ -412,9 +412,24 @@ export function useChatSession(): ChatSessionValue {
         }
       });
 
-      if (ev.type === 'turn_result') {
+      if (ev.type === 'session_started') {
+        // 会话一启动就让侧边栏拉一次 sessions.recent()，这样运行中的会话
+        // 能立刻在侧边栏露头，而不是等到 session_finished 才出现。
+        setSummaryRefreshKey((key) => key + 1);
+      } else if (ev.type === 'turn_result') {
         setChatState('waiting');
         setRunStatus('running');
+        // 每个 agent turn 结束都顺手持久化一次 transcript / insights，降低
+        // 崩溃或强退时丢失研究记录的风险。原先只在 session_finished 时才写入，
+        // 一旦主进程异常退出，整段对话全丢。
+        const activeSessionId = sessionIdRef.current;
+        if (activeSessionId) {
+          const snapshot = transcriptRef.current;
+          if (snapshot.length > 0) {
+            void persistTranscriptSnapshot(activeSessionId, snapshot);
+            void persistInsightsSnapshot(activeSessionId, deriveRunInsights(snapshot));
+          }
+        }
       } else if (ev.type === 'session_finished') {
         const finishedSessionId = sessionIdRef.current;
         if (finishedSessionId && nextTranscriptSnapshot.length > 0) {
@@ -447,7 +462,12 @@ export function useChatSession(): ChatSessionValue {
   );
 
   const startSession = useCallback(
-    async (firstMessage: string, mode: 'fresh' | 'resume', attachmentsForMessage: AttachedPath[]) => {
+    async (
+      displayMessage: string,
+      runtimeMessage: string,
+      mode: 'fresh' | 'resume',
+      attachmentsForMessage: AttachedPath[],
+    ) => {
       if (mode === 'fresh') {
         setTranscript([]);
         setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`);
@@ -461,13 +481,15 @@ export function useChatSession(): ChatSessionValue {
         const outcome =
           mode === 'fresh'
             ? await window.coase.chat.start({
-                text: firstMessage,
+                text: runtimeMessage,
+                displayText: displayMessage,
                 attachments: attachmentsForMessage,
                 workspaceRoot: workspaceMode === 'custom' ? workspaceRoot ?? undefined : undefined,
               })
             : await window.coase.chat.resume({
                 sdkSessionId: sdkSessionId ?? '',
-                guidance: firstMessage,
+                guidance: runtimeMessage,
+                displayGuidance: displayMessage,
                 attachments: attachmentsForMessage,
                 workspaceRoot: workspaceMode === 'custom' ? workspaceRoot ?? undefined : undefined,
               });
@@ -492,11 +514,20 @@ export function useChatSession(): ChatSessionValue {
   );
 
   const sendFollowup = useCallback(
-    async (sid: string, text: string, attachmentsForMessage: AttachedPath[]) => {
+    async (
+      sid: string,
+      displayText: string,
+      runtimeText: string,
+      attachmentsForMessage: AttachedPath[],
+    ) => {
     setChatState('running');
     setRunStatus('running');
     try {
-      await window.coase.chat.send(sid, { text, attachments: attachmentsForMessage });
+      await window.coase.chat.send(sid, {
+        text: runtimeText,
+        displayText,
+        attachments: attachmentsForMessage,
+      });
     } catch (err) {
       setChatState('waiting');
       setRunStatus('failed');
@@ -522,10 +553,8 @@ export function useChatSession(): ChatSessionValue {
     setSelectedCommands([]);
     const submittedAttachments = attachments.map(({ kind, path }) => ({ kind, path }));
     setAttachments([]);
-    const commandAwareText = injectSlashCommandContext(
-      withAttachmentSummary(text, attachments),
-      submittedCommands,
-    );
+    const visibleText = withAttachmentSummary(text, attachments);
+    const commandAwareText = injectSlashCommandContext(visibleText, submittedCommands);
 
     if (
       (runStatus === 'awaiting_user_guidance' || runStatus === 'completed') &&
@@ -536,21 +565,17 @@ export function useChatSession(): ChatSessionValue {
       const guidanceEntry: TranscriptEntry = {
         kind: 'guidance',
         ts: Date.now(),
-        text: commandAwareText,
+        text: visibleText,
       };
       setTranscript((prev) => [...prev, guidanceEntry]);
-      void startSession(
-        commandAwareText,
-        'resume',
-        submittedAttachments,
-      );
+      void startSession(visibleText, commandAwareText, 'resume', submittedAttachments);
       return;
     }
 
     if (chatState === 'idle' || !sessionId) {
-      void startSession(commandAwareText, 'fresh', submittedAttachments);
+      void startSession(visibleText, commandAwareText, 'fresh', submittedAttachments);
     } else {
-      void sendFollowup(sessionId, commandAwareText, submittedAttachments);
+      void sendFollowup(sessionId, visibleText, commandAwareText, submittedAttachments);
     }
   }, [
     attachments,

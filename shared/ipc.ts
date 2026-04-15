@@ -24,6 +24,7 @@ export interface AttachedPath {
 
 export interface ChatMessageInput {
   text: string;
+  displayText?: string;
   attachments?: AttachedPath[];
   workspaceRoot?: string;
 }
@@ -144,6 +145,7 @@ export interface ChatStartOutcome {
 export interface ChatResumeInput {
   sdkSessionId: string;
   guidance: string;
+  displayGuidance?: string;
   attachments?: AttachedPath[];
   workspaceRoot?: string;
 }

@@ -118,6 +118,8 @@ export default function SessionSidebar() {
   const handleDeleteSession = useCallback(
     async (entry: SessionLogEntry) => {
       if (entry.sessionId === sessionId) return;
+      // 运行中的会话（还没写最终 finishReason）不能删：main 进程也会拒绝。
+      if (entry.finishReason === undefined) return;
       const confirmed = window.confirm(`确定删除会话“${entry.firstPrompt.slice(0, 28)}”吗？`);
       if (!confirmed) return;
 
@@ -225,15 +227,26 @@ export default function SessionSidebar() {
                         tree,
                       );
                       const isLoadingTree = !!loadingTrees[entry.sessionId];
+                      const isRunning = entry.finishReason === undefined;
+                      const isCurrent = entry.sessionId === sessionId;
+                      const deleteDisabled =
+                        deletingSessionId === entry.sessionId || isCurrent || isRunning;
+                      const deleteTitle = isCurrent
+                        ? '当前会话不可删除'
+                        : isRunning
+                          ? '运行中的会话不可删除'
+                          : '删除会话';
 
                       return (
                         <div key={entry.sessionId} className="mx-1">
                           <div
                             className={[
                               'group flex items-center gap-1 rounded-lg px-1 py-1 transition',
-                              isExpanded
-                                ? 'bg-black/[0.05] dark:bg-white/[0.05]'
-                                : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
+                              isCurrent
+                                ? 'bg-accent/[0.08] dark:bg-accent/[0.12]'
+                                : isExpanded
+                                  ? 'bg-black/[0.05] dark:bg-white/[0.05]'
+                                  : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
                             ].join(' ')}
                           >
                             <button
@@ -256,17 +269,29 @@ export default function SessionSidebar() {
                               <span className="line-clamp-1 min-w-0 flex-1 text-[12px] leading-5 text-fg">
                                 {entry.firstPrompt.slice(0, 48)}
                               </span>
+                              {isRunning ? (
+                                <span
+                                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-1.5 py-[1px] text-[10px] font-medium text-accent"
+                                  title="会话正在运行"
+                                >
+                                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                                  运行中
+                                </span>
+                              ) : entry.ok === false ? (
+                                <span
+                                  className="inline-flex shrink-0 items-center rounded-full border border-danger/30 bg-danger/5 px-1.5 py-[1px] text-[10px] font-medium text-danger"
+                                  title={entry.errorMessage ?? '会话以失败结束'}
+                                >
+                                  失败
+                                </span>
+                              ) : null}
                             </button>
 
                             <button
                               type="button"
                               onClick={() => void handleDeleteSession(entry)}
-                              disabled={deletingSessionId === entry.sessionId || entry.sessionId === sessionId}
-                              title={
-                                entry.sessionId === sessionId
-                                  ? '当前会话不可删除'
-                                  : '删除会话'
-                              }
+                              disabled={deleteDisabled}
+                              title={deleteTitle}
                               aria-label="删除会话"
                               className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle opacity-0 transition hover:bg-black/[0.05] hover:text-fg group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/[0.06]"
                             >
