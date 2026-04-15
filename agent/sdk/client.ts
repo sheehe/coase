@@ -18,10 +18,20 @@ import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 // 1. SDK 的 package.json exports 只开放了 '.' / './embed' 等子路径，没有 './package.json'，
 //    asar 内解析 ESM 包时会触发 ERR_PACKAGE_PATH_NOT_EXPORTED；
 // 2. pnpm 的符号链接在 electron-builder 打包进 asar 后不稳定。
-// 用 app.getAppPath() 直接拼真实路径（dev 下是项目根，打包后是 resources/app.asar 或
-// asar.unpacked 目录，两边都能走到 node_modules/@anthropic-ai/claude-agent-sdk）。
+//
+// 打包后 app.getAppPath() 指向 .../resources/app.asar。SDK 通过 spawn 拉起独立 Node
+// 子进程执行 cli.js，而 Node 本身不认识 asar，只 Electron 认。所以必须把路径
+// 重定向到 asar.unpacked（SDK 已经通过 build.asarUnpack 被解出来）。dev 模式下
+// app.getAppPath() 是项目根，replace 是 no-op。
+const RESOLVED_APP_PATH = app.getAppPath().replace(
+  /([\\/])app\.asar([\\/])/,
+  '$1app.asar.unpacked$2',
+).replace(
+  /([\\/])app\.asar$/,
+  '$1app.asar.unpacked',
+);
 const CLAUDE_AGENT_SDK_DIR = join(
-  app.getAppPath(),
+  RESOLVED_APP_PATH,
   'node_modules',
   '@anthropic-ai',
   'claude-agent-sdk',
