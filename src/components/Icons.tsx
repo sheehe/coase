@@ -216,6 +216,27 @@ export function FileText(props: IconProps) {
   );
 }
 
+export function Box(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m12 3 7 4-7 4-7-4 7-4Z" />
+      <path d="m5 7 7 4 7-4" />
+      <path d="M5 7v10l7 4 7-4V7" />
+      <path d="M12 11v10" />
+    </IconBase>
+  );
+}
+
+export function BarChart2(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </IconBase>
+  );
+}
+
 export function CoaseMark(props: IconProps) {
   return (
     <IconBase {...props}>

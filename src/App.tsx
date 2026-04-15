@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import ChatPage from './pages/ChatPage';
 import SettingsPage from './pages/SettingsPage';
+import UsagePage from './pages/UsagePage';
 import type { CoaseApi } from '../shared/ipc';
 
 declare global {
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/chat" replace />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="usage" element={<UsagePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>

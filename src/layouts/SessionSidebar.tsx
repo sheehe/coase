@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { WorkspaceFilePreview, WorkspaceTreeNode } from '../../shared/ipc';
 import type { SessionLogEntry } from '../../shared/runs';
 import {
+  BarChart2,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -331,6 +332,12 @@ export default function SessionSidebar() {
         </div>
 
         <div className="border-t border-border/80 px-2 pb-4 pt-3">
+          <SidebarMenuLink
+            to="/usage"
+            icon={<BarChart2 size={14} />}
+            label="用量与花销"
+            active={location.pathname === '/usage'}
+          />
           <SidebarMenuLink
             to="/settings"
             icon={<Wrench size={14} />}
