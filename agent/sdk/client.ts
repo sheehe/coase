@@ -5,6 +5,7 @@ import {
   type Options,
   type PostToolUseFailureHookInput,
   type Query,
+  type Settings,
   type SubagentStopHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
 import { app } from 'electron';
@@ -183,6 +184,26 @@ const COASE_HOOKS: Partial<Record<string, HookCallbackMatcher[]>> = {
   ],
 };
 
+// 根据 model 决定 SDK 自动压缩阈值（token 数）。
+//
+// Claude Agent SDK 的 `autoCompactWindow` 是 token 阈值：当累计 token 逼近这个
+// 值时，SDK 会在主循环里自动触发 compact（走 CLI 的 auto-compact 通道，产出
+// compact_boundary system message 并把老消息折叠成摘要）。合法范围 100k–1M。
+//
+// 默认 160k（≈ 200k 窗口模型的 80%），为 Opus 4.6 [1m] 等 1M 窗口模型单独拉到
+// 850k 以避免无谓的早压缩——这些模型之所以被选就是为了吃满大窗口。
+function pickAutoCompactWindow(model: string): number {
+  const normalized = model.toLowerCase();
+  if (
+    normalized.includes('[1m]') ||
+    normalized.includes('-1m') ||
+    normalized.includes('_1m')
+  ) {
+    return 850_000;
+  }
+  return 160_000;
+}
+
 export interface ChatQueryParams {
   queue: PromptQueue;
   signal?: AbortSignal;
@@ -234,6 +255,12 @@ export async function createChatQuery({
     childEnv.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC ?? '1';
   childEnv.CLAUDE_AGENT_SDK_CLIENT_APP = childEnv.CLAUDE_AGENT_SDK_CLIENT_APP ?? 'coase-desktop';
 
+  // 把自动压缩阈值喂给 SDK 的 flag settings 层（优先级最高）。这样 cli.js 内部
+  // 的 auto-compact 检查会走我们指定的 token 阈值，而不是 SDK 自己挑默认值。
+  const flagSettings: Settings = {
+    autoCompactWindow: pickAutoCompactWindow(provider.model),
+  };
+
   const options: Options = {
     abortController,
     systemPrompt: {
@@ -243,6 +270,7 @@ export async function createChatQuery({
     },
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
+    settings: flagSettings,
     settingSources: ['project'],
     tools: { type: 'preset', preset: 'claude_code' },
     plugins: [

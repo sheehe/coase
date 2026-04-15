@@ -552,6 +552,26 @@ function handleSystem(message: SDKMessageLike, onEvent: (event: ChatEvent) => vo
       }
       return;
     }
+    case 'compact_boundary': {
+      // SDK 的 auto-compact 跑完后会发一条 compact_boundary system message。
+      // 这里把它转成前端可见的 status，以便用户知道「Coase 会自动管理背景信息
+      // 窗口」这件事确实在发生，而不是只贴个静态 tooltip。
+      const meta = (message.compact_metadata ?? {}) as {
+        trigger?: string;
+        pre_tokens?: number;
+        post_tokens?: number;
+      };
+      const trigger = meta.trigger === 'manual' ? '手动' : '自动';
+      const preK = typeof meta.pre_tokens === 'number' ? Math.round(meta.pre_tokens / 1000) : null;
+      const postK =
+        typeof meta.post_tokens === 'number' ? Math.round(meta.post_tokens / 1000) : null;
+      const delta = preK !== null && postK !== null ? `：${preK}k → ${postK}k` : '';
+      onEvent({
+        type: 'status_message',
+        text: `已${trigger}压缩上下文${delta}`,
+      });
+      return;
+    }
     case 'notification': {
       if (typeof message.text === 'string' && message.text.trim()) {
         onEvent({ type: 'status_message', text: message.text.trim() });
@@ -857,7 +877,7 @@ async function maybeEmitContextPressure(
     if (usage.percentage >= 85) {
       onEvent({
         type: 'status_message',
-        text: `上下文窗口已使用 ${usage.percentage.toFixed(0)}%，系统可能很快触发压缩`,
+        text: `上下文窗口已使用 ${usage.percentage.toFixed(0)}%，即将自动压缩`,
       });
     }
   } catch {
