@@ -257,8 +257,9 @@ export async function createChatQuery({
 
   // 把自动压缩阈值喂给 SDK 的 flag settings 层（优先级最高）。这样 cli.js 内部
   // 的 auto-compact 检查会走我们指定的 token 阈值，而不是 SDK 自己挑默认值。
+  // 优先级：provider 设置页里填的数字 > 按 model 自适应的默认。
   const flagSettings: Settings = {
-    autoCompactWindow: pickAutoCompactWindow(provider.model),
+    autoCompactWindow: provider.autoCompactWindow ?? pickAutoCompactWindow(provider.model),
   };
 
   const options: Options = {

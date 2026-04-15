@@ -23,6 +23,11 @@ export interface ResolvedProvider {
   /** 仅在 source='config' 时有值，便于日志 / 审计。 */
   providerId?: string;
   providerLabel?: string;
+  /**
+   * 可选的 SDK autoCompactWindow（token 数）。source='env' 时永远为 undefined，
+   * 由 sdk/client.ts 回退到模型自适应默认。
+   */
+  autoCompactWindow?: number;
 }
 
 export class NoProviderConfiguredError extends Error {
@@ -33,6 +38,18 @@ export class NoProviderConfiguredError extends Error {
     );
     this.name = 'NoProviderConfiguredError';
   }
+}
+
+/**
+ * Provider 设置里填的 autoCompactWindow 数字不一定合理：留空、NaN、越界都会
+ * 被当作"未设置"处理，让 sdk/client.ts 走模型自适应默认。合法范围参考 SDK
+ * sdk.d.ts 里的 autoCompactWindow 文档——100k–1M。
+ */
+function normalizeAutoCompactWindow(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  const rounded = Math.round(value);
+  if (rounded < 100_000 || rounded > 1_000_000) return undefined;
+  return rounded;
 }
 
 export class UnsupportedProtocolError extends Error {
@@ -71,6 +88,7 @@ export async function resolveActiveProvider(): Promise<ResolvedProvider> {
         baseURL: active.baseURL || undefined,
         providerId: active.id,
         providerLabel: active.label,
+        autoCompactWindow: normalizeAutoCompactWindow(active.autoCompactWindow),
       };
     }
     // activeProviderId 指向已删除的记录：fall through 到 env

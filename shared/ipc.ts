@@ -144,6 +144,13 @@ export interface ChatStartOutcome {
 
 export interface ChatResumeInput {
   sdkSessionId: string;
+  /**
+   * 被续跑的 Coase 会话 id。main 进程会用它复用工作区、合并累计总耗、保留原始
+   * firstPrompt / startedAt，这样续跑的结果在侧边栏里依然显示为同一行。
+   * 不传时 main 会退化成"把 resume 当成一次新会话"的旧语义——留着是为了兼容
+   * 老调用路径，新代码都应该传。
+   */
+  coaseSessionId?: string;
   guidance: string;
   displayGuidance?: string;
   attachments?: AttachedPath[];

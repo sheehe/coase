@@ -17,6 +17,12 @@ export interface ProviderRecord {
   model: string;
   authMode: AuthMode;
   credential: string;
+  /**
+   * SDK 自动压缩阈值（token 数）。Claude Agent SDK 用这个值在累计 token 接近
+   * 阈值时触发 auto-compact。合法范围 100k–1M；不设或设为无效值时走模型自适应
+   * 默认（1M 窗口模型 ≈ 850k，其它 ≈ 160k）。
+   */
+  autoCompactWindow?: number;
 }
 
 /** 给 UI 挑选用的模板。不含 credential。 */

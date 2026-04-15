@@ -102,6 +102,10 @@ export function useChatSession(): ChatSessionValue {
   const [runId, setRunId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sdkSessionId, setSdkSessionId] = useState<string | null>(null);
+  // "这条研究线的原始 Coase sessionId"。新起会话时是 null；打开历史会话 / 续跑
+  // 历史会话时记录历史 id，这样续跑 IPC 可以把它回传给 main，让 main 复用原
+  // workspace、合并累计总耗、保留原 firstPrompt，从而在侧边栏里维持单行视图。
+  const [historicalCoaseSessionId, setHistoricalCoaseSessionId] = useState<string | null>(null);
   const [chatState, setChatState] = useState<ChatState>('idle');
   const [runStatus, setRunStatus] = useState<RunStatus>('idle');
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -472,6 +476,7 @@ export function useChatSession(): ChatSessionValue {
         setTranscript([]);
         setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`);
         setSdkSessionId(null);
+        setHistoricalCoaseSessionId(null);
       }
 
       setChatState('running');
@@ -488,12 +493,18 @@ export function useChatSession(): ChatSessionValue {
               })
             : await window.coase.chat.resume({
                 sdkSessionId: sdkSessionId ?? '',
+                coaseSessionId: historicalCoaseSessionId ?? undefined,
                 guidance: runtimeMessage,
                 displayGuidance: displayMessage,
                 attachments: attachmentsForMessage,
                 workspaceRoot: workspaceMode === 'custom' ? workspaceRoot ?? undefined : undefined,
               });
         setSessionId(outcome.sessionId);
+        // 续跑成功：这个 outcome.sessionId 就是我们后续要跟踪的"历史 id"，这样
+        // 用户再次续跑时还能继续复用同一行。
+        if (mode === 'resume') {
+          setHistoricalCoaseSessionId(outcome.sessionId);
+        }
         setWorkspaceRoot(outcome.workspaceRoot);
         unsubscribeRef.current = window.coase.chat.onEvent(outcome.sessionId, handleEvent);
       } catch (err) {
@@ -510,7 +521,7 @@ export function useChatSession(): ChatSessionValue {
         ]);
       }
     },
-    [handleEvent, sdkSessionId, workspaceMode, workspaceRoot],
+    [handleEvent, historicalCoaseSessionId, sdkSessionId, workspaceMode, workspaceRoot],
   );
 
   const sendFollowup = useCallback(
@@ -627,6 +638,7 @@ export function useChatSession(): ChatSessionValue {
     setInput('');
     setRunId(null);
     setSdkSessionId(null);
+    setHistoricalCoaseSessionId(null);
     setTranscript([]);
     setAttachments([]);
     setSelectedCommands([]);
@@ -661,6 +673,7 @@ export function useChatSession(): ChatSessionValue {
       setInput('');
       setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`);
       setSdkSessionId(session.sdkSessionId);
+      setHistoricalCoaseSessionId(session.sessionId);
       setTranscript(finalizeHistoricalTranscript(history as TranscriptEntry[]));
       setAttachments([]);
       setSelectedCommands([]);
@@ -669,8 +682,10 @@ export function useChatSession(): ChatSessionValue {
       const historicalWorkspaceRoot =
         session.workspaceRoot ??
         (await window.coase.workspaces.getRoot(session.sessionId));
+      // 历史会话的 workspace 必须原样用，不要因为 workspaceMode 判断而漂移——
+      // 下次续跑时 main 会按 historicalCoaseSessionId 找回这个目录。
       setWorkspaceRoot(historicalWorkspaceRoot);
-      setWorkspaceMode(historicalWorkspaceRoot ? 'custom' : 'auto');
+      setWorkspaceMode('custom');
       setChatState('idle');
       setRunStatus('awaiting_user_guidance');
       setSummaryRefreshKey((key) => key + 1);
@@ -702,6 +717,7 @@ export function useChatSession(): ChatSessionValue {
       setInput('');
       setRunId(null);
       setSdkSessionId(session.sdkSessionId ?? null);
+      setHistoricalCoaseSessionId(session.sessionId);
       setTranscript(finalizeHistoricalTranscript(history as TranscriptEntry[]));
       setAttachments([]);
       setSelectedCommands([]);

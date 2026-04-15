@@ -17,7 +17,9 @@ import { coaseAppUpdater } from './app-updater';
 import { PromptQueue } from '../../agent/chat/prompt-queue';
 import {
   appendSessionLog,
+  compactSessionLogIfNeeded,
   deleteSessionLog,
+  loadSessionEntry,
   readRecentSessions,
   sealOrphanedSessions,
 } from '../../agent/logging/session-log';
@@ -151,6 +153,7 @@ function registerIpc(): void {
         false,
         payload.workspaceRoot,
         payload.sdkSessionId.trim(),
+        payload.coaseSessionId?.trim() || undefined,
       );
     },
   );
@@ -379,29 +382,61 @@ async function openChatSession(
   showFirstMessage: boolean,
   requestedWorkspaceRoot?: string,
   resumeSessionId?: string,
+  /**
+   * 仅 resume 续跑时传：复用该 Coase 会话 id、复用其原 workspace、把它之前的累计
+   * 花销当作起点，这样侧边栏里这条会话从头到尾只显示为一行，不会每次续跑都产出
+   * 一个新行。传空字符串或 undefined 则退化为新起一条 Coase 会话。
+   */
+  reuseCoaseSessionId?: string,
 ): Promise<ChatStartOutcome> {
-  const sessionId = randomUUID();
-  const workspaceRoot = await ensureSessionWorkspaceRoot(sessionId, requestedWorkspaceRoot);
-  const startedAt = Date.now();
+  // 1. 计算 sessionId + workspaceRoot。resume 时尽量复用原有的两者；任何一个
+  //    没拿到都回退到"新起一条"——不直接抛错，避免用户误点续跑就永远卡住。
+  let sessionId: string;
+  let workspaceRoot: string;
+  let priorEntry: SessionLogEntry | null = null;
 
-  // 立刻写一条"运行中"占位 session log，这样侧边栏在会话还在跑的时候就能
-  // 看到这个条目。provider / 统计字段留占位值，等 run-chat.ts 的 finally 块
-  // 写入最终条目时会按 sessionId 被 readRecentSessions 去重覆盖掉。
+  if (reuseCoaseSessionId) {
+    priorEntry = await safeLoadSessionEntry(reuseCoaseSessionId);
+  }
+
+  if (reuseCoaseSessionId && priorEntry) {
+    sessionId = reuseCoaseSessionId;
+    const reusableWorkspace = await resolveReusableWorkspaceRoot(
+      reuseCoaseSessionId,
+      priorEntry,
+      requestedWorkspaceRoot,
+    );
+    workspaceRoot =
+      reusableWorkspace ?? (await ensureSessionWorkspaceRoot(sessionId, requestedWorkspaceRoot));
+  } else {
+    sessionId = randomUUID();
+    workspaceRoot = await ensureSessionWorkspaceRoot(sessionId, requestedWorkspaceRoot);
+  }
+
+  const now = Date.now();
+  const effectiveStartedAt = priorEntry?.startedAt ?? now;
+  const persistedFirstPrompt = priorEntry?.firstPrompt ?? firstMessage.slice(0, 120);
+
+  // 2. 写"运行中"占位 session log。合并 priorEntry 保证续跑期间侧边栏显示的
+  //    累计总耗不会被占位抹成 0。
   const startedLogEntry: SessionLogEntry = {
     sessionId,
-    sdkSessionId: resumeSessionId,
+    sdkSessionId: resumeSessionId ?? priorEntry?.sdkSessionId,
     workspaceRoot,
     finishReason: undefined,
-    startedAt,
-    endedAt: startedAt,
-    firstPrompt: firstMessage.slice(0, 120),
-    providerSource: 'config',
-    model: '(运行中)',
-    userMessageCount: 1,
-    agentTurnCount: 0,
-    totalDurationMs: 0,
-    totalCostUsd: 0,
-    totalTokens: 0,
+    startedAt: effectiveStartedAt,
+    endedAt: now,
+    firstPrompt: persistedFirstPrompt,
+    providerSource: priorEntry?.providerSource ?? 'config',
+    providerId: priorEntry?.providerId,
+    providerLabel: priorEntry?.providerLabel,
+    model: priorEntry?.model ?? '(运行中)',
+    baseURL: priorEntry?.baseURL,
+    userMessageCount: (priorEntry?.userMessageCount ?? 0) + 1,
+    agentTurnCount: priorEntry?.agentTurnCount ?? 0,
+    totalDurationMs: priorEntry?.totalDurationMs ?? 0,
+    totalCostUsd: priorEntry?.totalCostUsd ?? 0,
+    totalTokens: priorEntry?.totalTokens ?? 0,
     ok: true,
   };
   try {
@@ -442,6 +477,19 @@ async function openChatSession(
     showFirstMessage,
     resumeSessionId,
     workspaceRoot,
+    // 把 priorEntry 的累计字段当作 run-chat stats 的起点，确保结束时写回的
+    // 终态日志里的 totalCostUsd / totalTokens / turns 都是"自首次启动以来"的累计。
+    priorStats: priorEntry
+      ? {
+          userMessageCount: priorEntry.userMessageCount,
+          agentTurnCount: priorEntry.agentTurnCount,
+          totalDurationMs: priorEntry.totalDurationMs,
+          totalCostUsd: priorEntry.totalCostUsd,
+          totalTokens: priorEntry.totalTokens ?? 0,
+        }
+      : undefined,
+    originalStartedAt: priorEntry?.startedAt,
+    persistedFirstPrompt: priorEntry?.firstPrompt,
   });
 
   activeSessions.set(sessionId, { handle, queue, abortController, workspaceRoot });
@@ -455,6 +503,47 @@ async function openChatSession(
   });
 
   return { sessionId, workspaceRoot };
+}
+
+async function safeLoadSessionEntry(sessionId: string): Promise<SessionLogEntry | null> {
+  try {
+    return await loadSessionEntry(sessionId);
+  } catch (err) {
+    console.warn('[chat] loadSessionEntry failed:', err);
+    return null;
+  }
+}
+
+/**
+ * 决定续跑时应该用哪个 workspace 目录：
+ * - 用户在续跑 dialog 里明确选了新的 requested root，尊重用户；
+ * - 否则优先用 priorEntry 记录的 workspaceRoot（仍然存在时直接复用，不再分配新的 paper_id_*）；
+ * - 再退回 {userData}/session-workspaces/{sessionId}.json 里的记录；
+ * - 都拿不到就返回 null，由调用方 allocate 新的。
+ */
+async function resolveReusableWorkspaceRoot(
+  sessionId: string,
+  priorEntry: SessionLogEntry,
+  requestedRoot: string | undefined,
+): Promise<string | null> {
+  if (requestedRoot && requestedRoot.trim()) return null;
+  const candidates: string[] = [];
+  if (priorEntry.workspaceRoot) candidates.push(priorEntry.workspaceRoot);
+  const metaRoot = await readSessionWorkspaceRoot(sessionId);
+  if (metaRoot && !candidates.includes(metaRoot)) candidates.push(metaRoot);
+
+  for (const candidate of candidates) {
+    try {
+      const info = await stat(candidate);
+      if (info.isDirectory()) {
+        await persistSessionWorkspaceRoot(sessionId, candidate);
+        return candidate;
+      }
+    } catch {
+      // candidate gone, keep trying
+    }
+  }
+  return null;
 }
 
 function validateChatMessageInput(payload: unknown, source: string): ChatMessageInput {
@@ -896,6 +985,11 @@ function validateProviderRecord(record: unknown): asserts record is ProviderReco
   if (r.authMode !== 'api_key' && r.authMode !== 'auth_token') {
     throw new Error(`provider.authMode must be api_key | auth_token, got ${String(r.authMode)}`);
   }
+  if (r.autoCompactWindow !== undefined && r.autoCompactWindow !== null) {
+    if (typeof r.autoCompactWindow !== 'number' || !Number.isFinite(r.autoCompactWindow)) {
+      throw new Error('provider.autoCompactWindow must be a finite number when provided');
+    }
+  }
 }
 
 async function checkREnv(): Promise<REnvStatus> {
@@ -990,6 +1084,17 @@ app.whenReady().then(() => {
     })
     .catch((err) => {
       console.warn('[session-log] sealOrphanedSessions failed:', err);
+    });
+  // 启动时把 append-only 日志压实一次。研究工作流常年跑同一批会话，不做压实
+  // 会让每次 readRecentSessions 都要 parse 越来越多的 placeholder / 终态行。
+  void compactSessionLogIfNeeded()
+    .then((result) => {
+      if (result.rewrote) {
+        console.info(`[session-log] compacted to ${result.entries} entries`);
+      }
+    })
+    .catch((err) => {
+      console.warn('[session-log] compactSessionLogIfNeeded failed:', err);
     });
   registerIpc();
   createMainWindow();

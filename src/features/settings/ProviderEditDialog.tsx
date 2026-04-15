@@ -36,6 +36,9 @@ function emptyRecord(): ProviderRecord {
   };
 }
 
+const AUTO_COMPACT_MIN = 100_000;
+const AUTO_COMPACT_MAX = 1_000_000;
+
 function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, string>> {
   const errors: Partial<Record<keyof ProviderRecord, string>> = {};
   if (!record.id.trim()) errors.id = 'ID 不能为空';
@@ -46,6 +49,15 @@ function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, 
   else if (!/^https?:\/\//.test(record.baseURL)) errors.baseURL = '接口地址必须以 http(s):// 开头';
   if (!record.model.trim()) errors.model = '模型名不能为空';
   if (!record.credential.trim()) errors.credential = 'API Key / Token 不能为空';
+  if (record.autoCompactWindow !== undefined) {
+    if (
+      !Number.isFinite(record.autoCompactWindow) ||
+      record.autoCompactWindow < AUTO_COMPACT_MIN ||
+      record.autoCompactWindow > AUTO_COMPACT_MAX
+    ) {
+      errors.autoCompactWindow = `自动压缩阈值需在 ${AUTO_COMPACT_MIN.toLocaleString()} – ${AUTO_COMPACT_MAX.toLocaleString()} 之间`;
+    }
+  }
   return errors;
 }
 
@@ -234,6 +246,31 @@ export default function ProviderEditDialog({
             onChange={(e) => updateField('credential', e.target.value)}
             placeholder="sk-..."
             autoComplete="off"
+          />
+        </Field>
+
+        <Field
+          label="自动压缩阈值（可选）"
+          hint={`累计 token 达到该值时 SDK 会自动触发 compact。留空走模型自适应默认：1M 窗口 ≈ 850k，其它 ≈ 160k。允许范围 ${AUTO_COMPACT_MIN.toLocaleString()} – ${AUTO_COMPACT_MAX.toLocaleString()}。`}
+          error={errors.autoCompactWindow}
+        >
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={AUTO_COMPACT_MIN}
+            max={AUTO_COMPACT_MAX}
+            step={10_000}
+            value={form.autoCompactWindow ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (!raw) {
+                updateField('autoCompactWindow', undefined);
+                return;
+              }
+              const num = Number(raw);
+              updateField('autoCompactWindow', Number.isFinite(num) ? num : undefined);
+            }}
+            placeholder="留空 = 走模型自适应默认"
           />
         </Field>
 

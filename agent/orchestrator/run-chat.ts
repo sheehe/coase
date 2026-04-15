@@ -28,6 +28,22 @@ export interface RunChatSessionParams {
   signal?: AbortSignal;
   showFirstMessage?: boolean;
   resumeSessionId?: string;
+  /**
+   * Resume 续跑时由 main 进程注入的"历史总耗"基线。stats 的各累计字段
+   * 会以它作为起点累加，所以日志的 totalCostUsd / totalTokens 等字段代表
+   * "自会话首次开启至今"的累计值，而不是"单次续跑的累计值"。
+   */
+  priorStats?: Partial<SessionStats>;
+  /**
+   * Resume 续跑时的原始 startedAt。不传就用 Date.now()。传了就保留首次启动
+   * 的时间戳，这样侧边栏里这条会话显示的时间稳定对应首次研究开始。
+   */
+  originalStartedAt?: number;
+  /**
+   * Resume 续跑时透传给终态日志的 firstPrompt，避免"续跑的那句指导"覆盖
+   * 掉侧边栏首次展示的研究主题。不传就用本次的 firstMessage。
+   */
+  persistedFirstPrompt?: string;
 }
 
 export interface ChatSessionHandle {
@@ -61,8 +77,12 @@ export async function startChatSession(
     signal,
     showFirstMessage = true,
     resumeSessionId,
+    priorStats,
+    originalStartedAt,
+    persistedFirstPrompt,
   } = params;
-  const startedAt = Date.now();
+  const startedAt = originalStartedAt ?? Date.now();
+  const firstPromptForLog = persistedFirstPrompt ?? firstMessage;
 
   onEvent({ type: 'session_started', firstPrompt: firstMessage });
 
@@ -118,14 +138,14 @@ export async function startChatSession(
       finishReason: 'error',
       startedAt,
       endedAt: Date.now(),
-      firstPrompt: truncate(firstMessage, 120),
+      firstPrompt: truncate(firstPromptForLog, 120),
       providerSource: 'env',
       model: '(unresolved)',
-      userMessageCount: 1,
-      agentTurnCount: 0,
-      totalDurationMs: 0,
-      totalCostUsd: 0,
-      totalTokens: 0,
+      userMessageCount: priorStats?.userMessageCount ?? 1,
+      agentTurnCount: priorStats?.agentTurnCount ?? 0,
+      totalDurationMs: priorStats?.totalDurationMs ?? 0,
+      totalCostUsd: priorStats?.totalCostUsd ?? 0,
+      totalTokens: priorStats?.totalTokens ?? 0,
       ok: false,
       errorMessage: message,
     });
@@ -147,13 +167,15 @@ export async function startChatSession(
 
   void announceSupportedAgents(sdkQuery, onEvent);
 
+  // 累计字段以 priorStats 为基线：resume 时 stats 里永远是"自首次启动至今"的
+  // 终值。userMessageCount 额外 +1，因为刚刚 push 了本次 runtimeMessage。
   const stats: SessionStats = {
     sdkSessionId: resumeSessionId,
-    userMessageCount: 1,
-    agentTurnCount: 0,
-    totalCostUsd: 0,
-    totalDurationMs: 0,
-    totalTokens: 0,
+    userMessageCount: (priorStats?.userMessageCount ?? 0) + 1,
+    agentTurnCount: priorStats?.agentTurnCount ?? 0,
+    totalCostUsd: priorStats?.totalCostUsd ?? 0,
+    totalDurationMs: priorStats?.totalDurationMs ?? 0,
+    totalTokens: priorStats?.totalTokens ?? 0,
     ok: true,
   };
 
@@ -198,7 +220,7 @@ export async function startChatSession(
         buildSessionLog(
           sessionId,
           startedAt,
-          firstMessage,
+          firstPromptForLog,
           provider,
           stats,
           finalizeReason,
