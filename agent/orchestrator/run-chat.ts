@@ -1,5 +1,13 @@
 // Chat 会话编排器：把 Claude Agent SDK 的消息流翻译成 Coase 的 ChatEvent。
 import { appendSessionLog } from '../logging/session-log';
+import {
+  buildRuntimeErrorLogEntry,
+  describeError,
+} from '../logging/runtime-error-format';
+import {
+  appendRuntimeErrorLog,
+  getRuntimeErrorLogPath,
+} from '../logging/runtime-error-log';
 import { PromptQueue } from '../chat/prompt-queue';
 import { createChatQuery } from '../sdk/client';
 import {
@@ -81,10 +89,19 @@ export async function startChatSession(
       cwd: workspaceRoot,
     });
   } catch (err) {
+    const errorLogPath = await safeAppendRuntimeErrorLog(
+      buildRuntimeErrorLogEntry({
+        phase: 'create_query',
+        sessionId,
+        workspaceRoot,
+        firstPrompt: truncate(firstMessage, 500),
+        error: err,
+      }),
+    );
     const message =
       err instanceof NoProviderConfiguredError || err instanceof UnsupportedProtocolError
         ? err.message
-        : `初始化 chat 失败：${err instanceof Error ? err.message : String(err)}`;
+        : formatRuntimeErrorMessage('初始化 chat 失败', err, errorLogPath);
     onEvent({ type: 'error', message });
     onEvent({ type: 'session_finished', reason: 'error' });
     await safeAppendLog({
@@ -148,7 +165,18 @@ export async function startChatSession(
         }
       }
     } catch (err) {
-      const runtimeError = `运行期错误：${err instanceof Error ? err.message : String(err)}`;
+      const errorLogPath = await safeAppendRuntimeErrorLog(
+        buildRuntimeErrorLogEntry({
+          phase: 'run_loop',
+          sessionId,
+          sdkSessionId: stats.sdkSessionId,
+          workspaceRoot,
+          firstPrompt: truncate(firstMessage, 500),
+          provider,
+          error: err,
+        }),
+      );
+      const runtimeError = formatRuntimeErrorMessage('运行期错误', err, errorLogPath);
       stats.ok = false;
       stats.lastError = runtimeError;
       finalizeReason = 'error';
@@ -865,6 +893,27 @@ async function safeAppendLog(entry: SessionLogEntry): Promise<void> {
   } catch (err) {
     console.warn('[run-chat] appendSessionLog failed:', err);
   }
+}
+
+async function safeAppendRuntimeErrorLog(
+  entry: ReturnType<typeof buildRuntimeErrorLogEntry>,
+): Promise<string | null> {
+  try {
+    return await appendRuntimeErrorLog(entry);
+  } catch (err) {
+    console.warn('[run-chat] appendRuntimeErrorLog failed:', err);
+    return null;
+  }
+}
+
+function formatRuntimeErrorMessage(
+  prefix: string,
+  error: unknown,
+  errorLogPath?: string | null,
+): string {
+  const described = describeError(error);
+  const resolvedLogPath = errorLogPath ?? getRuntimeErrorLogPath();
+  return `${prefix}：${described.message}\n详细日志：${resolvedLogPath}`;
 }
 
 function truncate(text: string, max: number): string {
