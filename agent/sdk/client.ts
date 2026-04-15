@@ -7,6 +7,7 @@ import {
   type Query,
   type SubagentStopHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
+import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
 import { PromptQueue } from '../chat/prompt-queue';
@@ -14,7 +15,8 @@ import { resolveActiveProvider, type ResolvedProvider } from '../providers/resol
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 
 const require = createRequire(import.meta.url);
-const CLAUDE_CODE_CLI_PATH = require.resolve('@anthropic-ai/claude-agent-sdk/cli.js');
+const CLAUDE_AGENT_SDK_PACKAGE_PATH = require.resolve('@anthropic-ai/claude-agent-sdk/package.json');
+const CLAUDE_CODE_CLI_PATH = join(dirname(CLAUDE_AGENT_SDK_PACKAGE_PATH), 'cli.js');
 
 const COASE_SYSTEM_PROMPT_APPEND = `
 你正在 Coase 桌面应用中工作。这是一个面向经济学与社会科学实证研究的研究工作台。
