@@ -1,7 +1,7 @@
 {
   "name": "coase",
   "private": true,
-  "version": "2.0.0-alpha.9",
+  "version": "2.0.0-alpha.10",
   "description": "Coase · Multi-Agent Research System Desktop (v2)",
   "main": "./out/main/index.js",
   "author": "Coase",
@@ -79,6 +79,9 @@
       }
     ],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/@anthropic-ai/claude-agent-sdk/**/*"
+    ],
     "publish": [
       {
         "provider": "github",

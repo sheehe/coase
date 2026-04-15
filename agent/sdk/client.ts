@@ -7,16 +7,26 @@ import {
   type Query,
   type SubagentStopHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
-import { dirname, join } from 'node:path';
-import { createRequire } from 'node:module';
+import { app } from 'electron';
+import { join } from 'node:path';
 
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 
-const require = createRequire(import.meta.url);
-const CLAUDE_AGENT_SDK_ENTRY_PATH = require.resolve('@anthropic-ai/claude-agent-sdk');
-const CLAUDE_CODE_CLI_PATH = join(dirname(CLAUDE_AGENT_SDK_ENTRY_PATH), 'cli.js');
+// 不要用 require.resolve('@anthropic-ai/claude-agent-sdk') 去定位 cli.js：
+// 1. SDK 的 package.json exports 只开放了 '.' / './embed' 等子路径，没有 './package.json'，
+//    asar 内解析 ESM 包时会触发 ERR_PACKAGE_PATH_NOT_EXPORTED；
+// 2. pnpm 的符号链接在 electron-builder 打包进 asar 后不稳定。
+// 用 app.getAppPath() 直接拼真实路径（dev 下是项目根，打包后是 resources/app.asar 或
+// asar.unpacked 目录，两边都能走到 node_modules/@anthropic-ai/claude-agent-sdk）。
+const CLAUDE_AGENT_SDK_DIR = join(
+  app.getAppPath(),
+  'node_modules',
+  '@anthropic-ai',
+  'claude-agent-sdk',
+);
+const CLAUDE_CODE_CLI_PATH = join(CLAUDE_AGENT_SDK_DIR, 'cli.js');
 
 const COASE_SYSTEM_PROMPT_APPEND = `
 你正在 Coase 桌面应用中工作。这是一个面向经济学与社会科学实证研究的研究工作台。
