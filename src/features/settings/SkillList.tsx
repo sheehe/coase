@@ -58,8 +58,7 @@ export default function SkillList() {
     void window.coase.skills.openUserDir();
   }, []);
 
-  const builtin = skills?.filter((s) => s.source === 'coase-builtin') ?? [];
-  const user = skills?.filter((s) => s.source === 'coase-user') ?? [];
+  const user = skills?.filter((skill) => skill.source === 'coase-user') ?? [];
 
   return (
     <Card className="overflow-hidden">
@@ -67,7 +66,7 @@ export default function SkillList() {
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">技能</div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            由 coase-builtin 与 coase-user 两个 plugin 提供。导入 SKILL.md 文件或文件夹即可安装新技能。
+            这里只显示用户自己安装的技能。导入 `SKILL.md` 文件或技能文件夹即可安装新技能。
           </div>
         </div>
 
@@ -110,22 +109,14 @@ export default function SkillList() {
       {!skills && !error && <div className="px-5 py-10 text-sm text-fg-subtle">正在加载技能…</div>}
 
       {skills && (
-        <div className="divide-y divide-border">
-          <SkillGroup
-            title="内置"
-            sourceLabel="COASE-BUILTIN"
-            entries={builtin}
-            emptyHint="当前没有内置 skill。"
-          />
-          <SkillGroup
-            title="用户"
-            sourceLabel="COASE-USER"
-            entries={user}
-            emptyHint="还没有安装用户技能。点击「导入技能」按钮来安装，或将 SKILL.md 放入用户目录。"
-            onDelete={handleDelete}
-            busy={busy}
-          />
-        </div>
+        <SkillGroup
+          title="用户"
+          sourceLabel="COASE-USER"
+          entries={user}
+          emptyHint="还没有安装用户技能。点击“导入技能”来安装，或把 `SKILL.md` 放入用户技能目录。"
+          onDelete={handleDelete}
+          busy={busy}
+        />
       )}
     </Card>
   );
@@ -166,7 +157,7 @@ function SkillGroup({
                   <div className="flex items-center gap-3">
                     <span className="truncate text-[14px] font-medium text-fg">{skill.name}</span>
                     <span className="shrink-0 text-[11px] uppercase tracking-[0.12em] text-fg-subtle">
-                      {skill.source === 'coase-builtin' ? 'builtin' : 'user'}
+                      user
                     </span>
                   </div>
                   <div className="mt-1 text-[13px] leading-6 text-fg-muted">

@@ -193,6 +193,21 @@ E. GO/NO-GO DECISION
 
 在变量映射和数据支持性都基本成立后，锁定主模型。
 
+**必须按识别策略调用对应方法 skill 获取标准化设定模板，不得凭空撰写模型细节：**
+
+| 研究场景 | 调用 skill |
+|---|---|
+| 标准 OLS / 线性回归基线 | `ols-regression` |
+| 政策评估 / 自然实验 / 事件研究 | `did-analysis` |
+| 内生性 / 工具变量 | `iv-estimation` |
+| 断点设计 | `rdd-analysis` |
+| 面板固定效应 | `panel-data` |
+| 合成控制 | `synthetic-control` |
+| 时间序列 | `time-series` |
+| 因果机器学习 | `ml-causal` |
+
+若两种策略都可能（例如既可 DID 也可 IV），分别调用后对比，选更稳妥的一种锁定。方法 skill 返回的 **模型设定 / 识别假设 / 主要识别风险** 直接填进下方 Baseline Plan Memo 对应字段。**本阶段不执行代码，只锁定设计**。
+
 请完成以下任务：
 
 1. 给出一个 baseline equation 或清晰的模型描述

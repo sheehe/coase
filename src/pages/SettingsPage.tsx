@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ChevronLeft } from '../components/Icons';
+import CriticPanelCard from '../features/settings/CriticPanelCard';
 import ProviderEditDialog, { type DialogMode } from '../features/settings/ProviderEditDialog';
 import ProviderList from '../features/settings/ProviderList';
 import SkillList from '../features/settings/SkillList';
@@ -73,7 +74,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 py-8">
+    <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
           <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Workspace</div>
@@ -109,6 +110,8 @@ export default function SettingsPage() {
           onSetActive={(id) => void handleSetActive(id)}
         />
       )}
+
+      {file && <CriticPanelCard providers={file.providers} />}
 
       <SkillList />
 

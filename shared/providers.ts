@@ -40,7 +40,35 @@ export interface ProviderPreset {
 export interface ProvidersFile {
   version: 1;
   activeProviderId: string | null;
+  /**
+   * 评审模型组（critic panel）的 provider id 列表。用于 idea-critic / paper-reviewer
+   * 等 skill 的多模型对抗评分。至少配置 2 个不同 provider 才会生效。
+   * 未配置时为 null / undefined（向后兼容旧版 providers.json）。
+   */
+  criticPanelIds?: string[] | null;
   providers: ProviderRecord[];
+}
+
+/** Critic panel 单个模型的调用结果。 */
+export interface CriticPanelEntry {
+  providerId: string;
+  providerLabel: string;
+  model: string;
+  ok: boolean;
+  latencyMs: number;
+  /** 模型返回的纯文本（已做 preview 抽取，去掉 thinking 等）。 */
+  responseText?: string;
+  /** 失败时的错误消息；ok === true 时为 undefined。 */
+  error?: string;
+}
+
+/** Critic panel 并行调度聚合结果。 */
+export interface CriticPanelResult {
+  /** 实际调用的 provider 数量（已剔除不存在 / 协议不支持的）。 */
+  panelSize: number;
+  /** 聚合完成耗时（从发起到所有调用结束，ms）。 */
+  totalMs: number;
+  entries: CriticPanelEntry[];
 }
 
 /** "测试连接" 按钮返回的结构化结果。 */
@@ -52,4 +80,8 @@ export interface TestConnectionResult {
   latencyMs: number;
   /** 面向用户的单行消息；成功和失败共用一个字段简化 UI。 */
   message: string;
+  /** 测试时实际发给模型的用户消息。 */
+  requestText?: string;
+  /** 模型返回的文本摘要。 */
+  responseText?: string;
 }

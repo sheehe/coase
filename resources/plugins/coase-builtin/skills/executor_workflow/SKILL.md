@@ -37,6 +37,25 @@ description: Social Science Research Co-pilot 2.0.0 的执行 workflow，对应 
 - 生成结果
 - 用普通研究生能看懂的话解释
 
+### Skill Dispatch
+
+读取 `planner/stage_7_baseline_design.md` 确认识别策略，调用对应方法 skill 获取代码模板并执行：
+
+| baseline design 识别策略 | 调用 skill |
+|---|---|
+| OLS / 线性回归 | `ols-regression` |
+| DID / 事件研究 / 自然实验 | `did-analysis` |
+| 工具变量 | `iv-estimation` |
+| 断点回归 | `rdd-analysis` |
+| 面板固定效应 | `panel-data` |
+| 合成控制 | `synthetic-control` |
+| 时间序列 | `time-series` |
+| 因果机器学习 | `ml-causal` |
+
+辅助 skill：`data-cleaning`（执行前的数据预处理 / 变量构造），`stats`（描述性统计与事前检验），`table`（主回归表规范化输出）。
+
+**不得擅自切换识别策略**。若执行中发现当前策略不可行，写入阻塞原因，返回 planner 重新锁定，不要在 executor 阶段静默切换。
+
 ### 阶段 4 system prompt
 
 你正在执行 Run Baseline 阶段。你只能根据已确认的 Baseline Plan 生成和执行 R 代码。不得擅自更换模型逻辑，不得自行增加未经说明的复杂设定。
@@ -88,6 +107,26 @@ description: Social Science Research Co-pilot 2.0.0 的执行 workflow，对应 
 - changed controls
 - changed sample restriction
 - changed variable treatment
+
+### Iteration Log 硬约束（spec_log）
+
+每一次替代设定都必须同时追加到 `executor/stage_1_run_baseline.md` 的 Specification Log 小节**和** `verdict/spec_log.md`（若 workspace 里有 `verdict/` 目录，即走 full_research_workflow 时），格式统一：
+
+```
+### Iteration N (YYYY-MM-DD HH:MM)
+- Changed: [controls / sample / variable treatment] 中的一项或多项
+- Specifically: [具体变动，例如 "added firm size control", "restricted sample to post-2010"]
+- Reason: [为什么这样改，必须独立于"系数是否显著"的理由]
+- Baseline coefficient → New coefficient: [值 + SE + p-value 对比]
+- Hard constraint check:
+  - [ ] FE 未换（与 baseline 相同）
+  - [ ] Cluster 未换
+  - [ ] Estimand 含义未变
+```
+
+**三条硬 check 任一为"未通过"**：必须立即停止迭代，把该次尝试标记为 INVALID，回退到上一次 valid 的 spec。
+
+**迭代次数上限**：默认 2，最大 3。达到上限仍未通过判决的 idea 必须进入淘汰库（`idea/eliminated_pool.md`，仅 full_research_workflow 下），不得继续硬试。
 
 ---
 
@@ -235,7 +274,13 @@ description: Social Science Research Co-pilot 2.0.0 的执行 workflow，对应 
 - placebo（若适合）
 - 固定效应与标准误处理的合理性检查
 
-不要为了“看起来完整”而全部都跑。
+**Skill Dispatch（robustness 阶段）：**
+- 若替代设定在 Phase 4 使用的方法 skill 适用范围内（如 DID 的 Callaway-Sant'Anna / Sun-Abraham staggered-robust，IV 的弱工具检验 + Anderson-Rubin CI，面板的 cluster-bootstrap，RDD 的 bandwidth sensitivity），**复用同一个方法 skill 的 robustness 小节**。
+- 替代变量定义 / 样本限制 / winsorize 类：辅助调用 `data-cleaning` skill。
+- 分组对比 / 描述性支持：辅助调用 `stats` skill。
+- 所有稳健性结果的表格输出：统一走 `table` skill。
+
+不要为了”看起来完整”而全部都跑。
 
 #### Step 3: Run and Record Checks
 

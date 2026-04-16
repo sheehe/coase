@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
+import { buildCriticPanelMcpServer } from './critic-panel-mcp';
 
 // 不要用 require.resolve('@anthropic-ai/claude-agent-sdk') 去定位 cli.js：
 // 1. SDK 的 package.json exports 只开放了 '.' / './embed' 等子路径，没有 './package.json'，
@@ -45,6 +46,14 @@ const COASE_SYSTEM_PROMPT_APPEND = `
 - 默认使用简体中文输出；方法术语、代码、变量名和模型名可以保留英文。
 - 你拥有 Claude Code / Agent SDK 的内建工具能力，可按任务需要自由使用读取、搜索、编辑、命令行、联网等工具。
 - Coase 直接加载了一整套 econometrics plugin skills。请按任务需要主动使用 data-fetcher、data-cleaning、did-analysis、iv-estimation、panel-data、paper-writing、table、figure、stats、time-series、synthetic-control、ml-causal、literature-review 等技能。
+- coase-builtin 还提供以下通用能力 skill，按需调用：
+  - planner_workflow / executor_workflow / writer_workflow：规划、执行、写作三大阶段的 workflow 模板。
+  - make-plan：为复杂任务生成分阶段实施计划（适合大型研究或重构）。
+  - do：按 make-plan 的计划分发 subagent 执行并收敛结果。
+  - mem-search：跨会话检索过往工作记忆（"以前是不是做过这个 / 上次怎么解决的"）。
+  - timeline-report：生成项目时间线总结，用于回顾研究进度。
+  - smart-explore：基于 tree-sitter AST 的结构化代码探索，大仓导航时比盲读文件省 token。
+  - claude-api：构建或调优 Claude API / Agent SDK 应用时的最佳实践（prompt caching、thinking、auto-compact、tool use 等）。
 - 特别注意：planner、datafetcher、analyst、writer、reviewer 现在只是 Coase 的工作阶段名称，不是可调用的 skill 名。不要把这些阶段名当作 skill 去调用。
 - Coase 的工作流是软编排：研究规划、数据准备、分析、写作、审校只是工作模式，不是硬状态机。你应根据研究进展自主切换合适技能。
 - 你可以在需要时调用合适的 sub-agent 处理局部任务，但主线程必须保留研究主线与最终整合责任。
@@ -278,6 +287,9 @@ export async function createChatQuery({
       { type: 'local', path: pluginPaths.builtin },
       { type: 'local', path: pluginPaths.user },
     ],
+    mcpServers: {
+      'coase-critic-panel': buildCriticPanelMcpServer(),
+    },
     hooks: COASE_HOOKS,
     includeHookEvents: true,
     agentProgressSummaries: true,

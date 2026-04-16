@@ -24,6 +24,9 @@ interface Props {
   onSave: (record: ProviderRecord) => Promise<void>;
 }
 
+const AUTO_COMPACT_MIN = 100_000;
+const AUTO_COMPACT_MAX = 1_000_000;
+
 function emptyRecord(): ProviderRecord {
   return {
     id: '',
@@ -36,28 +39,34 @@ function emptyRecord(): ProviderRecord {
   };
 }
 
-const AUTO_COMPACT_MIN = 100_000;
-const AUTO_COMPACT_MAX = 1_000_000;
-
 function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, string>> {
   const errors: Partial<Record<keyof ProviderRecord, string>> = {};
+
   if (!record.id.trim()) errors.id = 'ID 不能为空';
-  else if (!/^[a-z0-9][a-z0-9-_]*$/i.test(record.id))
+  else if (!/^[a-z0-9][a-z0-9-_]*$/i.test(record.id)) {
     errors.id = 'ID 只能包含字母、数字、- 和 _';
+  }
+
   if (!record.label.trim()) errors.label = '名称不能为空';
+
   if (!record.baseURL.trim()) errors.baseURL = '接口地址不能为空';
-  else if (!/^https?:\/\//.test(record.baseURL)) errors.baseURL = '接口地址必须以 http(s):// 开头';
-  if (!record.model.trim()) errors.model = '模型名不能为空';
+  else if (!/^https?:\/\//.test(record.baseURL)) {
+    errors.baseURL = '接口地址必须以 http(s):// 开头';
+  }
+
+  if (!record.model.trim()) errors.model = '模型不能为空';
   if (!record.credential.trim()) errors.credential = 'API Key / Token 不能为空';
+
   if (record.autoCompactWindow !== undefined) {
     if (
       !Number.isFinite(record.autoCompactWindow) ||
       record.autoCompactWindow < AUTO_COMPACT_MIN ||
       record.autoCompactWindow > AUTO_COMPACT_MAX
     ) {
-      errors.autoCompactWindow = `自动压缩阈值需在 ${AUTO_COMPACT_MIN.toLocaleString()} – ${AUTO_COMPACT_MAX.toLocaleString()} 之间`;
+      errors.autoCompactWindow = `自动压缩阈值需在 ${AUTO_COMPACT_MIN.toLocaleString()} - ${AUTO_COMPACT_MAX.toLocaleString()} 之间`;
     }
   }
+
   return errors;
 }
 
@@ -72,17 +81,16 @@ export default function ProviderEditDialog({
   const [form, setForm] = useState<ProviderRecord>(() => initial ?? emptyRecord());
   const [errors, setErrors] = useState<Partial<Record<keyof ProviderRecord, string>>>({});
   const [saving, setSaving] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setForm(initial ?? emptyRecord());
-      setErrors({});
-      setSelectedPresetId('');
-      setTestResult(null);
-    }
+    if (!open) return;
+    setForm(initial ?? emptyRecord());
+    setErrors({});
+    setSelectedPresetId('');
+    setTestResult(null);
   }, [open, initial]);
 
   function updateField<K extends keyof ProviderRecord>(key: K, value: ProviderRecord[K]) {
@@ -92,8 +100,10 @@ export default function ProviderEditDialog({
   function applyPreset(presetId: string) {
     setSelectedPresetId(presetId);
     if (!presetId) return;
-    const preset = presets.find((p) => p.id === presetId);
+
+    const preset = presets.find((item) => item.id === presetId);
     if (!preset) return;
+
     setForm((prev) => ({
       ...prev,
       id: mode === 'new' ? preset.id : prev.id,
@@ -106,9 +116,10 @@ export default function ProviderEditDialog({
   }
 
   async function handleSave() {
-    const errs = validate(form);
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    const nextErrors = validate(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     setSaving(true);
     try {
       await onSave(form);
@@ -121,9 +132,10 @@ export default function ProviderEditDialog({
   }
 
   async function handleTest() {
-    const errs = validate(form);
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    const nextErrors = validate(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     setTesting(true);
     setTestResult(null);
     try {
@@ -166,17 +178,20 @@ export default function ProviderEditDialog({
     >
       <div className="flex flex-col gap-4">
         {mode === 'new' && (
-          <Field label="从预设快速填充" hint="选择预设后会覆盖 ID、名称、接口地址、模型与鉴权方式。">
+          <Field
+            label="从预设快速填充"
+            hint="选择预设后会覆盖 ID、名称、接口地址、模型和鉴权方式。"
+          >
             <Select value={selectedPresetId} onChange={(e) => applyPreset(e.target.value)}>
               <option value="">不使用预设，手动填写</option>
-              {presets.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} · {p.defaultModel}
+              {presets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label} · {preset.defaultModel}
                 </option>
               ))}
             </Select>
             {selectedPresetId && (
-              <PresetHint preset={presets.find((p) => p.id === selectedPresetId)} />
+              <PresetHint preset={presets.find((preset) => preset.id === selectedPresetId)} />
             )}
           </Field>
         )}
@@ -186,7 +201,7 @@ export default function ProviderEditDialog({
             value={form.id}
             onChange={(e) => updateField('id', e.target.value)}
             disabled={mode === 'edit'}
-            placeholder="moonshot-kimi"
+            placeholder="minimax-anthropic"
           />
         </Field>
 
@@ -194,7 +209,7 @@ export default function ProviderEditDialog({
           <Input
             value={form.label}
             onChange={(e) => updateField('label', e.target.value)}
-            placeholder="Moonshot（Kimi）"
+            placeholder="MiniMax"
           />
         </Field>
 
@@ -205,7 +220,7 @@ export default function ProviderEditDialog({
           >
             <option value="anthropic">Anthropic（原生或兼容端点）</option>
             <option value="openai" disabled>
-              OpenAI（Phase 2.5 接入）
+              OpenAI（后续接入）
             </option>
           </Select>
         </Field>
@@ -214,7 +229,7 @@ export default function ProviderEditDialog({
           <Input
             value={form.baseURL}
             onChange={(e) => updateField('baseURL', e.target.value)}
-            placeholder="https://api.moonshot.cn/anthropic"
+            placeholder="https://api.minimax.io/anthropic"
           />
         </Field>
 
@@ -222,7 +237,7 @@ export default function ProviderEditDialog({
           <Input
             value={form.model}
             onChange={(e) => updateField('model', e.target.value)}
-            placeholder="kimi-k2-0711-preview"
+            placeholder="MiniMax-M2.7"
           />
         </Field>
 
@@ -251,7 +266,7 @@ export default function ProviderEditDialog({
 
         <Field
           label="自动压缩阈值（可选）"
-          hint={`累计 token 达到该值时 SDK 会自动触发 compact。留空走模型自适应默认：1M 窗口 ≈ 850k，其它 ≈ 160k。允许范围 ${AUTO_COMPACT_MIN.toLocaleString()} – ${AUTO_COMPACT_MAX.toLocaleString()}。`}
+          hint={`累计 token 达到该值时 SDK 会自动触发 compact。留空走模型自适应默认：1M 窗口约 850k，其它约 160k。允许范围 ${AUTO_COMPACT_MIN.toLocaleString()} - ${AUTO_COMPACT_MAX.toLocaleString()}。`}
           error={errors.autoCompactWindow}
         >
           <Input
@@ -267,10 +282,10 @@ export default function ProviderEditDialog({
                 updateField('autoCompactWindow', undefined);
                 return;
               }
-              const num = Number(raw);
-              updateField('autoCompactWindow', Number.isFinite(num) ? num : undefined);
+              const value = Number(raw);
+              updateField('autoCompactWindow', Number.isFinite(value) ? value : undefined);
             }}
-            placeholder="留空 = 走模型自适应默认"
+            placeholder="留空 = 使用模型自适应默认"
           />
         </Field>
 
@@ -284,12 +299,31 @@ function TestResultBanner({ result }: { result: TestConnectionResult }) {
   const tone = result.ok
     ? 'border-border bg-app text-fg'
     : 'border-danger/30 bg-danger/5 text-danger';
+
   return (
-    <div className={`rounded-xl border px-3 py-2 text-xs font-mono ${tone}`}>
-      <div className="flex items-center gap-2">
+    <div className={`rounded-xl border px-3 py-3 text-xs ${tone}`}>
+      <div className="flex items-center gap-2 font-mono">
         <span>{result.ok ? '成功' : '失败'}</span>
         <span className="break-all">{result.message}</span>
       </div>
+
+      {result.requestText && (
+        <div className="mt-3 flex justify-end">
+          <div className="max-w-[85%] rounded-[18px] rounded-br-md bg-fg px-3 py-2 text-[12px] text-app">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-app/70">发送消息</div>
+            <div className="leading-6">{result.requestText}</div>
+          </div>
+        </div>
+      )}
+
+      {result.responseText && (
+        <div className="mt-2 flex justify-start">
+          <div className="max-w-[85%] rounded-[18px] rounded-bl-md border border-border/80 bg-surface px-3 py-2 text-[12px] text-fg">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-fg-subtle">模型回复</div>
+            <div className="whitespace-pre-wrap leading-6">{result.responseText}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

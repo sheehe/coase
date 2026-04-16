@@ -1,4 +1,5 @@
 import type {
+  CriticPanelResult,
   ProviderPreset,
   ProviderRecord,
   ProvidersFile,
@@ -159,6 +160,13 @@ export interface ChatResumeInput {
 
 export type Unsubscribe = () => void;
 
+export interface CriticPanelInvokePayload {
+  system?: string;
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  maxTokens?: number;
+  timeoutMs?: number;
+}
+
 export interface ProvidersApi {
   list: () => Promise<ProvidersFile>;
   upsert: (record: ProviderRecord) => Promise<void>;
@@ -166,6 +174,9 @@ export interface ProvidersApi {
   setActive: (id: string | null) => Promise<void>;
   presets: () => Promise<ProviderPreset[]>;
   testConnection: (record: ProviderRecord) => Promise<TestConnectionResult>;
+  getCriticPanel: () => Promise<string[]>;
+  setCriticPanel: (ids: string[] | null) => Promise<void>;
+  invokeCriticPanel: (payload: CriticPanelInvokePayload) => Promise<CriticPanelResult>;
 }
 
 export interface ChatApi {

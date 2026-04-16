@@ -85,6 +85,10 @@ const api: CoaseApi = {
     setActive: (id: string | null) => ipcRenderer.invoke('providers:setActive', id),
     presets: () => ipcRenderer.invoke('providers:presets'),
     testConnection: (record: ProviderRecord) => ipcRenderer.invoke('providers:test', record),
+    getCriticPanel: () => ipcRenderer.invoke('providers:getCriticPanel'),
+    setCriticPanel: (ids: string[] | null) =>
+      ipcRenderer.invoke('providers:setCriticPanel', ids),
+    invokeCriticPanel: (payload) => ipcRenderer.invoke('providers:invokeCriticPanel', payload),
   },
 
   sessions: {

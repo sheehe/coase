@@ -27,10 +27,13 @@ import type { SessionLogEntry } from '../../shared/runs';
 import { startChatSession, type ChatSessionHandle } from '../../agent/orchestrator/run-chat';
 import {
   deleteProvider,
+  getCriticPanelIds,
   listProviders,
   setActiveProvider,
+  setCriticPanelIds,
   upsertProvider,
 } from '../../agent/providers/config-store';
+import { invokeCriticPanel } from '../../agent/providers/invoke';
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
 import { deleteUserSkill, importSkill, openUserSkillsDir } from '../../agent/skills/skill-manager';
@@ -233,6 +236,45 @@ function registerIpc(): void {
     validateProviderRecord(record);
     return testProviderConnection(record);
   });
+
+  ipcMain.handle('providers:getCriticPanel', () => getCriticPanelIds());
+
+  ipcMain.handle('providers:setCriticPanel', async (_event, ids: string[] | null) => {
+    if (ids !== null && !Array.isArray(ids)) {
+      throw new Error('providers:setCriticPanel expects an array or null');
+    }
+    if (Array.isArray(ids)) {
+      for (const id of ids) {
+        if (typeof id !== 'string' || !id) {
+          throw new Error('providers:setCriticPanel array must contain non-empty strings');
+        }
+      }
+    }
+    await setCriticPanelIds(ids);
+  });
+
+  ipcMain.handle(
+    'providers:invokeCriticPanel',
+    async (
+      _event,
+      payload: {
+        system?: string;
+        messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+        maxTokens?: number;
+        timeoutMs?: number;
+      },
+    ) => {
+      if (!payload || !Array.isArray(payload.messages) || payload.messages.length === 0) {
+        throw new Error('providers:invokeCriticPanel needs messages[]');
+      }
+      return invokeCriticPanel({
+        system: payload.system,
+        messages: payload.messages,
+        maxTokens: payload.maxTokens,
+        timeoutMs: payload.timeoutMs,
+      });
+    },
+  );
 
   ipcMain.handle('sessions:recent', async (_event, limit?: number) => {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;

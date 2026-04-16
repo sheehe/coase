@@ -105,6 +105,8 @@ description: Social Science Research Co-pilot 2.0.0 的写作 workflow，对应 
 
 #### Step 2: Table Package Generation
 
+**必须调用 `table` skill** 获取标准化表格模板（LaTeX booktabs / Markdown / 经济学期刊风格）。不要手搓表格格式。
+
 生成用户可直接使用的表格包。
 
 请完成以下任务：
@@ -125,6 +127,8 @@ description: Social Science Research Co-pilot 2.0.0 的写作 workflow，对应 
 
 #### Step 3: Figure Package Generation
 
+**必须调用 `figure` skill** 获取标准化图形模板（coefficient plot / event study plot / 分布图 / 异质性可视化）。不要手搓 matplotlib / ggplot 基础参数。
+
 生成最必要的图形建议或图形输出。
 
 请完成以下任务：
@@ -144,6 +148,8 @@ description: Social Science Research Co-pilot 2.0.0 的写作 workflow，对应 
    - 它不能证明什么
 
 #### Step 4: Writing Blocks Generation
+
+**必须调用 `paper-writing` skill** 获取经济学论文段落模板（Main Results / Explanation / Robustness / Limitation）。如需文献综述章节，调用 `literature-review` skill；如需答辩 / 汇报材料，调用 `beamer-ppt` skill。
 
 生成论文中可直接使用的文字模块。
 

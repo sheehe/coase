@@ -28,46 +28,90 @@ export interface SelectedSlashCommand {
 
 const WORKFLOW_ALIASES: SlashCommandDef[] = [
   {
-    id: 'idea-discovery',
-    trigger: '/idea-discovery',
-    title: 'Idea Discovery',
+    id: 'full-research',
+    trigger: '/full-research',
+    title: 'Full Research Pipeline',
     description:
-      'Workflow 1: 从研究方向或初步想法出发，收敛成可执行研究方案，并沉淀规划文档。',
+      'Workflow 1: 从方向出发，brainstorm idea → 多模型对抗评分迭代 → 设计 → 执行 → 诊断判决，失败按 fallback 队列切换方法。适合"什么都还没想好"。',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
-    aliases: ['找idea', '选题探索', '方向探索', '研究规划'],
-    targetSkills: ['planner_workflow'],
-    guidance:
-      '把当前任务当作规划型 workflow。优先调用 planner_workflow，先梳理研究目标、数据与问题对齐、文献与假设，再形成可执行的 baseline design 和后续计划。',
+    aliases: ['完整研究', '从零开始', '找方向', 'full pipeline', '全流程'],
+    targetSkills: ['full_research_workflow'],
+    guidance: [
+      '把当前任务当作完整研究管线。优先调用 full_research_workflow，它会依次编排：idea 生成 → 多模型对抗评分迭代 → 用户选定 → planner_workflow 锁 baseline design（含 fallback 识别策略队列）→ executor_workflow 执行 → significance-verdict 诊断判决。',
+      '对抗评分阶段：用户已在设置页选好"评审模型组"。调用 idea-critic skill，按 provider 并行调度多模型评分并聚合。用户感知上只需要选模型，不用关心底层是 SDK 直连还是 MCP。',
+      '执行阶段失败处理：只在"识别诊断失败"（平行趋势被拒 / 弱工具 / 带宽崩 / 测量失效等）时才按 planner 预注册的 fallback 队列切换识别策略。**p 值不显著且识别通过不是失败**，那是合法 null result，按 null result 路径进入 robustness 和写作。除非 exploratory_mode 开启，否则绝不允许"系数不显著就换方法"。',
+      'fallback 队列、诊断套件、exploratory_mode 的具体实现参见 full_research_workflow SKILL.md。所有方法切换记入 verdict/spec_log.md，论文 appendix 必须披露 model building process。',
+    ].join('\n\n'),
   },
   {
-    id: 'experiment-bridge',
-    trigger: '/experiment-bridge',
-    title: 'Experiment Bridge',
+    id: 'idea-to-results',
+    trigger: '/idea-to-results',
+    title: 'Idea to Results',
     description:
-      'Workflow 2: 已经有方案或 baseline design 后，进入实验执行与结果沉淀流程。',
+      'Workflow 2: 已经有 idea，走设计 → 执行 → 诊断判决 → （失败则 fallback 换方法）。跳过 idea 生成和对抗评分。',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
-    aliases: ['实验桥接', '实现实验', '跑实验', '实验执行'],
+    aliases: ['从idea到结果', '有想法跑实验', 'idea-discovery', '选题已定'],
+    targetSkills: ['planner_workflow', 'executor_workflow'],
+    guidance: [
+      '把当前任务当作"idea→结果"链路。先调用 planner_workflow 完成 stage_1~stage_8 规划，**Phase 2 Step 3 Baseline Design Lock 必须同时注册 primary + 至少一个 fallback 识别策略**，写入 planner/stage_7_baseline_design.md 的 fallback_queue 字段。',
+      '规划完成后自动进入 executor_workflow，按 primary 策略跑 baseline。触发 significance-verdict 判决：识别通过 + 显著 → robustness；识别通过 + null + 功效足 → 标记合法 null result 继续 robustness；识别通过 + null + 功效不足 → 建议扩样本/改测量；识别失败 → 按 fallback 队列切下一策略重跑。',
+      '所有切换必须记入 verdict/spec_log.md，禁止"系数不显著就换方法"。exploratory_mode 可放宽，但产物强制标注 EXPLORATORY。',
+    ].join('\n\n'),
+  },
+  {
+    id: 'run-experiment',
+    trigger: '/run-experiment',
+    title: 'Run Experiment',
+    description:
+      'Workflow 3: 已有 idea + 已锁定 baseline design，直接跑主回归、诊断、稳健性。',
+    kind: 'workflow',
+    source: 'alias',
+    sourceLabel: '工作流',
+    aliases: ['跑实验', '跑主回归', '执行', 'experiment-bridge', '实验桥接'],
     targetSkills: ['executor_workflow'],
-    guidance:
-      '把当前任务当作执行型 workflow。优先调用 executor_workflow，读取已有方案与设计文档，完成数据准备、基线回归、稳健性检验、表图产出和执行总结。',
+    guidance: [
+      '把当前任务当作纯执行工作流。前置条件：planner/stage_7_baseline_design.md 已存在且锁定 primary + fallback_queue。若缺失，停下来让用户先走 /idea-to-results 或 /full-research。',
+      '按 baseline design 中锁定的识别策略调用对应方法 skill（ols-regression / did-analysis / iv-estimation / rdd-analysis / panel-data / synthetic-control / time-series / ml-causal）。主回归完成后强制跑诊断套件（识别假设 + 功效分析 + 测量敏感性），再调用 significance-verdict 判决。**禁止擅自切换识别策略**，切换必须由诊断驱动。',
+      '诊断失败进入 fallback 队列时，每一次切换在 verdict/spec_log.md 里写明：切换的诊断理由、被否决的策略、新策略。所有产物走 table / figure skill 规范化。',
+    ].join('\n\n'),
   },
   {
     id: 'paper-writing',
     trigger: '/paper-writing',
     title: 'Paper Writing',
     description:
-      'Workflow 3: 基于已有实验结果与材料，组织 claims、证据、章节和 LaTeX 论文产物。',
+      'Workflow 4: 基于已有 executor/ 结果，组织 claims、章节文字、表图和完整 LaTeX 论文。',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
     aliases: ['论文写作', '写论文', 'paper'],
     targetSkills: ['writer_workflow'],
-    guidance:
-      '把当前任务当作写作型 workflow。优先调用 writer_workflow，基于现有计划、结果、表图和审阅材料，组织 claims-evidence、章节文本、参考文献和完整论文。',
+    guidance: [
+      '把当前任务当作写作型 workflow。优先调用 writer_workflow，基于 executor/ 目录下已有的主回归、诊断、稳健性结果，组织 claims-evidence、章节文本、表图和完整论文。',
+      'Phase 6 Table Package: 调用 table skill 生成 Main Results Table / Explanation Table / Robustness Table / Appendix Tables。Phase 6 Figure Package: 调用 figure skill 生成 coefficient plot / event study plot / 分布图。Phase 6 Writing Blocks: 调用 paper-writing skill 生成各段文字；需要幻灯片调 beamer-ppt；需要文献综述调 literature-review。',
+      '若 verdict/spec_log.md 里有方法切换记录，appendix 必须披露 model building process（切换理由 + 诊断证据）。**本阶段不得新增回归、不得补跑方法 skill**，文字必须与表格结果完全一致。',
+    ].join('\n\n'),
+  },
+  {
+    id: 'paper-review',
+    trigger: '/paper-review',
+    title: 'Paper Review',
+    description:
+      'Workflow 5: 审稿人视角对 draft 做对抗评审，支持自评模式和模拟 Reviewer 2 硬审。输出意见清单 + 改稿 todo。',
+    kind: 'workflow',
+    source: 'alias',
+    sourceLabel: '工作流',
+    aliases: ['审稿', '论文评审', 'review', '对抗审阅'],
+    targetSkills: ['paper_review_workflow'],
+    guidance: [
+      '把当前任务当作评审工作流。优先调用 paper_review_workflow。输入是用户提供的论文 draft（LaTeX / PDF / Markdown）。用户应已选好"评审模型组"和评审模式（self-review / reviewer-2 / both）。',
+      '调用 paper-reviewer skill 对每个选中的 provider 模型并行生成 referee report，维度包括识别可信度、内部/外部效度、计量 soundness、写作清晰度、贡献定位。',
+      '聚合所有 referee report，按"共识项 / 重大分歧 / 单一模型独有"三档排序优先级，转成可执行的改稿 todo 清单。不得替用户改稿，只输出意见和建议。',
+    ].join('\n\n'),
   },
 ];
 
@@ -121,7 +165,40 @@ const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
 ]);
 
 const WORKFLOW_ALIAS_IDS = new Set(WORKFLOW_ALIASES.map((command) => command.id));
-const HIDDEN_SKILL_IDS = new Set(['planner_workflow', 'executor_workflow', 'writer_workflow']);
+const HIDDEN_SKILL_IDS = new Set([
+  'planner_workflow',
+  'executor_workflow',
+  'writer_workflow',
+  'full_research_workflow',
+  'paper_review_workflow',
+  'ols-regression',
+  'did-analysis',
+  'iv-estimation',
+  'rdd-analysis',
+  'panel-data',
+  'synthetic-control',
+  'time-series',
+  'ml-causal',
+  'data-cleaning',
+  'data-fetcher',
+  'stats',
+  'figure',
+  'table',
+  'paper-writing',
+  'literature-review',
+  'beamer-ppt',
+  'claude-api',
+  'idea-generator',
+  'idea-critic',
+  'significance-verdict',
+  'paper-reviewer',
+  'do',
+  'make-plan',
+  'smart-explore',
+  'mem-search',
+  'timeline-report',
+  'latex_compile_repair',
+]);
 
 export function buildSlashCommands(skills: SkillInfo[]): SlashCommandDef[] {
   const merged = new Map<string, SlashCommandDef>();

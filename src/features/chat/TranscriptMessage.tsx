@@ -101,7 +101,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
     case 'turn_result':
       return (
         <DividerLabel
-          text={`回合${entry.ok ? '完成' : '失败'} 路 ${entry.detail}`}
+          text={`回合${entry.ok ? '完成' : '失败'} · ${entry.detail}`}
           danger={!entry.ok}
         />
       );
@@ -109,7 +109,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">你 路 {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">你 · {time}</div>
             <div className="rounded-2xl rounded-tr-md border border-border bg-surface px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -120,7 +120,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 路 {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 · {time}</div>
             <div className="rounded-2xl rounded-tr-md border border-border-strong bg-app px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -145,7 +145,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
             <span className="font-medium text-fg-muted">Subagent</span>
             <span className="text-[10px] uppercase tracking-wide text-fg-subtle/90">{label}</span>
             {metaParts.length > 0 && (
-              <span className="text-[10px] text-fg-subtle/80">{metaParts.join(' 路 ')}</span>
+              <span className="text-[10px] text-fg-subtle/80">{metaParts.join(' · ')}</span>
             )}
             {entry.phase === 'progress' && (
               <span className="text-[10px] text-fg-subtle/70">{headline}</span>
@@ -180,7 +180,7 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center gap-2 text-[11px] text-fg-subtle">
-              <span>Coase 路 {time}</span>
+              <span>Coase · {time}</span>
               {entry.streaming && <span className="text-accent">正在生成…</span>}
             </div>
             <MarkdownContent

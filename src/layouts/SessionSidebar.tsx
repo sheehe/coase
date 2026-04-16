@@ -20,6 +20,7 @@ import MarkdownContent from '../components/MarkdownContent';
 import Button from '../components/ui/Button';
 import Dialog from '../components/ui/Dialog';
 import { useChat } from '../features/chat/ChatContext';
+import { sessionsStore } from '../features/chat/sessions-store';
 
 type SessionGroup = {
   title: string;
@@ -127,6 +128,9 @@ export default function SessionSidebar() {
       setDeletingSessionId(entry.sessionId);
       try {
         await window.coase.sessions.delete(entry.sessionId);
+        // 磁盘删了，store 里残留的 runtime（如果有）也要释放，避免事件监听悬空
+        // 或用户从其他入口又切回到一条已经被删的会话视图。
+        sessionsStore.disposeRuntime(entry.sessionId);
         setSessions((prev) => prev.filter((item) => item.sessionId !== entry.sessionId));
         setExpandedSessions((prev) => {
           const next = { ...prev };
@@ -164,8 +168,7 @@ export default function SessionSidebar() {
               void onNewSession();
               navigate('/chat');
             }}
-            disabled={chatState === 'running'}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface px-3 text-[13px] font-medium text-fg transition hover:bg-app disabled:cursor-not-allowed disabled:text-fg-subtle"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface px-3 text-[13px] font-medium text-fg transition hover:bg-app"
           >
             <Plus size={13} />
             <span>新会话</span>
@@ -228,6 +231,9 @@ export default function SessionSidebar() {
                         tree,
                       );
                       const isLoadingTree = !!loadingTrees[entry.sessionId];
+                      // 磁盘 finishReason=undefined 的占位快照仍旧代表"运行中
+                      // （或上次崩溃未 seal）"——保留这个信号只用于禁用删除按钮，
+                      // 不再作为 UI 徽章展示。串行化模式下运行中会话永远就是前台。
                       const isRunning = entry.finishReason === undefined;
                       const isCurrent = entry.sessionId === sessionId;
                       const deleteDisabled =
@@ -270,22 +276,6 @@ export default function SessionSidebar() {
                               <span className="line-clamp-1 min-w-0 flex-1 text-[12px] leading-5 text-fg">
                                 {entry.firstPrompt.slice(0, 48)}
                               </span>
-                              {isRunning ? (
-                                <span
-                                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-1.5 py-[1px] text-[10px] font-medium text-accent"
-                                  title="会话正在运行"
-                                >
-                                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-                                  运行中
-                                </span>
-                              ) : entry.ok === false ? (
-                                <span
-                                  className="inline-flex shrink-0 items-center rounded-full border border-danger/30 bg-danger/5 px-1.5 py-[1px] text-[10px] font-medium text-danger"
-                                  title={entry.errorMessage ?? '会话以失败结束'}
-                                >
-                                  失败
-                                </span>
-                              ) : null}
                             </button>
 
                             <button

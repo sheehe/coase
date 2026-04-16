@@ -16,6 +16,7 @@ export type { ProvidersFile };
 const EMPTY_FILE: ProvidersFile = {
   version: 1,
   activeProviderId: null,
+  criticPanelIds: null,
   providers: [],
 };
 
@@ -94,6 +95,12 @@ export async function deleteProvider(id: string): Promise<void> {
   if (file.activeProviderId === id) {
     file.activeProviderId = file.providers[0]?.id ?? null;
   }
+  if (Array.isArray(file.criticPanelIds)) {
+    file.criticPanelIds = file.criticPanelIds.filter((pid) => pid !== id);
+    if (file.criticPanelIds.length === 0) {
+      file.criticPanelIds = null;
+    }
+  }
   await saveProvidersFile(file);
 }
 
@@ -103,5 +110,32 @@ export async function setActiveProvider(id: string | null): Promise<void> {
     throw new Error(`setActiveProvider: id=${id} 不存在`);
   }
   file.activeProviderId = id;
+  await saveProvidersFile(file);
+}
+
+/** 读取当前的评审模型组（critic panel）provider id 列表。未配置时返回 []。 */
+export async function getCriticPanelIds(): Promise<string[]> {
+  const file = await loadProvidersFile();
+  if (!Array.isArray(file.criticPanelIds)) return [];
+  // 过滤掉已经不存在的 provider（防止 providers.json 被手动编辑）
+  const validIds = new Set(file.providers.map((p) => p.id));
+  return file.criticPanelIds.filter((id) => validIds.has(id));
+}
+
+/** 保存评审模型组。传入空数组 / null 时清空。ids 会按存在性过滤 + 去重。 */
+export async function setCriticPanelIds(ids: string[] | null): Promise<void> {
+  const file = await loadProvidersFile();
+  if (ids === null || ids.length === 0) {
+    file.criticPanelIds = null;
+  } else {
+    const validIds = new Set(file.providers.map((p) => p.id));
+    const missing = ids.filter((id) => !validIds.has(id));
+    if (missing.length > 0) {
+      throw new Error(`setCriticPanelIds: 以下 provider id 不存在: ${missing.join(', ')}`);
+    }
+    // 保持用户传入的顺序但去重
+    const seen = new Set<string>();
+    file.criticPanelIds = ids.filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
+  }
   await saveProvidersFile(file);
 }

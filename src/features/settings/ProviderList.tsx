@@ -86,7 +86,7 @@ function ProviderRow({
           className={[
             'mt-0.5 h-4 w-4 shrink-0 rounded-full border transition',
             isActive
-              ? 'border-accent bg-accent'
+              ? 'border-success bg-success'
               : 'border-border-strong bg-transparent hover:border-fg-muted',
           ].join(' ')}
           aria-label={isActive ? '当前已启用' : '设为已启用'}

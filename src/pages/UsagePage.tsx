@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { ChevronLeft, RefreshCw } from '../components/Icons';
-import Button from '../components/ui/Button';
+import { ChevronLeft } from '../components/Icons';
 import { Card, CardBody } from '../components/ui/Card';
 import type { SessionLogEntry } from '../../shared/runs';
 import { aggregateUsage, type Breakdown, type Bucket } from './usage-aggregation';
@@ -67,7 +66,7 @@ export default function UsagePage() {
   const usage = useMemo(() => aggregateUsage(sessions), [sessions]);
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 py-8">
+    <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
           <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Usage</div>
@@ -80,15 +79,6 @@ export default function UsagePage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void load()}
-            className="gap-1.5 rounded-full px-3.5"
-          >
-            <RefreshCw size={13} />
-            刷新
-          </Button>
           <Link
             to="/chat"
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
