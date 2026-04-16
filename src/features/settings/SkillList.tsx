@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import Button from '../../components/ui/Button';
+import { Card, CardBody } from '../../components/ui/Card';
 import type { SkillInfo } from '../../../shared/skills';
 
-/**
- * 只读的 skill 列表面板，Settings 页里展示当前可用 skill。
- */
 export default function SkillList() {
   const [skills, setSkills] = useState<SkillInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -23,25 +23,83 @@ export default function SkillList() {
     void reload();
   }, [reload]);
 
+  const handleImport = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await window.coase.skills.import();
+      if (result.ok) {
+        await reload();
+      } else if (result.error && result.error !== 'cancelled') {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [reload]);
+
+  const handleDelete = useCallback(
+    async (name: string) => {
+      setBusy(true);
+      try {
+        await window.coase.skills.delete(name);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [reload],
+  );
+
+  const handleOpenDir = useCallback(() => {
+    void window.coase.skills.openUserDir();
+  }, []);
+
   const builtin = skills?.filter((s) => s.source === 'coase-builtin') ?? [];
   const user = skills?.filter((s) => s.source === 'coase-user') ?? [];
 
   return (
-    <section className="rounded-2xl border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-fg">Skills</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
-            由 coase-builtin 与 coase-user 两个 plugin 提供。SDK 自带的 skills 不在这里列出。
-          </p>
+    <Card className="overflow-hidden">
+      <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+        <div className="min-w-0">
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">技能</div>
+          <div className="mt-1 text-[13px] leading-6 text-fg-muted">
+            由 coase-builtin 与 coase-user 两个 plugin 提供。导入 SKILL.md 文件或文件夹即可安装新技能。
+          </div>
         </div>
-        <button
-          onClick={() => void reload()}
-          className="rounded-xl border border-border px-3 py-1.5 text-[11px] text-fg-muted transition hover:border-border-strong hover:text-fg"
-        >
-          刷新
-        </button>
-      </div>
+
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleOpenDir}
+            className="rounded-full px-3.5"
+            title="在文件管理器中打开用户技能目录"
+          >
+            打开目录
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleImport()}
+            disabled={busy}
+            className="rounded-full px-3.5"
+          >
+            {busy ? '导入中…' : '导入技能'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void reload()}
+            className="rounded-full px-3.5"
+          >
+            刷新
+          </Button>
+        </div>
+      </CardBody>
 
       {error && (
         <div className="border-b border-danger/20 bg-danger/5 px-5 py-3 text-sm text-danger">
@@ -49,56 +107,89 @@ export default function SkillList() {
         </div>
       )}
 
-      {!skills && !error && <div className="px-5 py-4 text-xs text-fg-subtle">loading…</div>}
+      {!skills && !error && <div className="px-5 py-10 text-sm text-fg-subtle">正在加载技能…</div>}
 
       {skills && (
         <div className="divide-y divide-border">
-          <SkillGroup title="内置 (coase-builtin)" entries={builtin} emptyHint="没有内置 skill" />
           <SkillGroup
-            title="用户 (coase-user)"
+            title="内置"
+            sourceLabel="COASE-BUILTIN"
+            entries={builtin}
+            emptyHint="当前没有内置 skill。"
+          />
+          <SkillGroup
+            title="用户"
+            sourceLabel="COASE-USER"
             entries={user}
-            emptyHint="用户目录还没有 skill。Step 2 的编辑器会支持在这里新建。"
+            emptyHint="还没有安装用户技能。点击「导入技能」按钮来安装，或将 SKILL.md 放入用户目录。"
+            onDelete={handleDelete}
+            busy={busy}
           />
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
 function SkillGroup({
   title,
+  sourceLabel,
   entries,
   emptyHint,
+  onDelete,
+  busy,
 }: {
   title: string;
+  sourceLabel: string;
   entries: SkillInfo[];
   emptyHint: string;
+  onDelete?: (name: string) => Promise<void>;
+  busy?: boolean;
 }) {
   return (
-    <div className="px-5 py-4">
-      <div className="mb-2 text-[11px] uppercase tracking-wider text-fg-subtle">
-        {title} · {entries.length}
+    <section className="px-5 py-4">
+      <div className="mb-3 flex items-center gap-2 text-[12px] text-fg-subtle">
+        <span>{title}</span>
+        <span>({sourceLabel})</span>
+        <span>·</span>
+        <span>{entries.length}</span>
       </div>
+
       {entries.length === 0 ? (
-        <div className="text-xs text-fg-subtle">{emptyHint}</div>
+        <div className="text-[13px] leading-6 text-fg-muted">{emptyHint}</div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-border rounded-[20px] border border-border">
           {entries.map((skill) => (
-            <li
-              key={`${skill.source}:${skill.name}`}
-              className="rounded-2xl border border-border bg-app px-4 py-3"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-fg">{skill.name}</span>
-                <span className="text-[10px] uppercase tracking-wide text-fg-subtle">
-                  {skill.source === 'coase-builtin' ? 'builtin' : 'user'}
-                </span>
+            <li key={`${skill.source}:${skill.name}`} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="truncate text-[14px] font-medium text-fg">{skill.name}</span>
+                    <span className="shrink-0 text-[11px] uppercase tracking-[0.12em] text-fg-subtle">
+                      {skill.source === 'coase-builtin' ? 'builtin' : 'user'}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[13px] leading-6 text-fg-muted">
+                    {skill.description}
+                  </div>
+                </div>
+
+                {onDelete && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void onDelete(skill.name)}
+                    className="shrink-0 rounded-full px-3"
+                  >
+                    删除
+                  </Button>
+                )}
               </div>
-              <div className="mt-1 text-xs leading-relaxed text-fg-muted">{skill.description}</div>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

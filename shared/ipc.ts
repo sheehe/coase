@@ -242,8 +242,22 @@ export interface AppUpdateApi {
   onEvent: (handler: (snapshot: AppUpdateSnapshot) => void) => Unsubscribe;
 }
 
+export interface SkillImportResult {
+  ok: boolean;
+  /** 导入成功时为 skill name，失败时为 undefined。 */
+  name?: string;
+  /** 失败原因。 */
+  error?: string;
+}
+
 export interface SkillsApi {
   list: () => Promise<SkillInfo[]>;
+  /** 弹出文件/文件夹选择器，导入 skill 到 coase-user plugin。 */
+  import: () => Promise<SkillImportResult>;
+  /** 删除一个 coase-user skill（builtin 不可删除）。 */
+  delete: (skillName: string) => Promise<void>;
+  /** 在系统文件管理器中打开 coase-user skills 目录。 */
+  openUserDir: () => Promise<void>;
 }
 
 export interface REnvStatus {

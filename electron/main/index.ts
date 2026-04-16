@@ -33,6 +33,7 @@ import {
 } from '../../agent/providers/config-store';
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
+import { deleteUserSkill, importSkill, openUserSkillsDir } from '../../agent/skills/skill-manager';
 import { scanAllSkills } from '../../agent/skills/skill-scanner';
 import type {
   AttachedPath,
@@ -294,6 +295,13 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('skills:list', () => scanAllSkills());
+  ipcMain.handle('skills:import', (event: IpcMainInvokeEvent) =>
+    importSkill(BrowserWindow.fromWebContents(event.sender)),
+  );
+  ipcMain.handle('skills:delete', (_event: IpcMainInvokeEvent, name: string) =>
+    deleteUserSkill(name),
+  );
+  ipcMain.handle('skills:openUserDir', () => openUserSkillsDir());
   ipcMain.handle('rEnv:check', async (): Promise<REnvStatus> => checkREnv());
   ipcMain.handle('files:pick', (event, kind: AttachmentKind) =>
     pickPathsForAttachment(event, kind),

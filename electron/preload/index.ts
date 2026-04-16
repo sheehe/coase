@@ -111,6 +111,9 @@ const api: CoaseApi = {
 
   skills: {
     list: () => ipcRenderer.invoke('skills:list'),
+    import: () => ipcRenderer.invoke('skills:import'),
+    delete: (name: string) => ipcRenderer.invoke('skills:delete', name),
+    openUserDir: () => ipcRenderer.invoke('skills:openUserDir'),
   },
 
   rEnv: {
