@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AppUpdateSnapshot } from '../../../shared/ipc';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import { Card, CardBody } from '../../components/ui/Card';
 
 const INITIAL_STATE: AppUpdateSnapshot = {
   supported: false,
@@ -109,41 +109,44 @@ export default function UpdateCard() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-fg">应用更新</h2>
-          <p className="mt-0.5 text-[11px] text-fg-muted">
-            当前版本 {snapshot.currentVersion}
-            {snapshot.provider ? ` · ${snapshot.provider}` : ''}
-          </p>
+    <Card className="overflow-hidden">
+      <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+        <div className="min-w-0">
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">应用更新</div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-6 text-fg-muted">
+            <span>当前版本 {snapshot.currentVersion}</span>
+            {snapshot.provider && <span>{snapshot.provider}</span>}
+          </div>
         </div>
-        <Badge tone={statusTone}>{labelForStatus(snapshot.status)}</Badge>
-      </CardHeader>
 
-      <CardBody className="space-y-4">
-        <div className="space-y-1 text-sm text-fg-muted">
+        <Badge tone={statusTone}>{labelForStatus(snapshot.status)}</Badge>
+      </CardBody>
+
+      <CardBody className="space-y-4 px-5 py-4">
+        <div className="space-y-1.5 text-[13px] leading-6 text-fg-muted">
           <p>{snapshot.message ?? '未开始检查更新'}</p>
+
           {snapshot.availableVersion && (
             <p>
               可用版本 <span className="font-mono text-fg">{snapshot.availableVersion}</span>
             </p>
           )}
+
           {typeof snapshot.progressPercent === 'number' && (
             <p>
-              下载进度{' '}
-              <span className="font-mono text-fg">{snapshot.progressPercent.toFixed(1)}%</span>
+              下载进度 <span className="font-mono text-fg">{snapshot.progressPercent.toFixed(1)}%</span>
               {snapshot.totalBytes
                 ? ` · ${formatBytes(snapshot.transferredBytes ?? 0)} / ${formatBytes(snapshot.totalBytes)}`
                 : ''}
             </p>
           )}
+
           {snapshot.updateInfoUrl && (
             <a
               href={snapshot.updateInfoUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex text-sm text-info underline underline-offset-2"
+              className="inline-flex text-[13px] text-fg underline underline-offset-2"
             >
               查看发行说明
             </a>
@@ -153,9 +156,10 @@ export default function UpdateCard() {
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             onClick={() => void handleCheck()}
             disabled={!snapshot.canCheck || pendingAction !== null}
+            className="rounded-full px-3.5"
           >
             {pendingAction === 'check' ? '检查中…' : '检查更新'}
           </Button>
@@ -163,6 +167,7 @@ export default function UpdateCard() {
             size="sm"
             onClick={() => void handleDownload()}
             disabled={!snapshot.canDownload || pendingAction !== null}
+            className="rounded-full px-3.5"
           >
             {pendingAction === 'download' ? '下载中…' : '下载更新'}
           </Button>
@@ -170,6 +175,7 @@ export default function UpdateCard() {
             size="sm"
             onClick={() => void handleInstall()}
             disabled={!snapshot.canInstall || pendingAction !== null}
+            className="rounded-full px-3.5"
           >
             {pendingAction === 'install' ? '准备重启…' : '重启并安装'}
           </Button>

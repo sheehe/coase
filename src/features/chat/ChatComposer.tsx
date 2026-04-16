@@ -304,7 +304,53 @@ export default function ChatComposer() {
 
   return (
     <div className="border-t border-border bg-app px-6 pb-5 pt-4">
-      <div className="mx-auto w-full max-w-[820px]">
+      <div className="relative mx-auto w-full max-w-[820px]">
+        {slashPickerOpen && (
+          <div
+            ref={commandPanelRef}
+            className="absolute bottom-[calc(100%+10px)] left-0 right-0 z-40 overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
+          >
+            <div className="flex items-center gap-2 border-b border-border/80 px-4 py-2 text-[13px] text-fg">
+              <span className="font-medium">技能</span>
+            </div>
+            <div className="slash-command-scroll max-h-[320px] overflow-y-auto py-0.5">
+              {visibleSlashCommands.map((command, index) => (
+                <button
+                  key={command.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    replaceSlashTriggerWithSelection(command);
+                  }}
+                  className={`slash-command-row block w-full px-4 py-1.5 text-left ${
+                    index === highlightedCommandIndex
+                      ? 'is-active bg-[color:color-mix(in_srgb,var(--color-fg)_5%,white)]'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-muted">
+                      <Box size={13} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="shrink-0 text-[14px] leading-5 text-fg">
+                          {command.title}
+                        </span>
+                        <span className="min-w-0 truncate text-[14px] leading-5 text-fg-muted">
+                          {command.description}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[12px] text-fg-muted">
+                      {command.sourceLabel}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="relative overflow-visible rounded-[28px] border border-border/80 bg-surface shadow-[0_6px_24px_rgba(0,0,0,0.03)]">
           {sessionId !== null && chatState !== 'running' && (
             <button
@@ -367,53 +413,6 @@ export default function ChatComposer() {
             </div>
           )}
 
-          {slashPickerOpen && (
-            <div
-              ref={commandPanelRef}
-              className="mx-3 mb-1 overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
-            >
-              <div className="flex items-center gap-2 border-b border-border/80 px-4 py-2 text-[13px] text-fg">
-                <span className="font-medium">技能</span>
-              </div>
-              <div className="slash-command-scroll max-h-[320px] overflow-y-auto py-0.5">
-                {visibleSlashCommands.map((command, index) => (
-                  <button
-                    key={command.id}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      replaceSlashTriggerWithSelection(command);
-                    }}
-                    className={`slash-command-row block w-full px-4 py-1.5 text-left ${
-                      index === highlightedCommandIndex
-                        ? 'is-active bg-[color:color-mix(in_srgb,var(--color-fg)_5%,white)]'
-                        : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-muted">
-                        <Box size={13} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-2.5">
-                          <span className="shrink-0 text-[14px] leading-5 text-fg">
-                            {command.title}
-                          </span>
-                          <span className="min-w-0 truncate text-[14px] leading-5 text-fg-muted">
-                            {command.description}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-[12px] text-fg-muted">
-                        {command.sourceLabel}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 pb-3">
               {attachments.map((attachment) => (
@@ -443,7 +442,7 @@ export default function ChatComposer() {
                 ref={attachmentButtonRef}
                 type="button"
                 onClick={() => setAttachmentPanelOpen((open) => !open)}
-                title="添加本地资料"
+                title="添加本地文件"
                 className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04] ${
                   attachmentPanelOpen ? 'bg-black/[0.04] text-fg dark:bg-white/[0.04]' : ''
                 }`}
@@ -454,35 +453,39 @@ export default function ChatComposer() {
               {attachmentPanelOpen && (
                 <div
                   ref={attachmentPanelRef}
-                  className="absolute bottom-[calc(100%+10px)] left-0 z-30 w-[320px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+                  className="absolute bottom-[calc(100%+10px)] left-0 z-30 w-[420px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
                 >
-                  <div className="flex items-center gap-2 px-4 py-3">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-app text-fg-subtle">
-                      <Paperclip size={13} />
-                    </span>
-                    <div className="text-[15px] font-medium text-fg">添加本地资料</div>
+                  <div className="border-b border-border/80 px-4 py-2 text-[13px] text-fg">
+                    <span className="font-medium">添加本地文件</span>
                   </div>
 
-                  <div className="mx-4 border-t border-border" />
-
-                  <div className="p-2">
+                  <div className="py-1">
                     {ATTACHMENT_ACTIONS.map((action) => (
                       <button
                         key={action.kind}
                         type="button"
                         onClick={() => void pickAttachment(action.kind)}
                         disabled={pickingKind !== null}
-                        className="block w-full rounded-2xl px-3 py-3 text-left transition hover:bg-app disabled:cursor-wait disabled:opacity-70"
+                        className="block w-full px-4 py-2 text-left transition hover:bg-black/[0.03] disabled:cursor-wait disabled:opacity-70 dark:hover:bg-white/[0.03]"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-[14px] font-medium text-fg">{action.title}</div>
-                            <div className="mt-1 text-[12px] leading-5 text-fg-subtle">
-                              {action.description}
+                        <div className="flex items-center gap-2.5">
+                          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-muted">
+                            <Paperclip size={11} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline gap-2.5">
+                              <span className="shrink-0 text-[14px] leading-5 text-fg">
+                                {action.title}
+                              </span>
+                              <span className="min-w-0 truncate text-[13px] leading-5 text-fg-muted">
+                                {action.description}
+                              </span>
                             </div>
                           </div>
-                          {pickingKind === action.kind && (
-                            <div className="shrink-0 text-[11px] text-fg-subtle">选择中…</div>
+                          {pickingKind === action.kind ? (
+                            <div className="shrink-0 text-[11px] text-fg-muted">选择中…</div>
+                          ) : (
+                            <div className="shrink-0 text-[12px] text-fg-muted">本地</div>
                           )}
                         </div>
                       </button>

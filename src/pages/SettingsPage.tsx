@@ -8,9 +8,6 @@ import SkillList from '../features/settings/SkillList';
 import UpdateCard from '../features/settings/UpdateCard';
 import type { ProviderPreset, ProviderRecord, ProvidersFile } from '../../shared/providers';
 
-/**
- * 设置页面：展示模型提供方管理和技能列表。
- */
 export default function SettingsPage() {
   const [file, setFile] = useState<ProvidersFile | null>(null);
   const [presets, setPresets] = useState<ProviderPreset[]>([]);
@@ -76,28 +73,29 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1120px] flex-col gap-6 overflow-y-auto px-8 py-8">
-      <section className="rounded-2xl border border-border bg-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-fg">设置</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              模型提供方、API Key 与技能在这里集中管理。环境变量仍可作为回退。
-            </p>
-          </div>
-          <Link
-            to="/chat"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-fg-muted transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-          >
-            <ChevronLeft size={14} />
-            <span>返回对话</span>
-          </Link>
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 py-8">
+      <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
+        <div className="min-w-0">
+          <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Workspace</div>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">技能与模型</h1>
+          <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
+            在这里集中管理模型提供方、API 配置和本地技能。环境变量仍可作为回退，内置 SDK
+            skill 不在这里列出。
+          </p>
         </div>
+
+        <Link
+          to="/chat"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
+        >
+          <ChevronLeft size={13} />
+          <span>返回对话</span>
+        </Link>
       </section>
 
       {loadError && (
-        <section className="rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          加载失败：{loadError}
+        <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          读取设置失败：{loadError}
         </section>
       )}
 

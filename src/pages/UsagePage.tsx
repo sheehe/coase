@@ -1,16 +1,9 @@
-// Token / 成本面板：把 sessions.jsonl 里沉淀下来的累计数据按今天 / 本月 / 历史
-// 三个窗口汇总，辅以按 provider 和按模型的拆分，以及最近成本最高的几条会话。
-//
-// 数据来源是 window.coase.sessions.recent——它背后会走 dedupByLastOccurrence，
-// 所以每个 sessionId 只会出现一次，totalCostUsd / totalTokens 是"这条研究线
-// 自首次启动以来的累计"。正在运行中的会话 finishReason===undefined，这里会
-// 被显式标出来而不是混进完成值。
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ChevronLeft, RefreshCw } from '../components/Icons';
 import Button from '../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Card, CardBody } from '../components/ui/Card';
 import type { SessionLogEntry } from '../../shared/runs';
 import { aggregateUsage, type Breakdown, type Bucket } from './usage-aggregation';
 
@@ -28,7 +21,7 @@ function formatTokens(value: number): string {
 }
 
 function formatDuration(ms: number): string {
-  if (ms <= 0) return '–';
+  if (ms <= 0) return '—';
   const seconds = Math.round(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
@@ -57,7 +50,6 @@ export default function UsagePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // 500 条足够覆盖几个月内的常用研究工作流，避免一次全量 parse 过大。
       const recent = await window.coase.sessions.recent(500);
       setSessions(recent);
       setError(null);
@@ -75,100 +67,116 @@ export default function UsagePage() {
   const usage = useMemo(() => aggregateUsage(sessions), [sessions]);
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1120px] flex-col gap-6 overflow-y-auto px-8 py-8">
-      <section className="rounded-2xl border border-border bg-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-fg">用量与花销</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              按今天 / 本月 / 累计聚合 Coase 会话的 token 消耗与成本，数据来自
-              本地 sessions.jsonl，仅统计已完成或中断的会话。
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => void load()} className="gap-1.5">
-              <RefreshCw size={12} />
-              刷新
-            </Button>
-            <Link
-              to="/chat"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-fg-muted transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-            >
-              <ChevronLeft size={14} />
-              <span>返回对话</span>
-            </Link>
-          </div>
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 py-8">
+      <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
+        <div className="min-w-0">
+          <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Usage</div>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">用量与花销</h1>
+          <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
+            按今天、本月、累计聚合 Coase 会话的 token 消耗、运行时长与成本。数据来自本地
+            <span className="mx-1 font-mono text-fg-subtle">sessions.jsonl</span>
+            ，仅统计已完成或中断的会话。
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void load()}
+            className="gap-1.5 rounded-full px-3.5"
+          >
+            <RefreshCw size={13} />
+            刷新
+          </Button>
+          <Link
+            to="/chat"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
+          >
+            <ChevronLeft size={13} />
+            <span>返回对话</span>
+          </Link>
         </div>
       </section>
 
       {error && (
-        <section className="rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
+        <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           会话历史读取失败：{error}
         </section>
       )}
 
       {loading ? (
-        <div className="rounded-2xl border border-border bg-surface px-6 py-10 text-center text-sm text-fg-subtle">
+        <div className="rounded-2xl border border-border bg-surface px-6 py-12 text-center text-sm text-fg-subtle">
           正在读取会话历史…
         </div>
       ) : (
         <>
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <BucketCard title="今天" bucket={usage.today} />
-            <BucketCard title="本月" bucket={usage.month} />
-            <BucketCard title="累计" bucket={usage.total} extra={
-              usage.runningCount > 0 ? `另有 ${usage.runningCount} 个会话运行中` : undefined
-            } />
+          <section className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <SummaryPanel title="今天" bucket={usage.today} />
+            <SummaryPanel title="本月" bucket={usage.month} />
+            <SummaryPanel
+              title="累计"
+              bucket={usage.total}
+              aside={usage.runningCount > 0 ? `另有 ${usage.runningCount} 个会话运行中` : undefined}
+            />
           </section>
 
-          <BreakdownCard title="按模型提供方" rows={usage.topProviders} />
-          <BreakdownCard title="按模型" rows={usage.topModels} />
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
+            <BreakdownPanel title="按模型提供方" rows={usage.topProviders} />
+            <BreakdownPanel title="按模型" rows={usage.topModels} />
+          </section>
 
-          <Card>
-            <CardHeader>
-              <h3 className="text-sm font-semibold text-fg">花销最高的会话</h3>
-              <p className="mt-0.5 text-[11px] text-fg-muted">
-                列出 totalCostUsd 最高的前 10 条会话。续跑会累加到同一条。
-              </p>
-            </CardHeader>
-            <CardBody className="p-0">
-              {usage.topSessions.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-fg-subtle">
-                  还没有可统计的会话花销。
-                </div>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {usage.topSessions.map((entry) => (
-                    <li key={entry.sessionId} className="flex items-center gap-4 px-5 py-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] text-fg">
-                          {entry.firstPrompt || '(无标题)'}
-                        </div>
-                        <div className="mt-1 flex items-center gap-3 text-[11px] text-fg-muted">
-                          <span>{formatDateTime(entry.startedAt)}</span>
-                          <span>·</span>
-                          <span className="font-mono">{entry.model || '未知模型'}</span>
-                          {entry.providerLabel && (
-                            <>
-                              <span>·</span>
-                              <span>{entry.providerLabel}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end text-right">
-                        <span className="text-[13px] font-semibold text-fg">
-                          {formatCost(entry.totalCostUsd ?? 0)}
-                        </span>
-                        <span className="text-[11px] text-fg-muted">
-                          {formatTokens(entry.totalTokens ?? 0)} tokens · {formatDuration(entry.totalDurationMs ?? 0)}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          <Card className="overflow-hidden">
+            <CardBody className="border-b border-border px-5 py-4">
+              <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
+                花销最高的会话
+              </div>
+              <div className="mt-1 text-[13px] leading-6 text-fg-muted">
+                列出 totalCostUsd 最高的前 10 条会话。续跑会累加到同一条记录。
+              </div>
             </CardBody>
+
+            {usage.topSessions.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm text-fg-subtle">
+                还没有可统计的会话花销。
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {usage.topSessions.map((entry, index) => (
+                  <li
+                    key={entry.sessionId}
+                    className="grid grid-cols-[40px_minmax(0,1fr)_150px] items-start gap-4 px-5 py-4"
+                  >
+                    <div className="pt-0.5 text-[12px] font-medium tabular-nums text-fg-subtle">
+                      {String(index + 1).padStart(2, '0')}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="truncate text-[14px] leading-6 text-fg">
+                        {entry.firstPrompt || '(无标题)'}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+                        <span>{formatDateTime(entry.startedAt)}</span>
+                        <span>{entry.model || '未知模型'}</span>
+                        {entry.providerLabel && <span>{entry.providerLabel}</span>}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-[14px] font-medium text-fg">
+                        {formatCost(entry.totalCostUsd ?? 0)}
+                      </div>
+                      <div className="mt-1 text-[12px] text-fg-muted">
+                        {formatTokens(entry.totalTokens ?? 0)} tokens
+                      </div>
+                      <div className="text-[12px] text-fg-muted">
+                        {formatDuration(entry.totalDurationMs ?? 0)}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         </>
       )}
@@ -176,33 +184,44 @@ export default function UsagePage() {
   );
 }
 
-function BucketCard({
+function SummaryPanel({
   title,
   bucket,
-  extra,
+  aside,
 }: {
   title: string;
   bucket: Bucket;
-  extra?: string;
+  aside?: string;
 }) {
   return (
-    <Card>
-      <CardBody className="space-y-2">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">{title}</div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold text-fg">{formatCost(bucket.costUsd)}</span>
-          <span className="text-[12px] text-fg-muted">{bucket.count} 次会话</span>
+    <Card className="rounded-[24px]">
+      <CardBody className="space-y-4 px-5 py-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-[12px] uppercase tracking-[0.18em] text-fg-subtle">{title}</div>
+          {aside && (
+            <div className="rounded-full border border-border px-2.5 py-1 text-[11px] text-fg-muted">
+              {aside}
+            </div>
+          )}
         </div>
-        <div className="text-[12px] text-fg-muted">
-          {formatTokens(bucket.tokens)} tokens · {formatDuration(bucket.durationMs)}
+
+        <div className="flex items-baseline gap-3">
+          <span className="text-[34px] font-semibold tracking-[-0.04em] text-fg">
+            {formatCost(bucket.costUsd)}
+          </span>
+          <span className="text-[13px] text-fg-muted">{bucket.count} 次会话</span>
         </div>
-        {extra && <div className="text-[11px] text-accent">{extra}</div>}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
+          <span>{formatTokens(bucket.tokens)} tokens</span>
+          <span>{formatDuration(bucket.durationMs)}</span>
+        </div>
       </CardBody>
     </Card>
   );
 }
 
-function BreakdownCard({
+function BreakdownPanel({
   title,
   rows,
 }: {
@@ -210,41 +229,49 @@ function BreakdownCard({
   rows: Breakdown<string>[];
 }) {
   if (rows.length === 0) return null;
-  const maxCost = Math.max(...rows.map((r) => r.bucket.costUsd), 0.0001);
+
+  const maxCost = Math.max(...rows.map((row) => row.bucket.costUsd), 0.0001);
+
   return (
-    <Card>
-      <CardHeader>
-        <h3 className="text-sm font-semibold text-fg">{title}</h3>
-      </CardHeader>
-      <CardBody className="p-0">
-        <ul className="divide-y divide-border">
-          {rows.map((row) => {
-            const pct = Math.min(100, (row.bucket.costUsd / maxCost) * 100);
-            return (
-              <li key={row.key} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="min-w-0 truncate text-[13px] text-fg">{row.label}</span>
-                  <span className="shrink-0 text-[12px] font-semibold text-fg">
-                    {formatCost(row.bucket.costUsd)}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-4 text-[11px] text-fg-muted">
-                  <span>
-                    {row.bucket.count} 次 · {formatTokens(row.bucket.tokens)} tokens
-                  </span>
-                  <span>{formatDuration(row.bucket.durationMs)}</span>
-                </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-border/60">
-                  <div
-                    className="h-full rounded-full bg-accent/80"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+    <Card className="overflow-hidden">
+      <CardBody className="border-b border-border px-5 py-4">
+        <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">{title}</div>
       </CardBody>
+
+      <ul className="divide-y divide-border">
+        {rows.map((row, index) => {
+          const pct = Math.min(100, (row.bucket.costUsd / maxCost) * 100);
+          return (
+            <li key={row.key} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-medium tabular-nums text-fg-subtle">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span className="truncate text-[14px] text-fg">{row.label}</span>
+                  </div>
+                  <div className="ml-8 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+                    <span>{row.bucket.count} 次</span>
+                    <span>{formatTokens(row.bucket.tokens)} tokens</span>
+                    <span>{formatDuration(row.bucket.durationMs)}</span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="text-[14px] font-medium text-fg">
+                    {formatCost(row.bucket.costUsd)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-border/70">
+                <div className="h-full rounded-full bg-accent/75" style={{ width: `${pct}%` }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 }
