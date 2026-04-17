@@ -8,6 +8,7 @@ import type {
   ChatResumeInput,
   CoaseApi,
   RunInsightsPersisted,
+  RuntimeSnapshot,
   TranscriptEntryPersisted,
 } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
@@ -122,6 +123,27 @@ const api: CoaseApi = {
 
   rEnv: {
     check: () => ipcRenderer.invoke('rEnv:check'),
+  },
+
+  runtime: {
+    getSnapshot: () => ipcRenderer.invoke('runtime:getSnapshot'),
+    install: () => ipcRenderer.invoke('runtime:install'),
+    onEvent: (handler) => {
+      const channel = 'runtime:event';
+      const listener = (_event: IpcRendererEvent, payload: RuntimeSnapshot): void =>
+        handler(payload);
+      ipcRenderer.on(channel, listener);
+      // 建立订阅时立即回放一次当前 snapshot，让 UI 渲染不需要先等一次事件。
+      void ipcRenderer
+        .invoke('runtime:getSnapshot')
+        .then((snapshot: RuntimeSnapshot) => handler(snapshot))
+        .catch((error) => {
+          console.warn('failed to read runtime snapshot', error);
+        });
+      return () => {
+        ipcRenderer.off(channel, listener);
+      };
+    },
   },
 };
 

@@ -1,0 +1,2 @@
+# 这个目录只提交 pixi.toml + pixi.lock，任何 pixi 缓存/环境不进仓库。
+.pixi/

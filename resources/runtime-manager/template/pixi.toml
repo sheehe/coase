@@ -1,0 +1,70 @@
+# Coase 研究运行时环境声明。
+#
+# 这个 pixi.toml 是"发行源"，首启时会被 RuntimeManager 拷贝到
+# <userData>/runtime/pixi.toml，然后 `pixi install` 解到同目录的 .pixi/ 下。
+# 配套的 pixi.lock 钉死所有包的版本 + 跨平台 solve 结果，所有用户装出来
+# 的环境 bit-level 一致——这是复现性的命脉，不要随手删。
+#
+# 扩展原则：
+#   - 优先 conda-forge 上有稳定 build 的包；避开只在 github 上的 R 包
+#     （比如 synthdid，以后用 r-devtools 运行时装）。
+#   - 加新包前先手动 `pixi add <name>` 本地验证全平台能 solve 再提交。
+#   - 提交时 pixi.toml + pixi.lock 必须一起提交。
+
+[workspace]
+name = "coase-research-env"
+version = "0.1.0"
+description = "Coase 研究运行时：R + Python + 计量生态"
+channels = ["conda-forge"]
+platforms = ["win-64", "osx-64", "osx-arm64", "linux-64"]
+
+[dependencies]
+# ── 核心运行时 ──────────────────────────────────────────────────────
+# 版本号一档一档带紧，避免 pixi 解到过旧或 prerelease。
+# r-base 4.3：r-did 在 osx-arm64 上只有 r-base 4.3 build。全平台统一在 4.3
+# 保证 lockfile 跨平台一致。2026-04 实测 win/mac/linux 主流 CRAN 包都有 4.3 build。
+r-base = "4.3.*"
+python = "3.12.*"
+
+# ── R 生态 ────────────────────────────────────────────────────────
+# 数据操作 / IO
+r-tidyverse    = "*"   # dplyr/ggplot2/tidyr/readr/purrr/tibble 全家桶
+"r-data.table" = "*"   # 大样本必备；conda 包名带点
+r-haven        = "*"   # 读 .dta / .sav / .sas7bdat
+r-readxl       = "*"
+
+# 计量估计
+r-fixest    = "*"      # 最快的固定效应 + 事件研究（含 sunab() 用于交错 DID）
+r-plm       = "*"      # 面板估计
+# 注：r-did（Callaway-Sant'Anna）暂不入基线——其传递依赖 r-ModelMetrics 在
+# conda-forge 的 Windows r43 build 上 DLL 加载挂掉（已在 2026-04 实测）。
+# 需要它的研究任务请在运行时用 `remotes::install_github("bcallaway11/did")`
+# 临时装（后续会在 R runtime manager 里做成一键按钮）。同类方法可先用
+# fixest::sunab()。
+r-aer       = "*"      # ivreg, tobit 等经典命令
+r-sandwich  = "*"      # 稳健协方差（vcovHC/vcovCL）
+r-lmtest    = "*"      # coeftest, bptest
+r-matchit   = "*"      # PSM / 匹配
+
+# 结果呈现
+r-modelsummary = "*"   # 回归表
+r-kableextra   = "*"   # 表格美化
+
+# ── Python 生态 ────────────────────────────────────────────────────
+# 数据 / 科学计算
+numpy       = "*"
+scipy       = "*"
+statsmodels = "*"
+linearmodels = "*"     # PanelOLS / IV2SLS / GMM
+scikit-learn = "*"
+
+# 可视化
+matplotlib = "*"
+seaborn    = "*"
+
+# 数据 IO
+pyreadstat = "*"       # 读 .dta 更快
+openpyxl   = "*"       # 读/写 xlsx
+
+# 注：pandas 由 linearmodels / statsmodels / seaborn 都会拉进来，这里
+# 不单列，避免版本双重约束。

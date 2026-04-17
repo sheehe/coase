@@ -16,6 +16,12 @@ import {
 import { coaseAppUpdater } from './app-updater';
 import { PromptQueue } from '../../agent/chat/prompt-queue';
 import {
+  getPixiVersion,
+  pixiBinaryPath,
+  researchEnvRoot,
+  runtimeInstallManager,
+} from '../../agent/runtime';
+import {
   appendSessionLog,
   compactSessionLogIfNeeded,
   deleteSessionLog,
@@ -345,6 +351,8 @@ function registerIpc(): void {
   );
   ipcMain.handle('skills:openUserDir', () => openUserSkillsDir());
   ipcMain.handle('rEnv:check', async (): Promise<REnvStatus> => checkREnv());
+  ipcMain.handle('runtime:getSnapshot', () => runtimeInstallManager.snapshot());
+  ipcMain.handle('runtime:install', () => runtimeInstallManager.install());
   ipcMain.handle('files:pick', (event, kind: AttachmentKind) =>
     pickPathsForAttachment(event, kind),
   );
@@ -1147,6 +1155,36 @@ app.whenReady().then(() => {
       console.warn('[session-log] compactSessionLogIfNeeded failed:', err);
     });
   registerIpc();
+  // P1 smoke test: 启动时打一下 pixi 版本，确认 fetch-pixi.mjs 产物和路径解析都对。
+  // 生产环境也会跑，但只是一行 console.info，没有任何副作用。失败不阻断启动——
+  // P2 加安装向导之前这属于预期状态。
+  void getPixiVersion()
+    .then((version) => {
+      console.info(`[runtime] ${version} @ ${pixiBinaryPath()}`);
+    })
+    .catch((err) => {
+      console.warn(`[runtime] pixi 自检失败（P2 安装向导会处理）: ${err?.message ?? err}`);
+    });
+  // P4: 研究环境（R + Python）有没有解出来。只做 fs 检查，不跑 Rscript/python，
+  // 省启动时的 2s 冷启延迟。解出来后 agent 的 childEnv 会自动注入 PATH。
+  const runtimeSnap = runtimeInstallManager.probeOnBoot();
+  if (runtimeSnap.state === 'ready') {
+    console.info(`[runtime] research env detected @ ${researchEnvRoot()}`);
+  } else if (runtimeSnap.state === 'not_installed') {
+    console.warn(
+      `[runtime] research env not installed @ ${researchEnvRoot()} —— 首启向导会引导安装`,
+    );
+  } else if (runtimeSnap.state === 'error') {
+    console.error(`[runtime] probe error: ${runtimeSnap.message}`);
+  }
+  // 状态变更广播给所有渲染窗口。订阅只挂一次；每次 state/logs 更新都推一份 snapshot。
+  runtimeInstallManager.onChange((snapshot) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send('runtime:event', snapshot);
+      }
+    }
+  });
   createMainWindow();
   coaseAppUpdater.maybeCheckOnStartup();
 

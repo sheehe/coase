@@ -12,6 +12,8 @@
   "scripts": {
     "dev": "node scripts/run-electron-vite.mjs dev",
     "build": "electron-vite build",
+    "fetch-pixi": "node scripts/fetch-pixi.mjs",
+    "fetch-pixi:all": "node scripts/fetch-pixi.mjs --all",
     "dist:dir": "pnpm build && electron-builder --dir",
     "dist": "pnpm build && electron-builder",
     "dist:win": "pnpm build && electron-builder --win nsis portable",
@@ -79,6 +81,14 @@
       {
         "from": "resources/default-skills",
         "to": "default-skills"
+      },
+      {
+        "from": "resources/runtime-manager/template",
+        "to": "runtime-manager/template",
+        "filter": [
+          "pixi.toml",
+          "pixi.lock"
+        ]
       }
     ],
     "asar": true,
@@ -97,7 +107,13 @@
         "nsis",
         "portable"
       ],
-      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "resources/runtime-manager/bin/win32-x64",
+          "to": "runtime-manager/bin/win32-x64"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -113,7 +129,17 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "resources/runtime-manager/bin/darwin-x64",
+          "to": "runtime-manager/bin/darwin-x64"
+        },
+        {
+          "from": "resources/runtime-manager/bin/darwin-arm64",
+          "to": "runtime-manager/bin/darwin-arm64"
+        }
+      ]
     }
   }
 }

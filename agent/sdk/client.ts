@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
+import { buildRuntimeEnv } from '../runtime';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 import { buildCriticPanelMcpServer } from './critic-panel-mcp';
 
@@ -245,7 +246,11 @@ export async function createChatQuery({
     }
   }
 
-  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  // buildRuntimeEnv 会把 <userData>/runtime/.pixi/envs/default 的 bin 前插到 PATH，
+  // 并设 CONDA_PREFIX。这样 agent 的 Bash 工具里直接 `Rscript foo.R` / `python foo.py`
+  // 就能命中 Coase 自带的 R + Python 环境，不依赖用户机器上的 R/Python 安装。
+  // 环境尚未解出时 no-op，agent 正常启动（只是 R/Python 命令会 ENOENT）。
+  const childEnv: NodeJS.ProcessEnv = buildRuntimeEnv();
   delete childEnv.ANTHROPIC_API_KEY;
   delete childEnv.ANTHROPIC_AUTH_TOKEN;
 
@@ -263,6 +268,14 @@ export async function createChatQuery({
   childEnv.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC =
     childEnv.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC ?? '1';
   childEnv.CLAUDE_AGENT_SDK_CLIENT_APP = childEnv.CLAUDE_AGENT_SDK_CLIENT_APP ?? 'coase-desktop';
+
+  // Electron 二进制本身就是一个 Node 运行时，开 ELECTRON_RUN_AS_NODE=1 就会把
+  // 子进程当纯 Node 跑。传 executable:'node' 会让 SDK 去 PATH 里找 node，
+  // 但 macOS GUI 启动的进程默认 PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin，
+  // brew / nvm 装的 node 全部看不到 → spawn ENOENT → SDK 报误导性的
+  // "Claude Code executable not found at cli.js"。用 process.execPath 绕开
+  // 整个外部 Node 依赖，用户不装 Node 也能跑。
+  childEnv.ELECTRON_RUN_AS_NODE = '1';
 
   // 把自动压缩阈值喂给 SDK 的 flag settings 层（优先级最高）。这样 cli.js 内部
   // 的 auto-compact 检查会走我们指定的 token 阈值，而不是 SDK 自己挑默认值。
@@ -296,7 +309,7 @@ export async function createChatQuery({
     promptSuggestions: true,
     agents: COASE_AGENTS,
     model: provider.model,
-    executable: 'node',
+    executable: process.execPath as 'node',
     pathToClaudeCodeExecutable: CLAUDE_CODE_CLI_PATH,
     cwd,
     maxTurns: 200,

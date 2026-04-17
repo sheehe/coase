@@ -282,6 +282,31 @@ export interface REnvApi {
   check: () => Promise<REnvStatus>;
 }
 
+export type RuntimeInstallState =
+  | 'unknown'
+  | 'not_installed'
+  | 'installing'
+  | 'ready'
+  | 'error';
+
+export interface RuntimeSnapshot {
+  state: RuntimeInstallState;
+  /** 研究环境在磁盘上的根目录（.pixi/envs/default）。 */
+  rootDir: string;
+  message?: string;
+  /** 最近 ≤50 行 pixi 输出，安装时实时增长。 */
+  logsTail: string[];
+  errorDetail?: string;
+}
+
+export interface RuntimeApi {
+  getSnapshot: () => Promise<RuntimeSnapshot>;
+  /** 触发安装；幂等——重复调用复用同一次 pixi 进程。 */
+  install: () => Promise<RuntimeSnapshot>;
+  /** 订阅状态变更。建立订阅时会立即回放一次当前 snapshot。 */
+  onEvent: (handler: (snapshot: RuntimeSnapshot) => void) => Unsubscribe;
+}
+
 export interface FilesApi {
   pick: (kind: AttachmentKind) => Promise<string[]>;
 }
@@ -423,4 +448,5 @@ export interface CoaseApi {
   window: WindowApi;
   skills: SkillsApi;
   rEnv: REnvApi;
+  runtime: RuntimeApi;
 }
