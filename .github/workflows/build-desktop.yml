@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fetch pixi binaries
+        run: pnpm fetch-pixi:all
+
       - name: Build desktop package
         run: ${{ matrix.command }}
 
