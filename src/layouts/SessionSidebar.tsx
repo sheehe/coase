@@ -116,8 +116,14 @@ export default function SessionSidebar() {
 
   const handleDeleteSession = useCallback(
     async (entry: SessionLogEntry) => {
-      if (entry.sessionId === sessionId) return;
-      const confirmed = window.confirm(`确定删除会话“${entry.firstPrompt.slice(0, 28)}”吗？`);
+      const title = entry.firstPrompt.slice(0, 28);
+      const isCurrent = entry.sessionId === sessionId;
+      const isRunning = isCurrent && chatState === 'running';
+      const confirmed = window.confirm(
+        isRunning
+          ? `会话"${title}"正在运行中，删除会先停止它再清理数据，确定继续吗？`
+          : `确定删除会话"${title}"吗？`,
+      );
       if (!confirmed) return;
 
       setDeletingSessionId(entry.sessionId);
@@ -125,19 +131,19 @@ export default function SessionSidebar() {
         await window.coase.sessions.delete(entry.sessionId);
         sessionsStore.disposeRuntime(entry.sessionId);
         setSessions((prev) => prev.filter((item) => item.sessionId !== entry.sessionId));
+        if (isCurrent) {
+          await onNewSession();
+          navigate('/chat');
+        }
       } catch (error) {
         console.error('delete session failed', error);
         const message = error instanceof Error ? error.message : String(error);
-        window.alert(
-          message.includes('active session')
-            ? '该会话正在运行中，无法删除。请先停止或切换到其他会话。'
-            : `删除失败：${message}`,
-        );
+        window.alert(`删除失败：${message}`);
       } finally {
         setDeletingSessionId(null);
       }
     },
-    [sessionId],
+    [sessionId, chatState, onNewSession, navigate],
   );
 
   const canChangeWorkspace = chatState !== 'running';

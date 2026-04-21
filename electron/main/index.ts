@@ -415,8 +415,27 @@ async function deleteSession(sessionId: string): Promise<void> {
   if (!normalizedSessionId) {
     throw new Error('sessions:delete needs a non-empty sessionId');
   }
-  if (activeSessions.has(normalizedSessionId)) {
-    throw new Error('cannot delete an active session');
+
+  // 如果这条会话还在跑，先停它：发 cancel + abort，并等 orchestrator 真正走完
+  // mainLoop 才去删文件。否则 run-chat 的 finalize 会在删完日志后又追加一条新
+  // 日志（把被删的条目复活），更糟的是 workspace 里还没退的子进程会抱着文件
+  // 句柄，导致 Windows 下 rm -rf 报 EBUSY/EPERM。超时兜底（5s）保证最坏情况
+  // 下也不至于把 UI 卡住——超时就放弃删 workspace 目录，其它元数据照常清理。
+  const active = activeSessions.get(normalizedSessionId);
+  if (active) {
+    try {
+      active.handle.cancel('user_cancel');
+    } catch (err) {
+      console.warn('[sessions:delete] cancel failed', err);
+    }
+    try {
+      active.abortController.abort();
+    } catch {
+      // ignore
+    }
+    await waitWithTimeout(active.handle.done, 5_000);
+    // 正常情况下 handle.done.finally 已经把它清走了；兜底再 delete 一次。
+    activeSessions.delete(normalizedSessionId);
   }
 
   const workspaceRoot = await readSessionWorkspaceRoot(normalizedSessionId);
@@ -429,8 +448,21 @@ async function deleteSession(sessionId: string): Promise<void> {
   ]);
 
   if (workspaceRoot && isManagedPaperWorkspaceName(basename(workspaceRoot))) {
-    await removePathIfExists(workspaceRoot);
+    try {
+      await removePathIfExists(workspaceRoot);
+    } catch (err) {
+      // workspace 里的子进程还没来得及释放句柄——日志已清掉，workspace 留着
+      // 不影响正确性（下次启动会被当作孤儿目录），只记一条 warning。
+      console.warn('[sessions:delete] remove workspace failed', workspaceRoot, err);
+    }
   }
+}
+
+async function waitWithTimeout(promise: Promise<unknown>, timeoutMs: number): Promise<void> {
+  await Promise.race([
+    promise.catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
 }
 
 async function openChatSession(
