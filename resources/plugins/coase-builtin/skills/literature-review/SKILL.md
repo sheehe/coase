@@ -4,11 +4,10 @@ description: Search, summarize, and synthesize economics literature; position yo
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 1 辅助 / Phase 2 文献部分**: 生成文献综述（相关文献梳理、研究空白、本研究贡献），写入 `planner/stage_2_literature.md`。
-- **/experiment-bridge**: 不直接参与。
-- **/paper-writing Phase 6 辅助**: 若用户要求完整 Literature Review 章节，基于 planner/stage_2_literature.md 扩写到论文级长度，并整理参考文献 BibTeX。
+- **规划阶段 · Literature**: 生成文献综述（相关文献梳理、研究空白、本研究贡献），写入 `planner/stage_2_literature.md`。这是本 skill 的唯一落脚点。
+- **执行阶段**: 不直接参与。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 
@@ -381,8 +380,5 @@ Example BibTeX entry:
 
 ## Related Skills & Commands
 
-- **paper-writing**: Draft the full introduction and related literature section
 - **/method**: Generate the methodology section informed by the literature
 - **/analyze**: Start your empirical analysis based on identified gaps
-- **beamer-ppt**: Create slides summarizing the literature for seminar presentations
-- **/write**: Draft the complete related literature section of your paper

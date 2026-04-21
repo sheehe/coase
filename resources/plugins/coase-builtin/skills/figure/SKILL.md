@@ -11,11 +11,10 @@ description: |
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 2 Step 4 (Descriptive Snapshot)**: 生成 1-2 张最有帮助的描述性图形（因变量分布 / 处理组对照组比较 / 样本年份覆盖），路径记入 `planner/stage_8_descriptive_snapshot.md`。
-- **/experiment-bridge Phase 5 Robustness**: 事件研究图 / 平行趋势图 / coefficient plot 等识别支持性图形，文件路径记入 `executor/stage_2_explanation_robustness.md`。
-- **/paper-writing Phase 6 Figure Package**: **主要落脚点**。生成正文图形（1-2 张）和附录图形，每张图提供"目的 / 展示内容 / 帮助解释什么 / 不能证明什么"四段说明，输出汇总到 `writer/stage_3_figure_package.md`。
+- **规划阶段 · Descriptive Snapshot**: 生成 1-2 张最有帮助的描述性图形（因变量分布 / 处理组对照组比较 / 样本年份覆盖），路径记入 `planner/stage_8_descriptive_snapshot.md`。
+- **执行阶段 · Robustness**: 事件研究图 / 平行趋势图 / coefficient plot 等识别支持性图形，文件路径记入 `executor/stage_2_explanation_robustness.md`。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 

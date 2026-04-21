@@ -10,12 +10,11 @@ description: |
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 2 Step 4 (Descriptive Snapshot)**: 生成关键变量的描述性统计表与必要分组对比，填入 `planner/stage_8_descriptive_snapshot.md`。只保留与 baseline 决策直接相关的 descriptives。
-- **/experiment-bridge Phase 4 辅助**: 主回归前的样本健康检查（样本量、缺失率、关键变量变异），简要纳入 `executor/stage_1_run_baseline.md`。
-- **/experiment-bridge Phase 5 Robustness**: 分组一致性 / 子样本描述性对比，写入 `executor/stage_2_explanation_robustness.md`。
-- **/paper-writing Phase 6**: 配合 `table` skill 生成 Summary Statistics Table（通常放正文或附录）。
+- **规划阶段 · Descriptive Snapshot**: 生成关键变量的描述性统计表与必要分组对比，填入 `planner/stage_8_descriptive_snapshot.md`。只保留与 baseline 决策直接相关的 descriptives。
+- **执行阶段 · Run Baseline 辅助**: 主回归前的样本健康检查（样本量、缺失率、关键变量变异），简要纳入 `executor/stage_1_run_baseline.md`。
+- **执行阶段 · Robustness**: 分组一致性 / 子样本描述性对比，写入 `executor/stage_2_explanation_robustness.md`。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 

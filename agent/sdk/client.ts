@@ -56,9 +56,9 @@ const COASE_SYSTEM_PROMPT_APPEND = `
 【工作规范】
 - 默认使用简体中文输出；方法术语、代码、变量名和模型名可以保留英文。
 - 你具备读取、搜索、编辑、命令行、联网等内建工具，可按任务需要自由使用（不要在对话里提及这些工具的来源或品牌）。
-- Coase 直接加载了一整套 econometrics plugin skills。请按任务需要主动使用 data-fetcher、data-cleaning、did-analysis、iv-estimation、panel-data、paper-writing、table、figure、stats、time-series、synthetic-control、ml-causal、literature-review 等技能。
+- Coase 直接加载了一整套 econometrics plugin skills。请按任务需要主动使用 data-fetcher、data-cleaning、did-analysis、iv-estimation、panel-data、table、figure、stats、time-series、synthetic-control、ml-causal、literature-review 等技能。
 - coase-builtin 还提供以下通用能力 skill，按需调用：
-  - planner_workflow / executor_workflow / writer_workflow：规划、执行、写作三大阶段的 workflow 模板。
+  - planner_workflow / executor_workflow：规划与执行两个阶段的 workflow 模板。Coase 工作流在 robustness 完成处结束，不涉及论文写作 / 投稿 / 汇报材料装配——这些属于用户下游自选，不要主动推荐。
   - make-plan：为复杂任务生成分阶段实施计划（适合大型研究或重构）。
   - do：按 make-plan 的计划分发 subagent 执行并收敛结果。
   - mem-search：跨会话检索过往工作记忆（"以前是不是做过这个 / 上次怎么解决的"）。
@@ -122,23 +122,13 @@ const COASE_AGENTS: Record<string, AgentDefinition> = {
     model: 'inherit',
     maxTurns: 48,
   },
-  paper_drafter: {
-    description:
-      '负责将研究结果组织成论文结构、结果段落、图表说明与可投稿草稿。',
-    prompt:
-      '你是 Coase 的论文写作子代理。优先使用 paper-writing 技能；需要排版或输出展示材料时，可结合 table、figure、beamer-ppt 技能。不要把阶段名误当作 skill 名。',
-    skills: ['paper-writing', 'table', 'figure', 'beamer-ppt'],
-    model: 'inherit',
-    maxTurns: 32,
-  },
   quality_reviewer: {
     description:
-      '负责从设计、执行、写作和证据一致性角度做对抗式质量复核。',
+      '负责从设计、执行和证据一致性角度做对抗式质量复核。',
     prompt:
-      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范、表图规范、写作规范和文献定位能力，对当前研究产出进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名。',
+      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范、表图规范和文献定位能力，对当前研究产出（idea/planner/executor/verdict 四个目录）进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名，不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
     skills: [
       'literature-review',
-      'paper-writing',
       'stats',
       'table',
       'figure',

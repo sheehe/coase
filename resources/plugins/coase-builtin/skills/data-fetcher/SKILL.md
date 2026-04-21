@@ -4,11 +4,10 @@ description: Fetch economic data from FRED, World Bank, BLS, OECD, and Yahoo Fin
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 1 (Idea–Data Alignment)**: 评估数据可行性，列出取数方案、API/数据源、预期样本范围、时间覆盖，填入 `planner/stage_1_alignment.md`。若用户未提供数据，给出最小可行取数方案。
-- **/experiment-bridge Phase 4 执行前**: 按 planner 确认的取数方案实际抓取数据，抓取脚本与日志写入 `executor/stage_1_run_baseline.md` 的"数据来源"小节。
-- **/paper-writing Phase 6**: 不直接参与。writer 从 executor/ 摘录数据来源说明用于 Data 章节。
+- **规划阶段 · Idea–Data Alignment**: 评估数据可行性，列出取数方案、API/数据源、预期样本范围、时间覆盖，填入 `planner/stage_1_alignment.md`。若用户未提供数据，给出最小可行取数方案。
+- **执行阶段 · Run Baseline 前**: 按 planner 确认的取数方案实际抓取数据，抓取脚本与日志写入 `executor/stage_1_run_baseline.md` 的"数据来源"小节。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 

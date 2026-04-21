@@ -17,7 +17,7 @@ description: Coase 工作流 W1 完整研究管线（经管 Research Co-pilot）
 - No advancing when key design elements are unclear
 - Alternative specs do not replace baseline
 - Mechanism evidence is not proof unless identification is strong
-- Output writing must match tables exactly
+- **Scope boundary — Coase 在 robustness 完成处结束**：本工作流只负责 idea → planner → executor → verdict 四段。**严禁**在 final_verdict、下一步建议、任何阶段产物里出现"进入 paper-writing / 写论文 / 论文装配 / 投稿 / 答辩 / 组会汇报 / Beamer 幻灯片 / 扩写 Literature Review 章节"等写作/展示类下游动作。产物写完直接交给用户自行决定下一步，不要替他规划写作流程。违反此规则视为偏离工作流。
 
 ---
 

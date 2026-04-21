@@ -9,11 +9,10 @@ description: |
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/experiment-bridge Phase 4 (Run Baseline)**: 生成主回归 Main Results Table，LaTeX booktabs 或 Markdown 格式，填入 `executor/stage_1_run_baseline.md`。
-- **/experiment-bridge Phase 5 (Robustness)**: 生成 Robustness Table 与 Mechanism-Supporting Table（若适用），填入 `executor/stage_2_explanation_robustness.md`。
-- **/paper-writing Phase 6 Table Package**: **主要落脚点**。按正文/附录分级生成完整表格包（Main / Mechanism / Robustness / Appendix A1 A2 ...），统一风格，输出到 `writer/stage_2_table_package.md`。所有表必须与 Writing Blocks 段落结论严格一致。
+- **执行阶段 · Run Baseline**: 生成主回归 Main Results Table，LaTeX booktabs 或 Markdown 格式，填入 `executor/stage_1_run_baseline.md`。
+- **执行阶段 · Robustness**: 生成 Robustness Table 与 Mechanism-Supporting Table（若适用），填入 `executor/stage_2_explanation_robustness.md`。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 
@@ -368,4 +367,3 @@ Keep `\begin{tablenotes}` text concise — a long inline math expression that ca
 - **ols-regression**: Generate regression results to format
 - **/robustness**: Side-by-side robustness specifications tables
 - **/method**: Methods section references the tables
-- **paper-writing**: Tables are a key component of the paper

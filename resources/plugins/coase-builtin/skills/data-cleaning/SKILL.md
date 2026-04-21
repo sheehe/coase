@@ -4,12 +4,11 @@ description: Clean and transform messy data for analysis in Python, R, or Stata
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 2 Step 1 (Variable Mapping)**: 诊断变量构造需求、缺失值与异常值，输出"变量清洗计划"填入 `planner/stage_5_variable_mapping.md`。**此阶段不执行代码**。
-- **/experiment-bridge Phase 4 执行前**: 按 planner 确认的清洗计划实际执行（构造处理组、生成 log/滞后项、winsorize、样本筛选），清洗后的数据与日志记入 `executor/stage_1_run_baseline.md` 的"数据准备"小节。
-- **/experiment-bridge Phase 5 Robustness**: 提供替代变量定义、替代样本、winsorize 临界值对比，结果写入 `executor/stage_2_explanation_robustness.md`。
-- **/paper-writing Phase 6**: 不直接参与。writer 从 executor/ 摘录样本筛选与变量定义说明。
+- **规划阶段 · Variable Mapping**: 诊断变量构造需求、缺失值与异常值，输出"变量清洗计划"填入 `planner/stage_5_variable_mapping.md`。**此阶段不执行代码**。
+- **执行阶段 · Run Baseline 前**: 按 planner 确认的清洗计划实际执行（构造处理组、生成 log/滞后项、winsorize、样本筛选），清洗后的数据与日志记入 `executor/stage_1_run_baseline.md` 的"数据准备"小节。
+- **执行阶段 · Robustness**: 提供替代变量定义、替代样本、winsorize 临界值对比，结果写入 `executor/stage_2_explanation_robustness.md`。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 

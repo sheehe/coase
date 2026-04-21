@@ -76,8 +76,6 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       '诊断失败进入 fallback 队列时，每一次切换在 verdict/spec_log.md 里写明：切换的诊断理由、被否决的策略、新策略。所有产物走 table / figure skill 规范化。',
     ].join('\n\n'),
   },
-  // NOTE: paper-writing 工作流暂时隐藏（老板要求），保留定义不删，留待后续决策。
-  // 既不出现在图标菜单也不出现在斜杠命令选择器里。
   {
     id: 'paper-review',
     trigger: '/paper-review',
@@ -137,7 +135,6 @@ const WORKFLOW_ALIAS_IDS = new Set(WORKFLOW_ALIASES.map((command) => command.id)
 const HIDDEN_SKILL_IDS = new Set([
   'planner_workflow',
   'executor_workflow',
-  'writer_workflow',
   'full_research_workflow',
   'paper_review_workflow',
   'ols-regression',
@@ -153,9 +150,7 @@ const HIDDEN_SKILL_IDS = new Set([
   'stats',
   'figure',
   'table',
-  'paper-writing',
   'literature-review',
-  'beamer-ppt',
   'claude-api',
   'idea-generator',
   'idea-critic',

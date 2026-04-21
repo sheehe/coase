@@ -10,12 +10,11 @@ description: |
 ---
 ## Workflow Integration
 
-若当前会话由 Coase 研究工作流触发（`/idea-discovery` / `/experiment-bridge` / `/paper-writing`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
+若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
-- **/idea-discovery Phase 2 Step 3 (Baseline Design Lock)**: 返回"模型设定 + 识别假设 + 主要识别风险"三段，由 planner 填入 `planner/stage_7_baseline_design.md`。**此阶段不执行代码**。
-- **/experiment-bridge Phase 4 (Run Baseline)**: 生成并执行主回归代码，主回归表走 `table` skill 规范化，结果写入 `executor/stage_1_run_baseline.md`。
-- **/experiment-bridge Phase 5 (Robustness)**: 提供本方法特有的替代估计量、识别诊断或敏感性检验，写入 `executor/stage_2_explanation_robustness.md` 对应条目。
-- **/paper-writing Phase 6**: 不直接参与。writer 从 `executor/` 目录摘录方法描述，**不得补跑回归**。
+- **规划阶段 · Baseline Design Lock**: 返回"模型设定 + 识别假设 + 主要识别风险"三段，由 planner 填入 `planner/stage_7_baseline_design.md`。**此阶段不执行代码**。
+- **执行阶段 · Run Baseline**: 生成并执行主回归代码，主回归表走 `table` skill 规范化，结果写入 `executor/stage_1_run_baseline.md`。
+- **执行阶段 · Robustness**: 提供本方法特有的替代估计量、识别诊断或敏感性检验，写入 `executor/stage_2_explanation_robustness.md` 对应条目。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
 

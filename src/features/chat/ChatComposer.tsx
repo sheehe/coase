@@ -207,8 +207,7 @@ export default function ChatComposer() {
   const slashCommands = useMemo(() => buildSlashCommands(skills ?? []), [skills]);
   // 工作流图标菜单里只列"alias 型工作流"（full-research / idea-to-results /
   // run-experiment / paper-review），不列从 skill 派生出的 workflow，避免菜单
-  // 里冒出一堆用户不认得的底层 workflow skill。paper-writing 已在 slash-commands
-  // 里注释隐藏，这里自动跟着消失。
+  // 里冒出一堆用户不认得的底层 workflow skill。
   const workflowCommands = useMemo(
     () => slashCommands.filter((c) => c.kind === 'workflow' && c.source === 'alias'),
     [slashCommands],
