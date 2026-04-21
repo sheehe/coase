@@ -142,9 +142,32 @@ function summarizeLiveActivity(
     input: unknown;
     ts: number;
   } | null = null;
+  // 最近一次 retry_attempt；只要之后没再出现成功的 turn_result 就仍认为是"重试
+  // 窗口中"，在顶栏 pill 上明确提示，免得用户以为卡死了。
+  let pendingRetry: {
+    attempt: number;
+    maxAttempts: number;
+    nextDelayMs: number;
+    reason: string;
+    ts: number;
+  } | null = null;
+  let sawSuccessAfterRetry = false;
 
   for (let i = transcript.length - 1; i >= 0; i -= 1) {
     const entry = transcript[i];
+    if (!pendingRetry && !sawSuccessAfterRetry) {
+      if (entry.kind === 'turn_result' && entry.ok) {
+        sawSuccessAfterRetry = true;
+      } else if (entry.kind === 'retry_attempt') {
+        pendingRetry = {
+          attempt: entry.attempt,
+          maxAttempts: entry.maxAttempts,
+          nextDelayMs: entry.nextDelayMs,
+          reason: entry.reason,
+          ts: entry.ts,
+        };
+      }
+    }
     if (!activeToolUse && entry.kind === 'tool_use' && entry.status !== 'done') {
       activeToolUse = { name: entry.name, input: entry.input, ts: entry.ts };
     }
@@ -174,6 +197,20 @@ function summarizeLiveActivity(
       lastAssistantSnippet &&
       lastThinkingSnippet
     ) break;
+  }
+
+  // 重试窗口优先级高于绝大多数状态：上游失败了正在等退避，用户最想看到的就是
+  // "第几次 / 还要等多久"。用 working 状态（accent 色脉动），不用红色—— 用户
+  // 把 error 色留给真正终止的失败。
+  if (pendingRetry && !sawSuccessAfterRetry && chatState !== 'idle') {
+    const elapsedMs = now - pendingRetry.ts;
+    const remainSec = Math.max(0, Math.round((pendingRetry.nextDelayMs - elapsedMs) / 1000));
+    const detail = remainSec > 0 ? `下次 ${remainSec}s` : '正在重发';
+    return {
+      state: 'working',
+      label: `LLM 调用失败，重试 ${pendingRetry.attempt}/${pendingRetry.maxAttempts}`,
+      detail,
+    };
   }
 
   if (runStatus === 'failed') {

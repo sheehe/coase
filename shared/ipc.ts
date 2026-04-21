@@ -98,6 +98,33 @@ export type ChatEvent =
     }
   | { type: 'error'; message: string }
   | {
+      // LLM / provider 调用失败的结构化事件。比 `error`（只有 message 字符串）
+      // 多一层元信息，前端用它渲染"失败详情 + 将自动重试"的醒目日志，便于
+      // 用户排查 provider / 网络 / auth 问题。
+      type: 'llm_call_failed';
+      // 失败发生的阶段：`api_error` 是 SDK 成功走完一轮但 provider 返回错误
+      // （result 消息带 subtype != success）；`stream_error` 是 SDK 迭代器
+      // 本身抛异常（子进程死、网络流中断等）。
+      phase: 'api_error' | 'stream_error';
+      providerLabel?: string;
+      model?: string;
+      subtype?: string;
+      errorMessage: string;
+      /** 最近几 KB stderr，帮助排查 spawn / 鉴权 / 证书等底层问题。 */
+      stderrTail?: string;
+      /** true 表示紧跟着会有 retry_attempt。false 表示已达重试上限或不可重试。 */
+      willRetry: boolean;
+    }
+  | {
+      // 指数退避重试事件。每次进入 sleep 前发一次。前端用它在 transcript
+      // 里打一条"重试 N/M · 下次 Ys"的小日志，并在顶栏活动 pill 中反映。
+      type: 'retry_attempt';
+      attempt: number;
+      maxAttempts: number;
+      nextDelayMs: number;
+      reason: string;
+    }
+  | {
       type: 'context_usage';
       total_tokens: number;
       max_tokens: number;
@@ -384,6 +411,25 @@ export type TranscriptEntryPersisted =
       toolUseId?: string;
     }
   | { kind: 'error'; ts: number; text: string }
+  | {
+      kind: 'llm_call_failed';
+      ts: number;
+      phase: 'api_error' | 'stream_error';
+      providerLabel?: string;
+      model?: string;
+      subtype?: string;
+      errorMessage: string;
+      stderrTail?: string;
+      willRetry: boolean;
+    }
+  | {
+      kind: 'retry_attempt';
+      ts: number;
+      attempt: number;
+      maxAttempts: number;
+      nextDelayMs: number;
+      reason: string;
+    }
   | {
       kind: 'turn_result';
       ts: number;

@@ -92,7 +92,18 @@ export async function startChatSession(
 
   onEvent({ type: 'session_started', firstPrompt: firstMessage });
 
-  queue.push(runtimeMessage ?? firstMessage);
+  // 记录最近一次推入队列的 prompt，失败重试时用它重发给 SDK。放在闭包里而不是
+  // 直接从 queue 里反查，因为 PromptQueue 不保留已消费消息。
+  const retryState: { attempts: number; lastPrompt: string | null } = {
+    attempts: 0,
+    lastPrompt: null,
+  };
+  const pushToQueue = (text: string, remember = true): void => {
+    if (remember) retryState.lastPrompt = text;
+    queue.push(text);
+  };
+
+  pushToQueue(runtimeMessage ?? firstMessage);
   if (showFirstMessage) {
     onEvent({ type: 'user_message_accepted', text: firstMessage });
   }
@@ -199,7 +210,42 @@ export async function startChatSession(
     try {
       for await (const message of sdkQuery) {
         trackSdkSession(message, stats, onEvent);
-        translate(message, stats, provider, onEvent, streamState);
+
+        if (message.type === 'result') {
+          // 把 result 消息从通用 translate 路径拆出来：先 accumulate 统计，再
+          // 根据 ok/fail 决定"emit turn_result + 清零 retry"还是"触发指数退避重试"。
+          const verdict = accumulateResult(message, stats, provider);
+          if (verdict.ok) {
+            retryState.attempts = 0;
+            onEvent(verdict.event);
+          } else {
+            const handled = await handleApiFailure({
+              verdict,
+              provider,
+              retryState,
+              stderrChunks,
+              abortSignal: internalAbort.signal,
+              onEvent,
+              pushToQueue,
+            });
+            if (handled === 'terminal') {
+              stats.ok = false;
+              stats.lastError = verdict.failureMessage;
+              finalizeReason = 'error';
+              // Terminal 情况下仍要对外发 turn_result ok=false，保留"回合失败"分隔符
+              // 的既有 UX，并让 sessions-store 维持原来的 flushPersist 语义。
+              onEvent(verdict.event);
+              break;
+            }
+            if (handled === 'aborted') {
+              // sleep 期间用户取消：保留用户意图、由 cancel 路径负责 finalize。
+              break;
+            }
+            // 'retried' 继续 for-await 等 SDK 下一轮
+          }
+        } else {
+          translate(message, stats, provider, onEvent, streamState);
+        }
 
         const now = Date.now();
         if (message.type === 'result' || now - lastContextEmitAt >= 1200) {
@@ -221,6 +267,19 @@ export async function startChatSession(
         }),
       );
       const runtimeError = formatRuntimeErrorMessage('运行期错误', err, errorLogPath);
+      // SDK 迭代器抛异常通常是子进程死 / 网络流中断，属于不可恢复的 stream_error。
+      // 为了和 api_error 保持一致的前端 UX，这里也发一条 llm_call_failed (terminal)
+      // 把 provider / model / stderr 尾巴带给 UI，便于排查；用户仍能看到红色 error 卡片。
+      const described = describeError(err);
+      onEvent({
+        type: 'llm_call_failed',
+        phase: 'stream_error',
+        providerLabel: provider.providerLabel,
+        model: provider.model,
+        errorMessage: described.message,
+        stderrTail: tailStderrForEvent(stderrChunks),
+        willRetry: false,
+      });
       stats.ok = false;
       stats.lastError = runtimeError;
       finalizeReason = 'error';
@@ -244,7 +303,10 @@ export async function startChatSession(
 
   return {
     sendUserMessage(text: string, runtimeText?: string): void {
-      queue.push(runtimeText ?? text);
+      pushToQueue(runtimeText ?? text);
+      // 用户手动发消息意味着上一个失败已被用户接管——清零 retry 计数，让下一次
+      // 重试从头开始。
+      retryState.attempts = 0;
       stats.userMessageCount += 1;
       onEvent({ type: 'user_message_accepted', text });
     },
@@ -313,7 +375,7 @@ function translate(
       handleUserToolResult(message, onEvent);
       return;
     case 'result':
-      handleResult(message, stats, provider, onEvent);
+      // result 消息由 mainLoop 直接处理（retry 判定需要），不走 translate。
       return;
     case 'system':
       handleSystem(message, onEvent);
@@ -479,12 +541,29 @@ function normalizeUsage(providerId: string | undefined, usage: UsageLike): Norma
   };
 }
 
-function handleResult(
+type TurnResultEvent = Extract<ChatEvent, { type: 'turn_result' }>;
+
+interface ResultVerdict {
+  ok: boolean;
+  subtype?: string;
+  errors: string[];
+  failureMessage: string;
+  /** 已构造好的 turn_result 事件。success 时直接 emit；failure 时只在 terminal 分支 emit。 */
+  event: TurnResultEvent;
+}
+
+/**
+ * 吸收 SDK result 消息的 cost / duration / tokens 统计，并返回成败 verdict。
+ *
+ * 原 `handleResult` 会在失败时直接 emit turn_result ok=false，但这让重试逻辑无处
+ * 插入——前端已经看到"回合失败"分隔符了，之后再发重试事件会造成顺序混乱。
+ * 现在拆成 accumulate（纯统计 + 构造事件）+ 由 mainLoop 决定何时 emit 的两段式。
+ */
+function accumulateResult(
   message: SDKMessageLike,
   stats: SessionStats,
   provider: ResolvedProvider,
-  onEvent: (event: ChatEvent) => void,
-): void {
+): ResultVerdict {
   const subtype = message.subtype as string | undefined;
   const costUsd = typeof message.total_cost_usd === 'number' ? message.total_cost_usd : undefined;
   const durationMs = typeof message.duration_ms === 'number' ? message.duration_ms : undefined;
@@ -509,9 +588,35 @@ function handleResult(
   stats.totalCacheTokens += cacheTokens;
 
   if (subtype === 'success') {
-    onEvent({
-      type: 'turn_result',
+    return {
       ok: true,
+      errors: [],
+      failureMessage: '',
+      event: {
+        type: 'turn_result',
+        ok: true,
+        cost_usd: costUsd,
+        duration_ms: durationMs,
+        num_turns: numTurns,
+        total_tokens: totalTokens,
+        input_tokens: inputTokens || undefined,
+        output_tokens: outputTokens || undefined,
+        cache_creation_input_tokens: cacheCreationInputTokens || undefined,
+        cache_read_input_tokens: cacheReadInputTokens || undefined,
+      },
+    };
+  }
+
+  const errors = Array.isArray(message.errors) ? (message.errors as string[]) : [];
+  const failureMessage = errors.join('; ') || subtype || 'unknown';
+  return {
+    ok: false,
+    subtype,
+    errors,
+    failureMessage,
+    event: {
+      type: 'turn_result',
+      ok: false,
       cost_usd: costUsd,
       duration_ms: durationMs,
       num_turns: numTurns,
@@ -520,27 +625,146 @@ function handleResult(
       output_tokens: outputTokens || undefined,
       cache_creation_input_tokens: cacheCreationInputTokens || undefined,
       cache_read_input_tokens: cacheReadInputTokens || undefined,
+      subtype,
+      errors,
+    },
+  };
+}
+
+// ---------- Retry with exponential backoff ----------------------------------
+//
+// Provider API 有时会偶发 429 / 5xx / 网络抖动。失败一次就 finalize 整个会话
+// 对自动研究模式太苛刻——agent 跑了十几分钟因为上游 1 次 5xx 就全没了。
+// 这里的策略：api_error（result 带 subtype != success）时做指数退避重试，
+// 延迟 2s → 4s → ... cap 60s，最多 10 次；每次重试就把上次 prompt 重新推给
+// SDK 让它继续（SDK 侧会走 resume 语义，上下文不丢）。
+const MAX_RETRY_ATTEMPTS = 10;
+const RETRY_BASE_MS = 2000;
+const RETRY_CAP_MS = 60_000;
+
+function computeBackoffMs(attempt: number): number {
+  const raw = RETRY_BASE_MS * Math.pow(2, Math.max(0, attempt - 1));
+  const capped = Math.min(raw, RETRY_CAP_MS);
+  // ±10% jitter，避免多会话同时重试造成 provider 二次打压。
+  const jitter = capped * (0.9 + Math.random() * 0.2);
+  return Math.round(jitter);
+}
+
+function isRetryableFailure(subtype: string | undefined, errorMessage: string): boolean {
+  // error_max_turns 是 agent 自己跑到 maxTurns 上限——重跑仍会撞同一面墙，没意义。
+  if (subtype === 'error_max_turns') return false;
+  const lower = errorMessage.toLowerCase();
+  // 鉴权类错误重试 10 次也不会好，反而会让 provider 把 key 标记异常。
+  if (/\b40[13]\b|unauthorized|forbidden|invalid[_\s-]?api[_\s-]?key|authentication/i.test(lower)) {
+    return false;
+  }
+  return true;
+}
+
+function tailStderrForEvent(chunks: string[]): string | undefined {
+  const merged = joinStderr(chunks);
+  if (!merged) return undefined;
+  // 前端展开卡片里看的是最新几行，限到 2KB 够定位，不占 IPC 带宽。
+  return merged.length > 2000 ? merged.slice(-2000) : merged;
+}
+
+async function sleepWithAbort(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) throw new AbortError();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(new AbortError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+class AbortError extends Error {
+  constructor() {
+    super('aborted');
+    this.name = 'AbortError';
+  }
+}
+
+type FailureOutcome = 'retried' | 'terminal' | 'aborted';
+
+interface HandleApiFailureArgs {
+  verdict: ResultVerdict;
+  provider: ResolvedProvider;
+  retryState: { attempts: number; lastPrompt: string | null };
+  stderrChunks: string[];
+  abortSignal: AbortSignal;
+  onEvent: (event: ChatEvent) => void;
+  pushToQueue: (text: string, remember?: boolean) => void;
+}
+
+/**
+ * Entry B 失败的重试决策点。判断是否可重试、是否还有额度；可以就 emit 提示事件、
+ * 等退避、把上次 prompt 重推给 SDK 让它开下一轮；否则告诉 mainLoop 按 terminal 走。
+ */
+async function handleApiFailure(args: HandleApiFailureArgs): Promise<FailureOutcome> {
+  const {
+    verdict,
+    provider,
+    retryState,
+    stderrChunks,
+    abortSignal,
+    onEvent,
+    pushToQueue,
+  } = args;
+
+  const retryable = isRetryableFailure(verdict.subtype, verdict.failureMessage);
+  const hasBudget = retryState.attempts < MAX_RETRY_ATTEMPTS;
+  const canReplay = retryState.lastPrompt != null;
+
+  if (!retryable || !hasBudget || !canReplay) {
+    onEvent({
+      type: 'llm_call_failed',
+      phase: 'api_error',
+      providerLabel: provider.providerLabel,
+      model: provider.model,
+      subtype: verdict.subtype,
+      errorMessage: verdict.failureMessage,
+      stderrTail: tailStderrForEvent(stderrChunks),
+      willRetry: false,
     });
-    return;
+    return 'terminal';
   }
 
-  stats.ok = false;
-  const errors = Array.isArray(message.errors) ? (message.errors as string[]) : [];
-  stats.lastError = errors.join('; ') || subtype || 'unknown';
+  retryState.attempts += 1;
+  const delayMs = computeBackoffMs(retryState.attempts);
   onEvent({
-    type: 'turn_result',
-    ok: false,
-    cost_usd: costUsd,
-    duration_ms: durationMs,
-    num_turns: numTurns,
-    total_tokens: totalTokens,
-    input_tokens: inputTokens || undefined,
-    output_tokens: outputTokens || undefined,
-    cache_creation_input_tokens: cacheCreationInputTokens || undefined,
-    cache_read_input_tokens: cacheReadInputTokens || undefined,
-    subtype,
-    errors,
+    type: 'llm_call_failed',
+    phase: 'api_error',
+    providerLabel: provider.providerLabel,
+    model: provider.model,
+    subtype: verdict.subtype,
+    errorMessage: verdict.failureMessage,
+    stderrTail: tailStderrForEvent(stderrChunks),
+    willRetry: true,
   });
+  onEvent({
+    type: 'retry_attempt',
+    attempt: retryState.attempts,
+    maxAttempts: MAX_RETRY_ATTEMPTS,
+    nextDelayMs: delayMs,
+    reason: verdict.failureMessage.slice(0, 200),
+  });
+
+  try {
+    await sleepWithAbort(delayMs, abortSignal);
+  } catch {
+    return 'aborted';
+  }
+
+  // 重推 lastPrompt 让 SDK 开启下一轮。remember=false 因为它只是 replay，
+  // 不改变 retryState.lastPrompt（避免 sendUserMessage 语义被干扰）。
+  pushToQueue(retryState.lastPrompt!, false);
+  return 'retried';
 }
 
 function handleSystem(message: SDKMessageLike, onEvent: (event: ChatEvent) => void): void {

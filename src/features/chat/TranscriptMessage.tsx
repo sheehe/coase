@@ -67,6 +67,25 @@ export type TranscriptEntry =
     }
   | { kind: 'error'; ts: number; text: string }
   | {
+      kind: 'llm_call_failed';
+      ts: number;
+      phase: 'api_error' | 'stream_error';
+      providerLabel?: string;
+      model?: string;
+      subtype?: string;
+      errorMessage: string;
+      stderrTail?: string;
+      willRetry: boolean;
+    }
+  | {
+      kind: 'retry_attempt';
+      ts: number;
+      attempt: number;
+      maxAttempts: number;
+      nextDelayMs: number;
+      reason: string;
+    }
+  | {
       kind: 'turn_result';
       ts: number;
       ok: boolean;
@@ -252,6 +271,67 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           <div className="text-[13px] text-danger">{entry.text}</div>
         </div>
       );
+    case 'llm_call_failed': {
+      // 结构化的失败详情 pill：默认折起只显示一行摘要，展开看 provider/model/
+      // subtype/stderr。颜色走 fg-muted（正常），和其他 pill 一致，不用红色以免
+      // 和指数退避"稍后自动重试"的语境冲突——真正终止的失败会另外有 error 卡片。
+      const phaseLabel = entry.phase === 'api_error' ? 'LLM API 调用失败' : 'LLM 流中断';
+      const subtitleParts: string[] = [];
+      if (entry.providerLabel) subtitleParts.push(entry.providerLabel);
+      if (entry.model) subtitleParts.push(entry.model);
+      if (entry.subtype) subtitleParts.push(entry.subtype);
+      subtitleParts.push(entry.willRetry ? '将自动重试' : '已放弃重试');
+      return (
+        <div className="-mt-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className={COLLAPSIBLE_PILL_CLASS}
+          >
+            <AlertCircle size={10} className={COLLAPSIBLE_ICON_CLASS} />
+            <span className="font-medium text-fg-muted">{phaseLabel}</span>
+            <span className="text-[10px] text-fg-subtle/80">{subtitleParts.join(' · ')}</span>
+            {expanded ? (
+              <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            ) : (
+              <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+            )}
+          </button>
+          {expanded && (
+            <div className="mt-1 space-y-2 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">错误信息</div>
+                <pre className="mt-0.5 overflow-x-auto whitespace-pre-wrap">{entry.errorMessage}</pre>
+              </div>
+              {entry.stderrTail && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">stderr 尾</div>
+                  <pre className="mt-0.5 overflow-x-auto whitespace-pre-wrap text-fg-subtle">
+                    {entry.stderrTail}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+    case 'retry_attempt': {
+      const delaySeconds = Math.max(1, Math.round(entry.nextDelayMs / 1000));
+      return (
+        <div className="-mt-3">
+          <span className={COLLAPSIBLE_PILL_CLASS}>
+            <CoaseMark size={10} className={COLLAPSIBLE_ICON_CLASS} />
+            <span className="font-medium text-fg-muted">
+              重试 {entry.attempt}/{entry.maxAttempts}
+            </span>
+            <span className="text-[10px] text-fg-subtle/80">
+              {delaySeconds}s 后自动重发 · {entry.reason.slice(0, 60)}
+            </span>
+          </span>
+        </div>
+      );
+    }
   }
 }
 

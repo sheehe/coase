@@ -349,6 +349,37 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
       };
     case 'error':
       return { transcript: [...prev, { kind: 'error', ts, text: event.message }] };
+    case 'llm_call_failed':
+      return {
+        transcript: [
+          ...prev,
+          {
+            kind: 'llm_call_failed',
+            ts,
+            phase: event.phase,
+            providerLabel: event.providerLabel,
+            model: event.model,
+            subtype: event.subtype,
+            errorMessage: event.errorMessage,
+            stderrTail: event.stderrTail,
+            willRetry: event.willRetry,
+          },
+        ],
+      };
+    case 'retry_attempt':
+      return {
+        transcript: [
+          ...prev,
+          {
+            kind: 'retry_attempt',
+            ts,
+            attempt: event.attempt,
+            maxAttempts: event.maxAttempts,
+            nextDelayMs: event.nextDelayMs,
+            reason: event.reason,
+          },
+        ],
+      };
     case 'turn_result': {
       const parts: string[] = [];
       if (typeof event.num_turns === 'number') parts.push(`turns=${event.num_turns}`);
