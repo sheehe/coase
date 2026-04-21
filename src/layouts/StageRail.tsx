@@ -7,7 +7,7 @@ import { useChat } from '../features/chat/ChatContext';
 import type { TranscriptEntry } from '../features/chat/TranscriptMessage';
 
 export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'hero' }) {
-  const { transcript, chatState, runStatus, contextUsage } = useChat();
+  const { transcript, chatState, runStatus } = useChat();
   const metrics = summarizeTranscript(transcript, chatState === 'running');
 
   // 让 tool/subagent 的"已跑 Xs"能随时间自然滴答，不必等新事件才刷新。
@@ -19,7 +19,6 @@ export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'he
   }, [chatState]);
 
   const activity = summarizeLiveActivity(transcript, chatState, runStatus);
-  const liveCtxTokens = contextUsage?.totalTokens ?? null;
 
   const rail = (
     <div
@@ -34,9 +33,6 @@ export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'he
 
       {variant === 'page' && (
         <div className="ml-auto flex shrink-0 items-center gap-4 text-[11px] font-mono text-fg-muted">
-          <span title="当前上下文窗口 token（每 ~1.2s 刷新）">
-            Ctx {formatNumber(liveCtxTokens)}
-          </span>
           <span title="已结账 turn 的累计 input token">
             Input {formatNumber(metrics.inputTokens)}
           </span>
