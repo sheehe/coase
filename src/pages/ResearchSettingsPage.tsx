@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ChevronLeft } from '../components/Icons';
@@ -6,11 +6,8 @@ import Button from '../components/ui/Button';
 import { Card, CardBody } from '../components/ui/Card';
 import {
   DEFAULT_RESEARCH_PREFS,
-  type MethodDiscipline,
-  type OutputLanguage,
   type ResearchPrefs,
   type ResearchPurpose,
-  type SignificanceLevel,
 } from '../../shared/research-prefs';
 
 type OptionDef<T extends string> = {
@@ -30,40 +27,6 @@ const PURPOSE_OPTIONS: OptionDef<ResearchPurpose>[] = [
     label: '关联性探索',
     description:
       '变量间的相关关系；可用 OLS / Logit / Probit 等回归模型 + 固定效应或聚类控制，结果明确声明为关联性。',
-  },
-];
-
-const DISCIPLINE_OPTIONS: OptionDef<MethodDiscipline>[] = [
-  {
-    value: 'strict',
-    label: '严格模式',
-    description:
-      '识别通过 + 系数不显著 = 合法 null result，按计划继续 robustness；禁止因为不显著而换方法、改样本。',
-  },
-  {
-    value: 'exploratory',
-    label: '探索模式',
-    description:
-      '允许在不显著时尝试其它方法或切样本，但所有这类产物会被打上 EXPLORATORY 标签，不冒充 confirmatory。',
-  },
-];
-
-const SIG_OPTIONS: OptionDef<SignificanceLevel>[] = [
-  { value: '0.01', label: 'α = 0.01', description: '严苛阈值（常用于大样本或高风险决策）。' },
-  { value: '0.05', label: 'α = 0.05', description: '经济学与社科最常见的默认阈值。' },
-  { value: '0.10', label: 'α = 0.10', description: '探索性或小样本研究的宽松阈值。' },
-];
-
-const LANG_OPTIONS: OptionDef<OutputLanguage>[] = [
-  {
-    value: 'zh-CN',
-    label: '简体中文',
-    description: '表格标题、图题、verdict 报告默认中文；方法术语和代码注释保留英文。',
-  },
-  {
-    value: 'en',
-    label: 'English',
-    description: 'Tables / figures / verdicts default to English; comments and code stay in English.',
   },
 ];
 
@@ -92,14 +55,7 @@ export default function ResearchSettingsPage() {
     void reload();
   }, [reload]);
 
-  const isDirty = useMemo(() => {
-    return (
-      prefs.researchPurpose !== savedPrefs.researchPurpose ||
-      prefs.methodDiscipline !== savedPrefs.methodDiscipline ||
-      prefs.significanceLevel !== savedPrefs.significanceLevel ||
-      prefs.outputLanguage !== savedPrefs.outputLanguage
-    );
-  }, [prefs, savedPrefs]);
+  const isDirty = prefs.researchPurpose !== savedPrefs.researchPurpose;
 
   const handleSave = useCallback(async () => {
     setBusy(true);
@@ -181,43 +137,14 @@ export default function ResearchSettingsPage() {
           加载偏好…
         </section>
       ) : (
-        <>
-          <PrefSection
-            title="研究目的"
-            caption="决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。"
-            options={PURPOSE_OPTIONS}
-            value={prefs.researchPurpose}
-            onChange={(value) => setPrefs((prev) => ({ ...prev, researchPurpose: value }))}
-            disabled={busy}
-          />
-
-          <PrefSection
-            title="方法切换纪律"
-            caption="系数不显著不是失败；只有识别诊断失败才允许换识别策略。严格模式会强制这条纪律；探索模式允许放宽但产物会被标注 EXPLORATORY。"
-            options={DISCIPLINE_OPTIONS}
-            value={prefs.methodDiscipline}
-            onChange={(value) => setPrefs((prev) => ({ ...prev, methodDiscipline: value }))}
-            disabled={busy}
-          />
-
-          <PrefSection
-            title="默认显著性水平"
-            caption="verdict、诊断判决、星标记号的默认阈值。单次会话可在任务中显式指定其它 α 覆盖。"
-            options={SIG_OPTIONS}
-            value={prefs.significanceLevel}
-            onChange={(value) => setPrefs((prev) => ({ ...prev, significanceLevel: value }))}
-            disabled={busy}
-          />
-
-          <PrefSection
-            title="产物语言"
-            caption="表格标题、图注、verdict 报告等用户可见产物的默认语言；不影响代码与变量命名。"
-            options={LANG_OPTIONS}
-            value={prefs.outputLanguage}
-            onChange={(value) => setPrefs((prev) => ({ ...prev, outputLanguage: value }))}
-            disabled={busy}
-          />
-        </>
+        <PrefSection
+          title="研究目的"
+          caption="决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。"
+          options={PURPOSE_OPTIONS}
+          value={prefs.researchPurpose}
+          onChange={(value) => setPrefs({ researchPurpose: value })}
+          disabled={busy}
+        />
       )}
     </div>
   );
