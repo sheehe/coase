@@ -23,8 +23,9 @@ const INVOKE_TOOL_DESCRIPTION = `
 用途：idea 对抗评分（discuss / score）、方案批评（design-critique）、
 机制稳健性结果批评（result-critique）、论文 referee 评审。
 
-前置：用户必须已经在设置 → 评审模型组里勾选至少 2 个不同 provider，否则
-返回 panelSize=0 并给出用户可见提示。
+前置：用户必须已经在设置 → 评审模型组里勾选至少 1 个 provider（主模型是被评
+角色，critic 提供独立第二视角）。panelSize=1 时走单 critic 评语模式，panelSize≥2
+时走多方对抗共识模式。未配置时返回 panelSize=0 并给出用户可见提示。
 
 不要用这个 tool 做：
 - 普通的单次对话（用 agent 自己的主 provider 就行）
@@ -76,7 +77,7 @@ export function buildCriticPanelMcpServer(): McpSdkServerConfigWithInstance {
             {
               type: 'text' as const,
               text:
-                '评审模型组尚未配置。请提示用户前往 设置 → 评审模型组 勾选至少 2 个不同 provider 后再发起对抗评审。',
+                '评审模型组尚未配置。请提示用户前往 设置 → 评审模型组 勾选至少 1 个独立 provider 作为第二视角后再发起对抗评审。',
             },
           ],
           isError: true,

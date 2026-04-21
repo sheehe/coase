@@ -8,7 +8,7 @@ description: Coase 工作流 W1 完整研究管线（经管 Research Co-pilot）
 - 本工作流是上层编排器，内部依次调用 `planner_workflow`、`executor_workflow`，以及 `idea-generator` / `idea-critic` / `significance-verdict` 三个新 skill。不要重复实现它们的逻辑。
 - 工作目录布局：`idea/`, `planner/`, `executor/`, `verdict/`。每阶段产物落入对应目录的 stage 文件。
 - 本 skill 定位为 **经管学者** 视角（非"社会科学学者"或经济学通用），参考期刊：SMJ, Organization Science, AMJ, JIBS, SEJ, JBV（不是 AJPS / AER）。
-- 对抗评分至少调用 2 个不同 provider 的模型。若用户未在设置页配置"评审模型组"，先提示用户配置再继续。
+- 对抗评分调用评审模型组（主模型是被评角色，critic 提供独立第二视角）：panelSize=1 走单 critic 评语模式、panelSize≥2 走多方对抗共识模式。若用户未在设置页配置"评审模型组"（panelSize=0），先提示用户配置再继续。
 - 方法迭代（step 8a）严格遵守 executor_workflow Phase 4 的规则：只允许调整**控制变量 / 样本定义 / 变量处理**，**不允许换 FE / cluster 来找结果**，**不允许改变 estimand 含义**。每次替代设定必须标注 changed what。
 
 ## Global Rules

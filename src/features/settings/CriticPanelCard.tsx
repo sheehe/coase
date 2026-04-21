@@ -79,8 +79,7 @@ export default function CriticPanelCard({ providers }: Props) {
   }, [savedIds]);
 
   const warningText = useMemo(() => {
-    if (selected.size === 0) return '尚未选择任何模型。对抗评分需要至少 2 个不同 provider 才会生效。';
-    if (selected.size === 1) return '只选了 1 个模型，无法形成对抗。请至少再加 1 个不同 provider。';
+    if (selected.size === 0) return '尚未选择任何评审模型。至少勾选 1 个独立 provider 作为对抗视角。';
     return null;
   }, [selected]);
 
@@ -90,8 +89,8 @@ export default function CriticPanelCard({ providers }: Props) {
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">评审模型组</div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            用于 idea 对抗评分、方案 critique、论文 referee 评审。运行时会并行调用下方勾选的模型，
-            各自独立生成评审，再聚合展示共识与分歧。目前仅支持 anthropic 协议 provider。
+            用于 idea 对抗评分、方案 critique、论文 referee 评审。主模型负责产出，评审模型提供独立第二视角。
+            勾选 1 个即生效（单 critic 评语）；勾选 ≥ 2 个时聚合展示共识与分歧。目前仅支持 anthropic 协议 provider。
           </div>
         </div>
 
@@ -169,9 +168,11 @@ export default function CriticPanelCard({ providers }: Props) {
             </div>
           )}
 
-          {!warningText && savedIds.size >= 2 && (
+          {!warningText && savedIds.size >= 1 && (
             <div className="border-t border-border bg-black/[0.02] px-5 py-3 text-[12px] text-fg-muted dark:bg-white/[0.02]">
-              已启用 {savedIds.size} 个模型作为评审组，运行 /full-research 或 /paper-review 时会被自动调度。
+              {savedIds.size === 1
+                ? '已启用 1 个评审模型（单 critic 评语模式），运行 /full-research 或 /paper-review 时会被自动调度。再加 1 个 provider 可进入对抗共识模式。'
+                : `已启用 ${savedIds.size} 个评审模型（对抗共识模式），运行 /full-research 或 /paper-review 时会并行调度、聚合共识与分歧。`}
             </div>
           )}
         </>

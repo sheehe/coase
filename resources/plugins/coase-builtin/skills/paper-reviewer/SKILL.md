@@ -21,7 +21,7 @@ mcp__coase-critic-panel__invoke({
 
 Tool 会返回每个评审 provider 的独立 referee report。agent 把返回的每一份 report 分别写入 `review/stage_2_referee_reports/{provider_id}.md`（注意 tool 返回里有 `provider_id` 字段）。若是 `both` 模式，重新调用一次 tool，切换 system_prompt 的 tone（self-review vs reviewer-2），分别写入 `{provider_id}_self.md` 和 `{provider_id}_reviewer2.md`。
 
-**前置检查**：同 idea-critic，评审模型组必须已配置 ≥ 2 个不同 provider，否则 tool 会返回 `isError=true`，此时停下来提示用户。
+**前置检查**：同 idea-critic，评审模型组必须已配置 ≥ 1 个独立 provider（panelSize=1 走单 referee 模式、panelSize≥2 走多 referee 共识/分歧模式）。若未配置，tool 会返回 `isError=true`，此时停下来提示用户。
 
 ## Role
 

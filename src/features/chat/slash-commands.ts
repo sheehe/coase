@@ -31,8 +31,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'full-research',
     trigger: '/full-research',
     title: 'Full Research Pipeline',
-    description:
-      'Workflow 1: 从方向出发，brainstorm idea → 多模型对抗评分迭代 → 设计 → 执行 → 诊断判决，失败按 fallback 队列切换方法。适合"什么都还没想好"。',
+    description: '从零到结果的完整流程',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
@@ -41,16 +40,15 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     guidance: [
       '把当前任务当作完整研究管线。优先调用 full_research_workflow，它会依次编排：idea 生成 → 多模型对抗评分迭代 → 用户选定 → planner_workflow 锁 baseline design（含 fallback 识别策略队列）→ executor_workflow 执行 → significance-verdict 诊断判决。',
       '对抗评分阶段：用户已在设置页选好"评审模型组"。调用 idea-critic skill，按 provider 并行调度多模型评分并聚合。用户感知上只需要选模型，不用关心底层是 SDK 直连还是 MCP。',
-      '执行阶段失败处理：只在"识别诊断失败"（平行趋势被拒 / 弱工具 / 带宽崩 / 测量失效等）时才按 planner 预注册的 fallback 队列切换识别策略。**p 值不显著且识别通过不是失败**，那是合法 null result，按 null result 路径进入 robustness 和写作。除非 exploratory_mode 开启，否则绝不允许"系数不显著就换方法"。',
-      'fallback 队列、诊断套件、exploratory_mode 的具体实现参见 full_research_workflow SKILL.md。所有方法切换记入 verdict/spec_log.md，论文 appendix 必须披露 model building process。',
+      '执行阶段失败处理：只在"识别诊断失败"（平行趋势被拒 / 弱工具 / 带宽崩 / 测量失效等）时才按 planner 预注册的 fallback 队列切换识别策略。**p 值不显著且识别通过不是失败**，那是合法 null result，按 null result 路径进入 robustness。除非 exploratory_mode 开启，否则绝不允许"系数不显著就换方法"。',
+      'fallback 队列、诊断套件、exploratory_mode 的具体实现参见 full_research_workflow SKILL.md。所有方法切换记入 verdict/spec_log.md。本工作流在 robustness 完成处结束，不涉及写作/论文装配——产物交给用户决定下一步。',
     ].join('\n\n'),
   },
   {
     id: 'idea-to-results',
     trigger: '/idea-to-results',
     title: 'Idea to Results',
-    description:
-      'Workflow 2: 已经有 idea，走设计 → 执行 → 诊断判决 → （失败则 fallback 换方法）。跳过 idea 生成和对抗评分。',
+    description: '已有 idea，设计到结果',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
@@ -66,8 +64,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'run-experiment',
     trigger: '/run-experiment',
     title: 'Run Experiment',
-    description:
-      'Workflow 3: 已有 idea + 已锁定 baseline design，直接跑主回归、诊断、稳健性。',
+    description: '已锁 baseline，执行与诊断',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
@@ -85,8 +82,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'paper-review',
     trigger: '/paper-review',
     title: 'Paper Review',
-    description:
-      'Workflow 5: 审稿人视角对 draft 做对抗评审，支持自评模式和模拟 Reviewer 2 硬审。输出意见清单 + 改稿 todo。',
+    description: '对 draft 做对抗评审',
     kind: 'workflow',
     source: 'alias',
     sourceLabel: '工作流',
@@ -122,18 +118,6 @@ const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
       targetSkills: ['executor_workflow'],
       guidance:
         '优先执行 executor_workflow，围绕既有设计完成数据准备、基线分析、稳健性检查和产物输出。',
-    },
-  ],
-  [
-    'writer_workflow',
-    {
-      title: 'Writer Workflow',
-      description: '写作型 workflow：从结果材料到章节、整文与编译产物。',
-      kind: 'workflow',
-      aliases: ['writer', '写作工作流'],
-      targetSkills: ['writer_workflow'],
-      guidance:
-        '优先执行 writer_workflow，整理 claims-evidence、章节内容、参考文献和完整论文装配。',
     },
   ],
   [

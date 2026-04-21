@@ -42,7 +42,8 @@ export interface ProvidersFile {
   activeProviderId: string | null;
   /**
    * 评审模型组（critic panel）的 provider id 列表。用于 idea-critic / paper-reviewer
-   * 等 skill 的多模型对抗评分。至少配置 2 个不同 provider 才会生效。
+   * 等 skill 的对抗评审。主模型是被评角色，critic 提供独立第二视角。
+   * 配置 1 个即生效（单 critic 评语模式）；配置 ≥ 2 个进入对抗共识模式。
    * 未配置时为 null / undefined（向后兼容旧版 providers.json）。
    */
   criticPanelIds?: string[] | null;

@@ -17,18 +17,17 @@ export default function EmptyHero() {
 
         <div className="mt-10 w-full max-w-[560px] space-y-2 text-[13px] leading-7 text-fg-muted">
           <div>
-            输入 <span className="font-mono text-fg">/</span> 打开命令选择器，从五个工作流中挑一个开始：
+            输入 <span className="font-mono text-fg">/</span> 打开命令选择器，从四个工作流中挑一个开始：
             <span className="font-mono text-fg"> /full-research</span> ·
             <span className="font-mono text-fg"> /idea-to-results</span> ·
             <span className="font-mono text-fg"> /run-experiment</span> ·
-            <span className="font-mono text-fg"> /paper-writing</span> ·
             <span className="font-mono text-fg"> /paper-review</span>
           </div>
           <div>
             想直接自由提问也行，Coase 会按任务自主调度方法技能与子代理。
           </div>
           <div>
-            多模型对抗评审需要先在 <span className="font-mono text-fg">设置 → 评审模型组</span> 勾选 ≥ 2 个不同 provider。
+            对抗评审需要先在 <span className="font-mono text-fg">设置 → 评审模型组</span> 勾选 ≥ 1 个独立 provider 作为第二视角。
           </div>
         </div>
 

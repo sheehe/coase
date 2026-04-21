@@ -6,7 +6,7 @@ description: 经管研究多模型对抗评分 / critique 工具。对应 full_r
 ## Workflow Notes
 
 - 被 `full_research_workflow` 在多个 step 复用。用户感知上只看到"多模型对抗"，不需要知道底层是 SDK 直连还是 MCP（实际上是直接调用用户配置的多个 provider）。
-- 至少需要 2 个不同 provider 的模型配置。若用户只配置了 1 个，停下来提示用户"对抗评分至少需要 2 个不同模型"，让用户补配。
+- 至少需要 1 个独立于主模型的 provider 作为 critic。panelSize=1 走单 critic 评语模式（输出一份独立评审，不做共识/分歧聚合）；panelSize≥2 走多方对抗共识模式（聚合共识 + 分歧）。若用户 0 个都没配，停下来提示用户去设置页勾选至少 1 个独立 provider，让用户补配。
 - 本 skill 是纯评审工具，不提交最终决定。最终决定由用户（human-in-the-loop）或 `significance-verdict`（结果判定）给出。
 
 ## Invocation Modes
@@ -122,13 +122,13 @@ mcp__coase-critic-panel__invoke({
 ### 前置检查
 
 调用 tool 前：
-- 如果 `mcp__coase-critic-panel__invoke` 返回 `isError=true` 且提示"评审模型组尚未配置"，停下来告诉用户去设置页勾选至少 2 个不同 provider，不要继续
-- 如果返回的 entries 里有多个 `ok=false` 的条目，在聚合时明确标注哪些模型失败 / 超时，剩余模型是否够形成对抗（< 2 则停下）
+- 如果 `mcp__coase-critic-panel__invoke` 返回 `isError=true` 且提示"评审模型组尚未配置"，停下来告诉用户去设置页勾选至少 1 个独立 provider，不要继续
+- 如果返回的 entries 里有多个 `ok=false` 的条目，在聚合时明确标注哪些模型失败 / 超时；若仅剩 1 个成功，降级为单 critic 评语模式；若 0 个成功，停下并报告给用户
 
 ## 必须遵守的原则
 
 1. 评分和 critique 必须来自真正独立的模型调用（不允许单一模型 self-critique 后聚合）
-2. 至少 2 个不同 provider，建议 3-4 个，上限 6 个（token 成本考虑）
+2. 至少 1 个独立 provider（单 critic 评语模式），建议 ≥ 2 个进入对抗共识模式，3-4 个最佳，上限 6 个（token 成本考虑）
 3. 聚合时必须展示每个模型的原始意见，不能只给聚合结果（便于用户理解分歧来源）
 4. 对抗的目标是**让假设 / 方案 / 结果变得更好**，不是单纯否决
 5. 循环轮数不得超过上限（critique_rounds max 3, rescue_rounds max 3），防止死循环

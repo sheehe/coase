@@ -48,7 +48,6 @@ export default function SessionSidebar() {
     openHistoricalSession,
     summaryRefreshKey,
     workspaceRoot,
-    workspaceMode,
     chooseWorkspaceRoot,
   } = useChat();
   const navigate = useNavigate();
@@ -149,8 +148,8 @@ export default function SessionSidebar() {
   return (
     <>
       <aside className="flex h-full w-full shrink-0 flex-col bg-sidebar">
-        {/* 头部：新会话 + 工作区目录 badge ----------------------------------- */}
-        <div className="space-y-3 px-4 pb-3 pt-4">
+        {/* 头部：新会话 ------------------------------------------------------ */}
+        <div className="px-4 pb-3 pt-4">
           <button
             type="button"
             onClick={() => {
@@ -162,32 +161,6 @@ export default function SessionSidebar() {
             <Plus size={13} />
             <span>新会话</span>
           </button>
-
-          <div className="rounded-lg border border-border/70 bg-surface px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
-                工作区目录
-              </div>
-              <button
-                type="button"
-                onClick={() => void chooseWorkspaceRoot()}
-                disabled={!canChangeWorkspace}
-                title="选择工作区目录"
-                aria-label="选择工作区目录"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-md text-fg transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:text-fg-subtle dark:hover:bg-white/[0.04]"
-              >
-                <Plus size={13} />
-              </button>
-            </div>
-            {workspaceMode === 'custom' && workspaceRoot ? (
-              <div
-                className="mt-2 truncate text-[12px] leading-5 text-fg-muted"
-                title={workspaceRoot}
-              >
-                {middleEllipsis(workspaceRoot, 40)}
-              </div>
-            ) : null}
-          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -198,7 +171,7 @@ export default function SessionSidebar() {
                 className="truncate text-[11px] uppercase tracking-[0.16em] text-fg-subtle"
                 title={effectiveRoot ?? undefined}
               >
-                {workspaceTitle}
+                工作区：{workspaceTitle}
               </span>
               <div className="ml-auto flex items-center gap-0.5">
                 <button
@@ -221,6 +194,16 @@ export default function SessionSidebar() {
                     <Folder size={12} />
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => void chooseWorkspaceRoot()}
+                  disabled={!canChangeWorkspace}
+                  className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.04]"
+                  aria-label="选择工作区目录"
+                  title="选择工作区目录"
+                >
+                  <Plus size={12} />
+                </button>
               </div>
             </div>
 
@@ -530,9 +513,3 @@ function getWorkspaceRootName(workspaceRoot: string): string {
   return segments.at(-1) ?? normalized;
 }
 
-function middleEllipsis(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value;
-  const headLength = Math.ceil((maxLength - 1) / 2);
-  const tailLength = Math.floor((maxLength - 1) / 2);
-  return `${value.slice(0, headLength)}…${value.slice(value.length - tailLength)}`;
-}
