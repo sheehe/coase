@@ -479,6 +479,10 @@ function summarizeTranscript(
 
 function formatNumber(value: number | null) {
   if (value == null) return '—';
+  if (value >= 1_000_000) {
+    const compact = value / 1_000_000;
+    return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}M`;
+  }
   if (value >= 1000) {
     const compact = value / 1000;
     return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}k`;
