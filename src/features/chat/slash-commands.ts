@@ -79,7 +79,7 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
   {
     id: 'review',
     trigger: '/review',
-    title: '方案评审',
+    title: 'Proposal Review',
     description: '对 idea / 研究方案做对抗评审',
     kind: 'workflow',
     source: 'alias',
