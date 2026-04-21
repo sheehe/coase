@@ -16,6 +16,7 @@ import {
   type ChatState,
   type ComposerAttachment,
   type ContextUsage,
+  type LiveTurnUsage,
   type RunStatus,
   type SessionRuntime,
 } from './sessions-store';
@@ -48,6 +49,7 @@ export interface ChatSessionValue {
   } | null;
   totalTokens: number;
   contextUsage: ContextUsage | null;
+  liveTurnUsage: LiveTurnUsage | null;
   inferredStage: InferredStage;
   currentMilestone: string;
   artifactCount: number;
@@ -263,6 +265,7 @@ export function useChatSession(): ChatSessionValue {
     latestTurnMetrics,
     totalTokens,
     contextUsage: runtime?.contextUsage ?? null,
+    liveTurnUsage: runtime?.liveTurnUsage ?? null,
     inferredStage,
     currentMilestone: insights.currentMilestone,
     artifactCount: insights.artifacts.length,

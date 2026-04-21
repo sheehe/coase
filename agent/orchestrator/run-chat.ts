@@ -66,6 +66,13 @@ export interface SessionStats {
   totalOutputTokens: number;
   /** 缓存 token 累计（cache_creation + cache_read）。非官方 provider 取 0。 */
   totalCacheTokens: number;
+  /**
+   * 本轮 in-progress turn 的 I/O 累计。每条 assistant message 的 usage 累加进来，
+   * result 消息到达时清零。**不参与跨 turn / 跨 session 的任何累计**——仅用于让 UI
+   * 在长 turn（十几分钟没出 result）期间也能看到实时消耗，否则 Input/Output 会一直显示 —。
+   */
+  liveTurnInputTokens: number;
+  liveTurnOutputTokens: number;
   ok: boolean;
   lastError?: string;
 }
@@ -199,6 +206,9 @@ export async function startChatSession(
     totalInputTokens: priorStats?.totalInputTokens ?? 0,
     totalOutputTokens: priorStats?.totalOutputTokens ?? 0,
     totalCacheTokens: priorStats?.totalCacheTokens ?? 0,
+    // per-turn 字段，不从 priorStats 继承——新 session / resume 都从 0 开始累加
+    liveTurnInputTokens: 0,
+    liveTurnOutputTokens: 0,
     ok: true,
   };
 
@@ -369,7 +379,7 @@ function translate(
 ): void {
   switch (message.type) {
     case 'assistant':
-      handleAssistant(message, onEvent, streamState);
+      handleAssistant(message, stats, provider, onEvent, streamState);
       return;
     case 'user':
       handleUserToolResult(message, onEvent);
@@ -405,10 +415,14 @@ interface AssistantBlock {
 
 function handleAssistant(
   message: SDKMessageLike,
+  stats: SessionStats,
+  provider: ResolvedProvider,
   onEvent: (event: ChatEvent) => void,
   streamState: StreamingTextBuffers,
 ): void {
-  const inner = message.message as { id?: string; content?: AssistantBlock[] } | undefined;
+  const inner = message.message as
+    | { id?: string; content?: AssistantBlock[]; usage?: UsageLike }
+    | undefined;
   const blocks = inner?.content;
   const messageId = typeof inner?.id === 'string' ? inner.id : undefined;
   const parentToolUseId =
@@ -417,6 +431,26 @@ function handleAssistant(
   // Finalize any streaming buffer for this message (the assistant message
   // carries authoritative text; we replace the streaming fragment with it).
   if (messageId) streamState.finalize(messageId);
+
+  // 每条 assistant message 的 usage 表示"这次 LLM call 的消耗"——累加到 per-turn
+  // live 计数上，发 turn_partial_usage 让 UI 实时滴答。result 到达时由 accumulateResult
+  // 清零累加器，同时前端用 turn_result 的权威值覆盖，不会重复计入总数。
+  // 不发 assistant 消息 usage 的 provider（部分国产兼容实现）自然退化为不滴答，
+  // 不会比现状更差。
+  if (inner?.usage && typeof inner.usage === 'object') {
+    const normalized = normalizeUsage(provider.providerId, inner.usage);
+    if (normalized.inputTokens > 0 || normalized.outputTokens > 0) {
+      stats.liveTurnInputTokens += normalized.inputTokens;
+      stats.liveTurnOutputTokens += normalized.outputTokens;
+      onEvent({
+        type: 'turn_partial_usage',
+        input_tokens: stats.liveTurnInputTokens,
+        output_tokens: stats.liveTurnOutputTokens,
+        cache_creation_input_tokens: normalized.cacheCreationInputTokens || undefined,
+        cache_read_input_tokens: normalized.cacheReadInputTokens || undefined,
+      });
+    }
+  }
 
   if (!Array.isArray(blocks)) return;
 
@@ -586,6 +620,10 @@ function accumulateResult(
   stats.totalInputTokens += inputTokens;
   stats.totalOutputTokens += outputTokens;
   stats.totalCacheTokens += cacheTokens;
+  // 新 turn 即将开始（或刚失败退出），把 per-turn 累加器清零。前端收到 turn_result
+  // 会把 liveTurnUsage 置 null，双方保持一致。
+  stats.liveTurnInputTokens = 0;
+  stats.liveTurnOutputTokens = 0;
 
   if (subtype === 'success') {
     return {
@@ -1295,6 +1333,8 @@ function makeDeadHandle(): ChatSessionHandle {
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalCacheTokens: 0,
+    liveTurnInputTokens: 0,
+    liveTurnOutputTokens: 0,
     ok: false,
     lastError: 'session never started',
   };

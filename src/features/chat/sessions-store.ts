@@ -61,6 +61,16 @@ export interface ContextUsage {
   }>;
 }
 
+/**
+ * 当前 in-progress turn 的 I/O token 累计。每条 assistant message 到达时 orchestrator
+ * 会更新此值；turn_result 到达时由 reducer 清为 null（turn_result 本身的权威数字
+ * 通过 summarizeTranscript 进入累计，避免重复计入）。
+ */
+export interface LiveTurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 /** Store 内部每条会话的 runtime 视图。 */
 export interface SessionRuntime {
   /** Map key；draft 期形如 `draft:<uuid>`，发了首消息后变成真 sessionId。 */
@@ -76,6 +86,8 @@ export interface SessionRuntime {
   chatState: ChatState;
   runStatus: RunStatus;
   contextUsage: ContextUsage | null;
+  /** 正在进行中的 turn 的 I/O 累计，turn_result 到达时清为 null。 */
+  liveTurnUsage: LiveTurnUsage | null;
   workspaceRoot: string | null;
   workspaceMode: 'auto' | 'custom';
   input: string;
@@ -101,6 +113,7 @@ function createEmptyRuntime(key: string): SessionRuntime {
     chatState: 'idle',
     runStatus: 'idle',
     contextUsage: null,
+    liveTurnUsage: null,
     workspaceRoot: null,
     workspaceMode: 'auto',
     input: '',
@@ -130,6 +143,7 @@ interface ReducerPatch {
   transcript?: TranscriptEntry[];
   sdkSessionId?: string;
   contextUsage?: ContextUsage | null;
+  liveTurnUsage?: LiveTurnUsage | null;
   chatState?: ChatState;
   runStatus?: RunStatus;
   /** 要求 store 触发 summaryRefreshKey++，让侧边栏重拉 sessions.recent()。 */
@@ -217,6 +231,7 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
         chatState: 'idle',
         runStatus: nextRun,
         contextUsage: null,
+        liveTurnUsage: null,
         bumpSummary: true,
         flushPersist: true,
         finished: true,
@@ -347,6 +362,13 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
           categories: event.categories,
         },
       };
+    case 'turn_partial_usage':
+      return {
+        liveTurnUsage: {
+          inputTokens: event.input_tokens,
+          outputTokens: event.output_tokens,
+        },
+      };
     case 'error':
       return { transcript: [...prev, { kind: 'error', ts, text: event.message }] };
     case 'llm_call_failed':
@@ -408,6 +430,8 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
         ],
         chatState: 'waiting',
         runStatus: 'running',
+        // 权威数字已进入 transcript，清 live 防止被重复累加显示。
+        liveTurnUsage: null,
         flushPersist: true,
       };
     }
@@ -659,6 +683,7 @@ export class SessionsStore {
       chatState: 'running',
       runStatus: 'running',
       transcript: [],
+      liveTurnUsage: null,
       runId: newRunId(),
       sdkSessionId: null,
       historicalCoaseSessionId: null,
@@ -913,6 +938,7 @@ export class SessionsStore {
     if (patch.transcript) merged.transcript = patch.transcript;
     if (patch.sdkSessionId !== undefined) merged.sdkSessionId = patch.sdkSessionId;
     if (patch.contextUsage !== undefined) merged.contextUsage = patch.contextUsage;
+    if (patch.liveTurnUsage !== undefined) merged.liveTurnUsage = patch.liveTurnUsage;
     if (patch.chatState) merged.chatState = patch.chatState;
     if (patch.runStatus) merged.runStatus = patch.runStatus;
     this.runtimes.set(sessionId, merged);

@@ -164,6 +164,16 @@ export type ChatEvent =
       output_tokens?: number;
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
+    }
+  | {
+      // 本轮 in-progress turn 截至当前的 I/O token 累计。orchestrator 每收到一条
+      // assistant message 的 usage 就重新汇总发一次；turn_result 到达前仅此事件
+      // 能让 UI 显示实时消耗，否则一个十分钟的长 turn 会让 Input/Output 一直显示 —。
+      type: 'turn_partial_usage';
+      input_tokens: number;
+      output_tokens: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
     };
 
 export interface ChatStartOutcome {

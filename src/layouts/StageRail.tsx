@@ -4,11 +4,12 @@
 import { useEffect, useState } from 'react';
 
 import { useChat } from '../features/chat/ChatContext';
+import type { LiveTurnUsage } from '../features/chat/sessions-store';
 import type { TranscriptEntry } from '../features/chat/TranscriptMessage';
 
 export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'hero' }) {
-  const { transcript, chatState, runStatus } = useChat();
-  const metrics = summarizeTranscript(transcript, chatState === 'running');
+  const { transcript, chatState, runStatus, liveTurnUsage } = useChat();
+  const metrics = summarizeTranscript(transcript, chatState === 'running', liveTurnUsage);
 
   // 让 tool/subagent 的"已跑 Xs"能随时间自然滴答，不必等新事件才刷新。
   const [, force] = useState(0);
@@ -431,7 +432,11 @@ function truncate(value: string, maxLength: number): string {
 
 // ---------- Token / Duration 统计 -------------------------------------------
 
-function summarizeTranscript(transcript: TranscriptEntry[], isRunning: boolean) {
+function summarizeTranscript(
+  transcript: TranscriptEntry[],
+  isRunning: boolean,
+  liveTurnUsage: LiveTurnUsage | null,
+) {
   let inputTokens = 0;
   let outputTokens = 0;
   let durationMs = 0;
@@ -447,6 +452,16 @@ function summarizeTranscript(transcript: TranscriptEntry[], isRunning: boolean) 
     lastTurnResultTs = entry.ts;
   }
 
+  // 叠加当前 in-progress turn 的实时 I/O 累计。orchestrator 会在每条 assistant
+  // 消息 usage 到来时重发 turn_partial_usage 刷这个值；turn_result 到达时 reducer
+  // 清为 null，权威值由上面的循环负责累加，互不重叠。
+  let hasLive = false;
+  if (liveTurnUsage && (liveTurnUsage.inputTokens > 0 || liveTurnUsage.outputTokens > 0)) {
+    inputTokens += liveTurnUsage.inputTokens;
+    outputTokens += liveTurnUsage.outputTokens;
+    hasLive = true;
+  }
+
   // 当前轮还在跑的时候，把"上一次 turn_result 到现在"的时间补进去，让数字随运行滴答。
   // 找不到上一次 turn_result 就退回到第一条 transcript 的时间戳——总比停在 0 好。
   if (isRunning) {
@@ -454,10 +469,11 @@ function summarizeTranscript(transcript: TranscriptEntry[], isRunning: boolean) 
     if (anchor != null) durationMs += Math.max(Date.now() - anchor, 0);
   }
 
+  const showTokens = hasTurnUsage || hasLive;
   return {
-    inputTokens: hasTurnUsage ? inputTokens : null,
-    outputTokens: hasTurnUsage ? outputTokens : null,
-    durationMs: hasTurnUsage || isRunning ? durationMs : null,
+    inputTokens: showTokens ? inputTokens : null,
+    outputTokens: showTokens ? outputTokens : null,
+    durationMs: showTokens || isRunning ? durationMs : null,
   };
 }
 
