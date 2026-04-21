@@ -30,6 +30,7 @@ x.0.0.0 — 完全版本升级
 x.x.0.0 — 重大改变
 x.x.x.0 — 功能增删
 x.x.x.x — bug 修复
+每次发版必须同步改 `package.json` 的 `version` 字段并打 tag，否则 CI 无法出包、用户无法更新。
 ### 6. Bash 自动执行
 全局 `~/.claude/settings.json` 已把 `Bash(*)` 加入 allow，routine bash 命令直接执行不等确认。
 
