@@ -79,10 +79,11 @@ Rule 7: Limitation / Interpretation Boundary 为必选输出，不得省略。
 - 使用 `ggplot2` 做图，基础主题 `theme_minimal()`
 - 设置 `options(scipen = 999)` 避免科学计数法
 - **表格产出铁律（Single Source of Truth）**：
-  - **必须**：R 脚本**只写 CSV** 到 `outputs/tables/*.csv`。系统在 `execute_r_in_docker` 返回前会自动调用 `table_renderer.py`，从每个 CSV 机械派生同名 `.tex`（booktabs）和 `.md`（GFM）。三份数据来自同一 CSV，保证完全一致。
+  - **必须**：R 脚本**只写 CSV** 到 `outputs/tables/*.csv`。orchestrator 在每次 tool_result 到达后扫该目录，对每个 CSV 机械派生同名 `.md`（GFM pipe 表格）。两份数据来自同一 CSV，保证完全一致。
   - **必须**：数值精度在 R 脚本里一次决定并写入 CSV（系数/SE 统一 4 位小数，p 值 4 位，N 整数）。后处理不再改动数值。
-  - **不准**：R 脚本里**手动** `writeLines` / `cat` / `writeLines` 出 `.tex` 或 `.md` 表格文件——会和自动生成的版本冲突，写了也会被覆盖。
-  - **不准**：用 `modelsummary(..., output = "table.tex")` 或 `stargazer(..., out="table.tex")` 直接写 tex/md——同样会被覆盖。你只能用 `modelsummary(..., output = "table.csv")` 或 `write.csv(df, "table.csv")` 写 CSV。
+  - **必须**：命名统一 `table_{role}.csv`，`role ∈ {baseline, mechanism, robust, heterog, desc_stats, corr_matrix}`。迭代时**覆盖写同名文件**，禁止加 `_v2` / `_new` / `_final` / `_vN` 等版本后缀；规格迭代轨迹写入 `specification_log.md`，不要用文件名记版本。
+  - **不准**：R 脚本里**手动** `writeLines` / `cat` 出 `.md` 表格文件——会被 orchestrator 下一次 sync 覆盖。
+  - **不准**：输出 `.tex` 文件。tex 已不再是交付格式；需要 LaTeX 表时由 Writer 从 CSV 现场渲染，Executor 不落盘 tex。禁止 `modelsummary(..., output = "*.tex")` / `stargazer(..., out = "*.tex")` / 手写 booktabs。
   - **不准**：任何形式的 xlsx 输出。R 容器**没有安装** `openxlsx` / `xlsx` / `writexl`，`library(openxlsx)` 会直接以 `there is no package called 'openxlsx'` 报错终止脚本。禁止出现 `library(openxlsx|xlsx|writexl)`、`openxlsx::write.xlsx(...)`、`write.xlsx(...)`、`modelsummary(..., output = "*.xlsx")`、`stargazer(..., out = "*.xlsx")`。CSV 就是唯一交付格式，粘到 Word/Excel 也用 CSV。
 - **图表两件套**：同名不同后缀输出 `.png`（300 DPI）和 `.pdf`（矢量，投稿/放大不糊）
   - `ggsave("fig.png", plot, dpi = 300, width = 7, height = 5)`
@@ -106,7 +107,7 @@ Rule 7: Limitation / Interpretation Boundary 为必选输出，不得省略。
 | 表格图表产出说明 | `executor/stage_4_table_figure_output.md` | `write_file` |
 | Specification Log（所有尝试过的规格） | `executor/specification_log.md` | `write_file`（追加） |
 | R 脚本 | `executor/scripts/*.R` | `write_r_script` |
-| 回归表格 | `executor/outputs/tables/*.csv`（唯一真源；`.tex`/`.md` 由系统自动渲染） | R 脚本里 `modelsummary(..., output="table.csv")` 或 `write.csv(df, "table.csv")` |
+| 回归表格 | `executor/outputs/tables/table_{role}.csv`（唯一真源；同名 `.md` 由 orchestrator 自动派生，不得手写） | R 脚本里 `modelsummary(..., output="table_{role}.csv")` 或 `write.csv(df, "table_{role}.csv")` |
 | 图表 | `executor/outputs/figures/*.{png,pdf}` | R 脚本里 `ggsave`（PNG 300 DPI + PDF 矢量，同名不同后缀） |
 
 **不允许的做法**：

@@ -10,6 +10,7 @@ import {
 } from '../logging/runtime-error-log';
 import { PromptQueue } from '../chat/prompt-queue';
 import { createChatQuery } from '../sdk/client';
+import { syncTableMarkdowns } from './table-sync';
 import {
   NoProviderConfiguredError,
   UnsupportedProtocolError,
@@ -255,6 +256,12 @@ export async function startChatSession(
           }
         } else {
           translate(message, stats, provider, onEvent, streamState);
+        }
+
+        // 每次 tool_result 到达后异步扫 executor/outputs/tables/，对新增或变更的 csv
+        // 同步生成同名 .md。幂等，无需阻塞事件流。
+        if (message.type === 'user') {
+          void syncTableMarkdowns(workspaceRoot).catch(() => undefined);
         }
 
         const now = Date.now();
