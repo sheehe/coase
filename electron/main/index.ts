@@ -814,6 +814,27 @@ async function persistSessionWorkspaceRoot(sessionId: string, workspaceRoot: str
 
 async function readSessionWorkspaceRoot(sessionId: string): Promise<string | null> {
   if (!sessionId.trim()) return null;
+  const fromMeta = await readWorkspaceRootFromMeta(sessionId);
+  if (fromMeta) return fromMeta;
+
+  // meta 缺失（老会话没落盘、或文件被清过）时回退到 session-log 里的
+  // workspaceRoot；目录确实存在就顺手把 meta 补回来，下次命中快路径。
+  try {
+    const entry = await loadSessionEntry(sessionId);
+    const logged = entry?.workspaceRoot?.trim();
+    if (!logged) return null;
+    const exists = await stat(logged)
+      .then((info) => info.isDirectory())
+      .catch(() => false);
+    if (!exists) return null;
+    await persistSessionWorkspaceRoot(sessionId, logged);
+    return logged;
+  } catch {
+    return null;
+  }
+}
+
+async function readWorkspaceRootFromMeta(sessionId: string): Promise<string | null> {
   try {
     const content = await readFile(resolveWorkspaceMetaPath(sessionId), 'utf8');
     const parsed = JSON.parse(content) as { workspaceRoot?: string };
