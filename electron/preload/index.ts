@@ -12,6 +12,7 @@ import type {
   TranscriptEntryPersisted,
 } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
+import type { ResearchPrefs } from '../../shared/research-prefs';
 
 const api: CoaseApi = {
   ping: () => ipcRenderer.invoke('app:ping'),
@@ -90,6 +91,11 @@ const api: CoaseApi = {
     setCriticPanel: (ids: string[] | null) =>
       ipcRenderer.invoke('providers:setCriticPanel', ids),
     invokeCriticPanel: (payload) => ipcRenderer.invoke('providers:invokeCriticPanel', payload),
+  },
+
+  researchPrefs: {
+    get: () => ipcRenderer.invoke('researchPrefs:get'),
+    set: (prefs: ResearchPrefs) => ipcRenderer.invoke('researchPrefs:set', prefs),
   },
 
   sessions: {

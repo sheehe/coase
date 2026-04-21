@@ -237,6 +237,16 @@ export function BarChart2(props: IconProps) {
   );
 }
 
+export function Target(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </IconBase>
+  );
+}
+
 export function Workflow(props: IconProps) {
   // Lucide-style "workflow"：一个矩形容器里两排节点 + 连接线，表达"流水线"。
   return (

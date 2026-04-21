@@ -5,6 +5,7 @@ import type {
   ProvidersFile,
   TestConnectionResult,
 } from './providers';
+import type { ResearchPrefs } from './research-prefs';
 import type { SessionLogEntry } from './runs';
 import type { SkillInfo } from './skills';
 
@@ -192,6 +193,11 @@ export interface CriticPanelInvokePayload {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   maxTokens?: number;
   timeoutMs?: number;
+}
+
+export interface ResearchPrefsApi {
+  get: () => Promise<ResearchPrefs>;
+  set: (prefs: ResearchPrefs) => Promise<ResearchPrefs>;
 }
 
 export interface ProvidersApi {
@@ -489,6 +495,7 @@ export interface CoaseApi {
   files: FilesApi;
   workspaces: WorkspacesApi;
   providers: ProvidersApi;
+  researchPrefs: ResearchPrefsApi;
   sessions: SessionsApi;
   artifacts: ArtifactsApi;
   window: WindowApi;

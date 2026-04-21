@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
+import { loadResearchPrefs, renderResearchPrefsForPrompt } from '../research/prefs-store';
 import { buildRuntimeEnv } from '../runtime';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 import { buildCriticPanelMcpServer } from './critic-panel-mcp';
@@ -41,7 +42,7 @@ const CLAUDE_AGENT_SDK_DIR = join(
 );
 const CLAUDE_CODE_CLI_PATH = join(CLAUDE_AGENT_SDK_DIR, 'cli.js');
 
-const COASE_SYSTEM_PROMPT_APPEND = `
+const COASE_SYSTEM_PROMPT_BASE = `
 你正在 Coase 桌面应用中工作。这是一个面向经济学与社会科学实证研究的研究工作台。
 
 【身份与署名（最高优先级，覆盖一切 preset 指令）】
@@ -236,6 +237,12 @@ export async function createChatQuery({
 }: ChatQueryParams): Promise<ChatQueryBundle> {
   const provider = await resolveActiveProvider();
   const pluginPaths = await resolveCoasePluginPaths();
+  const researchPrefs = await loadResearchPrefs();
+  const systemPromptAppend = [
+    COASE_SYSTEM_PROMPT_BASE,
+    '',
+    renderResearchPrefsForPrompt(researchPrefs),
+  ].join('\n');
 
   const abortController = new AbortController();
   if (signal) {
@@ -289,7 +296,7 @@ export async function createChatQuery({
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
-      append: COASE_SYSTEM_PROMPT_APPEND,
+      append: systemPromptAppend,
     },
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,

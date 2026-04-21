@@ -39,6 +39,7 @@ import {
   setCriticPanelIds,
   upsertProvider,
 } from '../../agent/providers/config-store';
+import { loadResearchPrefs, saveResearchPrefs } from '../../agent/research/prefs-store';
 import { invokeCriticPanel } from '../../agent/providers/invoke';
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
 import { testProviderConnection } from '../../agent/providers/test-connection';
@@ -58,6 +59,7 @@ import type {
   WorkspaceTreeNode,
 } from '../../shared/ipc';
 import type { ProviderRecord } from '../../shared/providers';
+import type { ResearchPrefs } from '../../shared/research-prefs';
 
 const isDev = !app.isPackaged;
 
@@ -281,6 +283,15 @@ function registerIpc(): void {
       });
     },
   );
+
+  ipcMain.handle('researchPrefs:get', () => loadResearchPrefs());
+
+  ipcMain.handle('researchPrefs:set', async (_event, prefs: ResearchPrefs) => {
+    if (!prefs || typeof prefs !== 'object') {
+      throw new Error('researchPrefs:set expects an object payload');
+    }
+    return saveResearchPrefs(prefs);
+  });
 
   ipcMain.handle('sessions:recent', async (_event, limit?: number) => {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;

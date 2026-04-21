@@ -17,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  Target,
   Trash,
   Wrench,
 } from '../components/Icons';
@@ -349,6 +350,12 @@ export default function SessionSidebar() {
             icon={<BarChart2 size={14} />}
             label="用量"
             active={location.pathname === '/usage'}
+          />
+          <SidebarMenuLink
+            to="/research-settings"
+            icon={<Target size={14} />}
+            label="研究设置"
+            active={location.pathname === '/research-settings'}
           />
           <SidebarMenuLink
             to="/settings"
