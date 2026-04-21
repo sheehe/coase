@@ -455,11 +455,22 @@ function summarizeTranscript(
   // 叠加当前 in-progress turn 的实时 I/O 累计。orchestrator 会在每条 assistant
   // 消息 usage 到来时重发 turn_partial_usage 刷这个值；turn_result 到达时 reducer
   // 清为 null，权威值由上面的循环负责累加，互不重叠。
-  let hasLive = false;
-  if (liveTurnUsage && (liveTurnUsage.inputTokens > 0 || liveTurnUsage.outputTokens > 0)) {
-    inputTokens += liveTurnUsage.inputTokens;
-    outputTokens += liveTurnUsage.outputTokens;
-    hasLive = true;
+  //
+  // input / output 独立判定：部分非官方 Anthropic 兼容 provider 只在每条 assistant
+  // message 上汇报 input_tokens，output_tokens 要等 turn 结束的 result 消息才到。
+  // 此时要让 Input 随 live 滴答，Output 保持 "—" 直到 turn_result，而不是一直
+  // 显示"Output 0"造成"没在生成"的错觉。
+  let hasInputLive = false;
+  let hasOutputLive = false;
+  if (liveTurnUsage) {
+    if (liveTurnUsage.inputTokens > 0) {
+      inputTokens += liveTurnUsage.inputTokens;
+      hasInputLive = true;
+    }
+    if (liveTurnUsage.outputTokens > 0) {
+      outputTokens += liveTurnUsage.outputTokens;
+      hasOutputLive = true;
+    }
   }
 
   // 当前轮还在跑的时候，把"上一次 turn_result 到现在"的时间补进去，让数字随运行滴答。
@@ -469,11 +480,11 @@ function summarizeTranscript(
     if (anchor != null) durationMs += Math.max(Date.now() - anchor, 0);
   }
 
-  const showTokens = hasTurnUsage || hasLive;
+  const hasLive = hasInputLive || hasOutputLive;
   return {
-    inputTokens: showTokens ? inputTokens : null,
-    outputTokens: showTokens ? outputTokens : null,
-    durationMs: showTokens || isRunning ? durationMs : null,
+    inputTokens: hasTurnUsage || hasInputLive ? inputTokens : null,
+    outputTokens: hasTurnUsage || hasOutputLive ? outputTokens : null,
+    durationMs: hasTurnUsage || hasLive || isRunning ? durationMs : null,
   };
 }
 
