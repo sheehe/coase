@@ -198,7 +198,7 @@ export async function startChatSession(
   const mainLoop = (async () => {
     try {
       for await (const message of sdkQuery) {
-        bindSdkSessionOnce(message, stats, onEvent);
+        trackSdkSession(message, stats, onEvent);
         translate(message, stats, provider, onEvent, streamState);
 
         const now = Date.now();
@@ -276,14 +276,24 @@ type SDKMessageLike = {
   [key: string]: unknown;
 };
 
-function bindSdkSessionOnce(
+/**
+ * 跟踪 SDK 的 session_id。Claude Agent SDK 在以下场景会换发新的 session_id：
+ *   - 首次 query 启动时分配初始 id
+ *   - resume 时会以旧 session 为 seed 生成新 id 继续写
+ *   - auto-compact 跑完后换 id 写压缩后的后续消息
+ *
+ * 早期实现是"只绑第一次"(bindSdkSessionOnce)，结果长 turn 跨 auto-compact 后，
+ * 磁盘日志里存的还是旧 id —— 下次用户点"继续"去 resume 就会命中 SDK 的
+ * "No conversation found with session ID: ..." 错误。这里改成每次 id 变化都
+ * 同步到 stats、并 emit 事件让前端 / 日志落盘层更新。
+ */
+function trackSdkSession(
   message: SDKMessageLike,
   stats: SessionStats,
   onEvent: (event: ChatEvent) => void,
 ): void {
-  if (stats.sdkSessionId || typeof message.session_id !== 'string' || !message.session_id) {
-    return;
-  }
+  if (typeof message.session_id !== 'string' || !message.session_id) return;
+  if (stats.sdkSessionId === message.session_id) return;
   stats.sdkSessionId = message.session_id;
   onEvent({ type: 'sdk_session_bound', sdkSessionId: message.session_id });
 }
