@@ -300,7 +300,14 @@ export default function SessionSidebar() {
                               >
                                 <button
                                   type="button"
-                                  onClick={() => void openHistoricalSession(entry)}
+                                  onClick={() => {
+                                    void openHistoricalSession(entry);
+                                    // 如果当前在 /usage 或 /settings 这类非对话页，点会话
+                                    // 必须带路由跳回 /chat，否则只切了内部状态、界面没反应。
+                                    if (location.pathname !== '/chat') {
+                                      navigate('/chat');
+                                    }
+                                  }}
                                   className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                                   aria-label={`切换到会话 ${entry.firstPrompt.slice(0, 24)}`}
                                   title={entry.firstPrompt}
