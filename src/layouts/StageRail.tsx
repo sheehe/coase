@@ -69,17 +69,6 @@ function ActivityPill({
   activity: LiveActivity;
   variant: 'page' | 'hero';
 }) {
-  const dotClass =
-    activity.state === 'working'
-      ? 'bg-accent animate-pulse'
-      : activity.state === 'waiting'
-        ? 'bg-warning'
-        : activity.state === 'error'
-          ? 'bg-danger'
-          : activity.state === 'done'
-            ? 'bg-success'
-            : 'bg-border-strong';
-
   const textClass =
     activity.state === 'idle'
       ? variant === 'hero'
@@ -87,9 +76,32 @@ function ActivityPill({
         : 'text-fg-subtle'
       : 'text-fg';
 
+  // working 状态换掉小圆点，给一个明确的 spinner 环——老板一眼就能看出"在转"，
+  // 不用盯着 2px 的 pulse 猜是不是卡了。非 working 状态保留彩色圆点，承担语义信号
+  // （warning/danger/success/idle）。
+  const indicator =
+    activity.state === 'working' ? (
+      <span
+        aria-hidden
+        className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-accent border-t-transparent"
+      />
+    ) : (
+      <span
+        className={`h-2 w-2 shrink-0 rounded-full ${
+          activity.state === 'waiting'
+            ? 'bg-warning'
+            : activity.state === 'error'
+              ? 'bg-danger'
+              : activity.state === 'done'
+                ? 'bg-success'
+                : 'bg-border-strong'
+        }`}
+      />
+    );
+
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      {indicator}
       <span className={`truncate text-[12.5px] leading-5 ${textClass}`}>{activity.label}</span>
       {activity.detail && (
         <span className="shrink-0 text-[11.5px] text-fg-subtle">· {activity.detail}</span>
@@ -138,6 +150,12 @@ function summarizeLiveActivity(
     input: unknown;
     ts: number;
   } | null = null;
+  // 为"空窗期"回退准备：记住最近结束的工具名 + tool_result 时间戳，以及本轮总共调过
+  // 几个工具。tool_result 到下一次 LLM 响应之间常有 2~10s 静默，这段时间给用户显示
+  // "刚完成 X · 等待下一步…"，比回落到初始横幅精确得多。
+  let lastToolResultTs: number | null = null;
+  let lastCompletedToolName: string | null = null;
+  let toolUseCount = 0;
   // 最近一次 retry_attempt；只要之后没再出现成功的 turn_result 就仍认为是"重试
   // 窗口中"，在顶栏 pill 上明确提示，免得用户以为卡死了。
   let pendingRetry: {
@@ -164,8 +182,17 @@ function summarizeLiveActivity(
         };
       }
     }
-    if (!activeToolUse && entry.kind === 'tool_use' && entry.status !== 'done') {
-      activeToolUse = { name: entry.name, input: entry.input, ts: entry.ts };
+    if (entry.kind === 'tool_use') {
+      toolUseCount += 1;
+      if (!activeToolUse && entry.status !== 'done') {
+        activeToolUse = { name: entry.name, input: entry.input, ts: entry.ts };
+      }
+      if (!lastCompletedToolName && entry.status === 'done') {
+        lastCompletedToolName = entry.name;
+      }
+    }
+    if (!lastToolResultTs && entry.kind === 'tool_result') {
+      lastToolResultTs = entry.ts;
     }
     if (!latestSubagent && entry.kind === 'subagent') {
       latestSubagent = {
@@ -244,6 +271,8 @@ function summarizeLiveActivity(
   }
 
   if (chatState === 'running') {
+    const toolDetail = toolUseCount > 0 ? `已调用 ${toolUseCount} 次工具` : undefined;
+
     // 最近有 assistant 流式输出（模型正在增量回答，比 thinking 更"出声"）
     if (lastAssistantTs && now - lastAssistantTs < 4000) {
       return {
@@ -253,17 +282,52 @@ function summarizeLiveActivity(
           : '正在回答…',
       };
     }
-    // 最近有 thinking 事件（extended thinking 模型会持续吐思考块）
-    if (lastThinkingTs && now - lastThinkingTs < 8000) {
+    // 最近有 thinking 事件（extended thinking 模型会持续吐思考块）。窗口从 8s 放
+    // 到 15s——extended thinking 的块间隔常有 10s 以上，原来 8s 太紧。
+    if (lastThinkingTs && now - lastThinkingTs < 15000) {
       return {
         state: 'working',
         label: lastThinkingSnippet ? `思考中 · ${lastThinkingSnippet}…` : '思考中…',
       };
     }
-    if (lastStatus) {
-      return { state: 'working', label: truncate(lastStatus, 60) };
+    // tool 刚跑完、下一个 LLM 响应还没到的空窗（最多 12s）——显示"刚完成 X · 等待
+    // 下一步…"，让用户知道不是卡死而是在排队。
+    if (
+      lastToolResultTs &&
+      now - lastToolResultTs < 12000 &&
+      lastCompletedToolName
+    ) {
+      return {
+        state: 'working',
+        label: `刚完成 ${lastCompletedToolName} · 等待 LLM 下一步…`,
+        detail: toolDetail,
+      };
     }
-    return { state: 'working', label: '思考中…' };
+    // 仍落到最近一条 status（非一次性横幅）
+    if (lastStatus) {
+      return { state: 'working', label: truncate(lastStatus, 60), detail: toolDetail };
+    }
+    // 真正空窗：所有都没命中——大概率是正在等 LLM 生成首个 token。带"已静默 Xs"
+    // 倒计时，比呆板的"思考中…"更能安抚用户"它没挂"。
+    const lastAnyEventTs = Math.max(
+      lastAssistantTs ?? 0,
+      lastThinkingTs ?? 0,
+      lastToolResultTs ?? 0,
+      activeToolUse?.ts ?? 0,
+      latestSubagent?.ts ?? 0,
+    );
+    const silenceSec =
+      lastAnyEventTs > 0 ? Math.max(0, Math.round((now - lastAnyEventTs) / 1000)) : 0;
+    return {
+      state: 'working',
+      label: '等待 LLM 响应…',
+      detail:
+        silenceSec > 2
+          ? toolDetail
+            ? `${toolDetail} · 已静默 ${silenceSec}s`
+            : `已静默 ${silenceSec}s`
+          : toolDetail,
+    };
   }
 
   if (chatState === 'waiting') {
@@ -290,6 +354,9 @@ function shouldSkipStatusForPill(text: string): boolean {
   if (/^本次研究可按需调用\s+\d+\s+个子代理$/.test(t)) return true;
   if (/^技能插件加载出现\s+\d+\s+个错误/.test(t)) return true;
   if (/^已从记忆中召回\s+\d+\s+条相关内容$/.test(t)) return true;
+  // session_started 的初始横幅一旦有真活动就不该再作为 fallback，否则会在整个会话
+  // 里盖住"实际在干啥"。transcript 里仍然保留做分割线。
+  if (t === '研究已启动，自动运行中') return true;
   return false;
 }
 
