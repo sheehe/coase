@@ -21,7 +21,7 @@ export default function EmptyHero() {
             <span className="font-mono text-fg"> /full-research</span> ·
             <span className="font-mono text-fg"> /idea-to-results</span> ·
             <span className="font-mono text-fg"> /run-experiment</span> ·
-            <span className="font-mono text-fg"> /paper-review</span>
+            <span className="font-mono text-fg"> /review</span>
           </div>
           <div>
             想直接自由提问也行，Coase 会按任务自主调度方法技能与子代理。

@@ -3,13 +3,14 @@
 //
 // 同时被 agent/ (main) 和 src/ (renderer) import，所以这里只放纯类型。
 
-export type ResearchPurpose = 'causal' | 'associational';
+export type ResearchPurpose = 'causal' | 'associative';
 
 export interface ResearchPrefs {
   /**
-   * 研究目的。决定 Planner 是否必须采用因果识别策略、Reviewer 的评分维度：
+   * 研究目的。决定 Planner 是否必须采用因果识别策略、Reviewer 的评分维度。
+   * 对应 planner_workflow / paper-reviewer skill 中注入的 `research_purpose` 字段：
    * - causal：明确的 X → Y 因果效应；要求 DID / IV / RDD / PSM 等识别策略。
-   * - associational：变量间的相关关系；可用 OLS / Logit / Probit 等回归
+   * - associative：变量间的相关关系；可用 OLS / Logit / Probit 等回归
    *   + 固定效应或聚类控制，结果明确声明为关联性。
    */
   researchPurpose: ResearchPurpose;

@@ -1,6 +1,6 @@
 ---
 name: executor_workflow
-description: Social Science Research Co-pilot 2.0.0 的执行 workflow，对应 /experiment-bridge。用于在用户确认 baseline design 后，完成主回归执行、解释检查与鲁棒性检验，并沉淀可直接用于表图与写作的结果材料。
+description: 对应 /experiment-bridge。用于在用户确认 baseline design 后，完成主回归执行、解释检查与鲁棒性检验，并沉淀可直接用于表图与写作的结果材料。
 ---
 
 ## Workflow Notes
@@ -8,440 +8,208 @@ description: Social Science Research Co-pilot 2.0.0 的执行 workflow，对应 
 - 执行本 skill 前，先阅读 `references/role-rules.md`。
 - 若角色规则与正文 phase 细节冲突，以 `references/role-rules.md` 的硬约束优先。
 - 当前版本直接基于 Coase 当前会话中的用户需求、附件、工作区文件和已有资料执行。
-- 当前版本不再依赖旧 LangChain 项目的 `state`、`entry_mode` 和自定义工具状态字段。
 - 执行阶段默认从 `planner/stage_7_baseline_design.md` 和相邻规划文件读取已确认的 baseline design。
 
-## Global Rules
 
-- No automatic model search for significance
-- No advancing when key design elements are unclear
-- Alternative specs do not replace baseline
-- Mechanism evidence is not proof unless identification is strong
-- Output writing must match tables exactly
+## 分析实施推荐流程
+
+以下是推荐的执行流程，供参考。你可以根据实际情况调整顺序、回溯不适用的步骤。
 
 ---
 
-## Phase 4 Run baseline
+## 文件落盘契约（每个 Phase 必须落盘）
 
-### 目标
+下游 Reviewer（Mode B）和 Writer 按固定文件名读取你的输出。每个 Phase 结束前**必须**调用写工具写入对应的 stage_*.md，否则等同于没做。
 
-生成 R 代码并执行主回归。
+> ### ⚠️ 路径警示（极易写错，违反下游契约）
+>
+> **`stage_*.md` 必须落在 `executor/` 根目录**，绝对不能写到 `executor/scripts/` 或其他子目录。
+> `executor/scripts/` 只允许存放 `.R` 脚本。
 
-### 系统任务
+| Phase | 文件 | 关键内容 |
+|------|------|---------|
+| 1 | `executor/stage_1_data_preparation.md` | 数据准备说明 + 样本量 + 变量清单 |
+| 2 | `executor/stage_2_run_baseline.md` | 主回归结果文字 + 系数/SE 汇报 + 2-4 句解读 |
+| 3 | `executor/stage_3_explanation_robustness.md` | Priority Check Map + 机制/异质性/稳健性 |
+| 4 | `executor/stage_4_table_figure_output.md` | Table Package + Figure Package 清单 + 文件路径 |
+| 5 | `executor/stage_5_assessment.md` | Appendix & Next-Step Suggestions |
+| 持续 | `executor/specification_log.md` | 所有跑过的规格（即使失败的） |
 
-这里不是开放式写代码，而是：
+**硬性规则**：
+- stage_*.md 的内容是**自然语言总结**，不是原始 R 输出
+- 表格和图表的**原始数据**落到 `executor/outputs/tables/` 和 `executor/outputs/figures/`，stage_*.md 里只引用路径
+- 不要把 `summary(model)` 全文粘到 stage_*.md 里，挑关键行就行
+- 长内容只落盘不粘对话
 
-- 根据已确认的 plan 写代码
-- 执行
-- 修复常见报错
-- 生成结果
-- 用普通研究生能看懂的话解释
+---
 
-### Skill Dispatch
+### Phase 1: 环境与数据准备 + 数据质量闸口 + 回归前诊断
 
-读取 `planner/stage_7_baseline_design.md` 确认识别策略，调用对应方法 skill 获取代码模板并执行：
+**目标**：准备执行分析所需的数据环境，完成数据质量闸口检查，并在进入 baseline 回归前做好诊断。本 Phase 是实证项目最容易踩坑的环节，必须完整执行下列三块。
 
-| baseline design 识别策略 | 调用 skill |
-|---|---|
-| OLS / 线性回归 | `ols-regression` |
-| DID / 事件研究 / 自然实验 | `did-analysis` |
-| 工具变量 | `iv-estimation` |
-| 断点回归 | `rdd-analysis` |
-| 面板固定效应 | `panel-data` |
-| 合成控制 | `synthetic-control` |
-| 时间序列 | `time-series` |
-| 因果机器学习 | `ml-causal` |
+#### 1.A 基本数据准备
 
-辅助 skill：`data-cleaning`（执行前的数据预处理 / 变量构造），`stats`（描述性统计与事前检验），`table`（主回归表规范化输出）。
+- 读取基准设计文件（planner/stage_7_baseline_design.md），理解所需变量和回归规格
+- 创建 `01_data_preparation.R`：加载必要包（data.table, haven, fixest 等）、读取原始数据、数据清洗、变量构造、保存清洗后的分析数据集
+- 执行脚本
+- 检查输出文件是否生成，确认关键变量存在且类型正确
 
-**不得擅自切换识别策略**。若执行中发现当前策略不可行，写入阻塞原因，返回 planner 重新锁定，不要在 executor 阶段静默切换。
+#### 1.B 数据质量闸口（6 条强制检查，必须写入 stage_1）
 
-### 阶段 4 system prompt
+1. **主键一致性**：报告单表主键唯一性 + 跨年份主键稳定性。**常见坑**：公司名变更 / 公司代码重编 / 调查数据主键年度漂移。有重复或漂移时必须先清理再 merge。
+2. **多源 merge 质量**：涉及多表合并时，必须报告**匹配率** + **未匹配样本结构性差异**（是随机缺失还是某类系统性排除）。匹配率异常低时不得沉默推进。
+3. **删样本日志**：每删除一批样本都在 stage_1 里记录"删除理由 + 删除前 N + 删除后 N"。**删除顺序会影响结果**，必须明确。
+4. **加工变量核验**：CSMAR / Wind / 其他二手数据平台提供的**加工指标**（如已算好的 TFP、投资效率、公司治理指数等）必须核验一次计算方法；**可行时优先用原始变量自己算**，不要过度相信平台加工的数据质量。
+5. **研究范围外样本处理**：ST / *ST / 金融行业（银行保险证券） / 子公司 / 数据严重缺失样本是否排除，必须在 stage_1 中**显式声明**剔除规则。
+6. **缺失值策略**：对每个关键变量，在"线性插值 / 均值填充 / 删除 / Heckman 两阶段"中选一种并说明理由。**重要变量缺失过多时必须考虑样本选择偏差**（参考 executor_system.md Rule 8 / Planner Rule 7 的 Selection 项）。
 
-你正在执行 Run Baseline 阶段。你只能根据已确认的 Baseline Plan 生成和执行 R 代码。不得擅自更换模型逻辑，不得自行增加未经说明的复杂设定。
+#### 1.C 回归前诊断（Pre-regression Diagnostics，6 条）
 
-请完成以下任务：
+1. **描述性统计**：N / mean / SD / min / p25 / p50 / p75 / max，加上**相关系数矩阵**（`cor()` 或 `modelsummary::datasummary_correlation`）。描述性统计表落盘到 `executor/outputs/tables/desc_stats.*`。
+2. **异常值处理**：winsorize 1%/99%（`DescTools::Winsorize`）或直接 drop，必须说明选择理由——数据质量差倾向 winsorize，明显录入错误倾向 drop，**不要沉默处理**。
+3. **分布与对数变换**：偏态严重的连续变量考虑取对数；⚠️ **DV 含过多 0 时不要随便用 `log(1+x)`**（经济学五大刊已批评过 log(1+x) 滥用），替代方案是 IHS 变换（`asinh`）或直接改用 Poisson / NB 回归。
+4. **变量单位与数量级**：确保核心变量在相近数量级（如金额用亿元而非元），避免系数过大或过小难以解读。
+5. **VIF 多重共线性检验**：`car::vif()` 或 `performance::check_collinearity()`。**VIF < 10 过线，> 5 需要解释**。**检验 VIF 时可不放 FE 变量**——部分 FE 会人为拉高 VIF 但不影响估计结果。VIF 严重超标时必须剔除或合并变量。
+6. **数据类型判断**：
+   - **截面数据**：普通 OLS / Logit / Probit 等
+   - **短面板（大 n 小 T，最常见）**：一般认为平稳，**不做单位根检验**，直接上 Panel FE
+   - **长面板（小 n 大 T，较少）**：需要单位根检验；不平稳时考虑面板协整、误差修正模型
+   判定后在 stage_1 里明确写出数据类型，**这会决定 Phase 2 baseline 的模型选择**。
 
-1. 生成清晰、可运行、注释简洁的 R 代码。
-2. 如果执行失败，优先进行最小修改以修复技术错误，不得随意改变研究设计。
-3. 输出主回归表。
-4. 用简洁语言解释：
-   - 系数方向
-   - 显著性
-   - 经济意义或量级
-   - 是否值得进入下一步
-5. 明确区分：
-   - 结果现在能支持什么
-   - 现在还不能支持什么
+**输出**：数据准备脚本（保存在 executor/scripts/）、清洗后的分析数据集描述、样本量记录、数据质量闸口结果、回归前诊断结果
 
-### Phase 4 输出格式
+**落盘（必须）**：记录：
+- 1.A 数据准备过程 + 最终样本量 + 关键变量类型与缺失率 + 清洗数据集路径
+- 1.B 数据质量闸口 6 条检查结果（每条一段）
+- 1.C 回归前诊断 6 条结果（含 VIF 值、异常值处理方式、数据类型判定结论、描述性统计表路径）
 
-1. 主回归结果的 table
-2. 对主回归结果的汇报，包含：coefficient direction，statistical significance，magnitude
-3. 2-4 句话解读该结果。
+---
+
+### Phase 2: Run Baseline
+
+**目标**：执行主回归，产出可信赖的基准结果。
+
+推荐方法：
+- 重新阅读基准设计（planner/stage_7_baseline_design.md），严格按设计执行
+- 创建 `02_baseline_regression.R`，生成清晰、可运行、注释简洁的 R 代码
+- 执行；如失败，优先做最小修改修复技术错误，不得随意改变研究设计
+- 输出主回归表，用简洁语言解释系数方向、显著性、经济意义
+
+若主结果不稳或不显著，允许对控制变量、样本定义或变量处理做有限的替代设定（最多2次），须标注 changed what。
+
+**输出格式**：
+1. 主回归结果 table
+2. 系数方向、统计显著性、量级的汇报
+3. 2-4句解读
 4. 边界：可以支持什么，不能支持什么
-5. 建议：需要调整 baseline，还是进入下一步
-6. Specification Log
-   - Baseline:
-   - Alternative spec 1:
-   - Reason:
-   - Alternative spec 2:
-   - Reason:
+5. Specification Log → 追加写入 `executor/specification_log.md`
 
-### 这一阶段的规则
-
-- 若主结果不稳或不显著，允许在预先说明理由的情况下，对控制变量、样本定义或变量处理做有限的、可记录的替代设定，以检验结果是否对合理设定敏感。可迭代 2 次。
-- 不允许自动换 FE / cluster 来找结果
-- 不允许开始写机制故事
-- 替代设定不得改变 estimand 的含义。
-
-例如：
-
-原本是 firm-year panel FE
-替代设定不能偷偷变成纯横截面相关性模型
-
-- 替代设定必须在输出中明确标注与 baseline 相比 changed what。
-
-比如：
-
-- changed controls
-- changed sample restriction
-- changed variable treatment
-
-### Iteration Log 硬约束（spec_log）
-
-每一次替代设定都必须同时追加到 `executor/stage_1_run_baseline.md` 的 Specification Log 小节**和** `verdict/spec_log.md`（若 workspace 里有 `verdict/` 目录，即走 full_research_workflow 时），格式统一：
-
-```
-### Iteration N (YYYY-MM-DD HH:MM)
-- Changed: [controls / sample / variable treatment] 中的一项或多项
-- Specifically: [具体变动，例如 "added firm size control", "restricted sample to post-2010"]
-- Reason: [为什么这样改，必须独立于"系数是否显著"的理由]
-- Baseline coefficient → New coefficient: [值 + SE + p-value 对比]
-- Hard constraint check:
-  - [ ] FE 未换（与 baseline 相同）
-  - [ ] Cluster 未换
-  - [ ] Estimand 含义未变
-```
-
-**三条硬 check 任一为"未通过"**：必须立即停止迭代，把该次尝试标记为 INVALID，回退到上一次 valid 的 spec。
-
-**迭代次数上限**：默认 2，最大 3。达到上限仍未通过判决的 idea 必须进入淘汰库（`idea/eliminated_pool.md`，仅 full_research_workflow 下），不得继续硬试。
+**落盘（必须）**：
+- 写入 1-4 项（自然语言总结 + 表格路径引用）
+- 追加第 5 项（追加时先读现有内容再拼接，不要覆盖）
 
 ---
 
-## Phase 5: Explanation Check & 鲁棒性检验
-
-### 目标
-
-在主回归完成后，围绕当前结果最重要的解释任务、识别风险和结果边界，选择最有必要、最容易解释、最有可行性的扩展分析。
-
-本阶段的核心任务不是继续搜索更好的结果，而是：
-
-1. 检查主结果是否具有基本稳定性
-2. 提供有限的、克制的 explanation-supporting evidence
-3. 区分 mechanism-supporting evidence、heterogeneity patterns 和 robustness checks
-4. 明确每个扩展检验能帮助解释什么、不能证明什么
-5. 为 Phase 5 的正文表、附录表和结果写作提供清晰材料
-
-### 角色定位
-
-你正在执行 Explanation Checks & Robustness 阶段。
-
-你的任务不是尽可能多跑检验，也不是机械生成常见 robustness 菜单。
-
-你的任务是基于以下信息：
-
-- 已确认的 baseline design
-- 主回归结果
-- 已识别的关键识别风险
-- 当前结果最需要澄清的解释问题
-
-只选择最必要、最有针对性、最容易被用户理解和写进论文的扩展分析。
-
-你必须始终记住：
-
-- mechanism-supporting evidence 不是 mechanism proof
-- heterogeneity analysis 不是因果识别替代品
-- robustness checks 只能缓解特定担忧，不能自动证明结论成立
-- 扩展分析的目标是澄清和压力测试，不是继续找显著结果
-
-### 输入
-
-你将使用以下输入信息：
-
-- 已确认的 Baseline Plan
-- 主回归结果
-- Specification Log（如有替代设定）
-- Phase 2 中已列出的 key identification concerns
-- 用户研究问题和研究背景
-- 数据中可用于扩展分析的变量和结构条件
-
-### 必须遵守的原则
-
-- 每个扩展检验都必须对应一个明确的问题、风险或解释任务。
-- 不得为了增加结果数量而机械扩展。
-- mechanism-supporting evidence 默认只能写成 supporting evidence 或 suggestive evidence。
-- heterogeneity analysis 必须与清楚的条件差异或理论预期相关。
-- robustness checks 必须明确说明在缓解哪个识别担忧。
-- 若某个检验不适合当前数据或研究设计，必须明确指出并跳过。
-- 本阶段总量必须受控，优先少而精。
-- 本阶段不得重写 baseline design，不得自动替换 baseline result。
-
-### 系统任务
-
-先判断要不要做。
-再决定做什么。
-最后解释每个检验对应什么风险。
-
-### 阶段 5 system prompt
-
-你正在执行 Mechanism & Robustness 阶段。你的任务不是尽可能多跑检验，而是基于当前 baseline 结果和已识别的风险，选择最有必要、最容易解释、最有可行性的扩展分析。
-
-请遵守以下要求：
-
-1. 每个检验都必须对应一个明确的机制、问题或风险。
-2. 机制检验默认视为 suggestive evidence，除非用户提供了更强的识别设计。
-3. 鲁棒性检验必须说明它缓解什么问题。
-4. 若某个检验不适合当前数据或研究设计，要明确指出并跳过。
-5. 输出优先级最高的 3 个机制检验，不要无限扩展。
-6. 输出优先级最高的 5 个鲁棒性检验，不要无限扩展。
-
-### 任务流程
-
-#### Step 1: Clarify What Needs to Be Checked
-
-先明确当前最需要澄清的东西，而不是立刻跑检验。
-
-请完成以下任务：
-
-1. 基于主回归结果，识别当前最重要的 3 类问题：
-   - 解释任务：主结果最需要补充解释的地方是什么？
-   - 识别风险：主结果最可能被质疑的地方是什么？
-   - 结果边界：哪些地方不能说得太满？
-2. 将这些问题分成三类：
-   - Mechanism-supporting evidence needed
-   - Heterogeneity / conditional pattern worth checking
-   - Robustness / alternative explanation concerns
-3. 只保留最重要、最有可行性的项目进入下一步。
-
-#### Step 2: Select Targeted Checks
-
-根据 Step 1 识别出的关键问题，为每类问题匹配最合适的检验。
-
-##### A. Mechanism-Supporting Evidence
-
-仅在以下条件下考虑：
-
-- 数据中存在与理论机制相关的变量或 proxy
-- 时间顺序或逻辑关系允许进行支持性检验
-- 用户研究问题确实需要机制补充
-
-优先考虑的形式包括：
-
-- 中介或机制 proxy 的支持性分析
-- 时间顺序支持性检验
-- 更接近机制通道的附加结果变量
-- 与理论机制一致的辅助变量分析
-
-不要默认把 interaction term 和 heterogeneity analysis 当作机制检验。
-
-##### B. Heterogeneity / Conditional Effects
-
-仅在以下条件下考虑：
-
-- 用户研究问题或理论明确预期某类条件差异
-- 数据中有合理的分组或交互变量
-- 结果对理解主发现有明显帮助
-
-优先考虑的形式包括：
-
-- interaction terms
-- subgroup analysis
-- conditional effect comparison
-
-##### C. Robustness / Alternative Explanation Checks
-
-仅选择最能回应当前 baseline concern 的检验。
-
-优先考虑的形式包括：
-
-- 替代变量定义
-- 极端值处理 / winsorize
-- 不同控制变量组合
-- 子样本一致性
-- 时间滞后 / lead-lag（若适合）
-- placebo（若适合）
-- 固定效应与标准误处理的合理性检查
-
-**Skill Dispatch（robustness 阶段）：**
-- 若替代设定在 Phase 4 使用的方法 skill 适用范围内（如 DID 的 Callaway-Sant'Anna / Sun-Abraham staggered-robust，IV 的弱工具检验 + Anderson-Rubin CI，面板的 cluster-bootstrap，RDD 的 bandwidth sensitivity），**复用同一个方法 skill 的 robustness 小节**。
-- 替代变量定义 / 样本限制 / winsorize 类：辅助调用 `data-cleaning` skill。
-- 分组对比 / 描述性支持：辅助调用 `stats` skill。
-- 所有稳健性结果的表格输出：统一走 `table` skill。
-
-不要为了”看起来完整”而全部都跑。
-
-#### Step 3: Run and Record Checks
-
-对已选中的扩展分析生成并执行 R 代码。
-
-请完成以下任务：
-
-1. 对每个选中的检验，先写清：
-   - 为什么选它
-   - 它对应哪个问题 / 风险
-   - 它预期帮助澄清什么
-2. 生成并执行清晰、可运行、注释简洁的 R 代码。
-3. 如果执行失败：
-   - 优先做最小技术修复
-   - 不得改变原检验的研究逻辑
-   - 若当前数据不支持，应明确记录为“not feasible”
-4. 对每个检验，记录：
-   - 检验名称
-   - 目的
-   - 运行状态
-   - 主要结果
-   - 结果方向是否与 baseline 一致
-   - 解释边界
-
-#### Step 4: Interpret with Boundaries
-
-对每个扩展检验给出克制、清楚的解释。
-
-请完成以下任务：
-
-1. 对每个 mechanism-supporting evidence，说明：
-   - 它是否与理论机制一致
-   - 它能为机制提供何种程度的支持
-   - 它不能证明什么
-2. 对每个 heterogeneity / conditional effect，说明：
-   - 它展示了什么条件差异
-   - 这种差异如何帮助理解主结果
-   - 它不能替代什么
-3. 对每个 robustness check，说明：
-   - 它缓解了哪个担忧
-   - 结果是否支持 baseline 的稳定性
-   - 还有哪些担忧未解决
-4. 若扩展结果与 baseline 明显冲突，必须明确指出结果敏感性，不得粉饰。
-
-#### Step 5: Prepare for Paper Output
-
-将本阶段结果整理成可以直接进入 Phase 6 的结构。
-
-请完成以下任务：
-
-1. 标记哪些结果适合进入正文：
-   - 最关键的 mechanism-supporting evidence（若有）
-   - 最关键的 heterogeneity result（若有）
-   - 最关键的 robustness result
-2. 标记哪些结果更适合放附录
-3. 标记哪些结果不建议展示：
-   - 解释力弱
-   - 与主问题关系弱
-   - 结果不稳定且难以解释
-   - 可行性不足
-
-### Phase 5 输出格式
-
-机制检验 1/2/3：目标，结果，可以帮助解释什么，不能帮助解释什么,why this check was selected
-鲁棒性检验 1/2/3/4/5：目标，结果，可以帮助解释什么，不能帮助解释什么。
-
-默认优先推荐的鲁棒性检验类型：
-
-- 替代变量定义
-- 极端值处理 / winsorize
-- 不同控制变量组合
-- 固定效应与标准误合理性检查
-- 子样本一致性
-- 时间滞后 / lead-lag（若适合）
-- placebo（若适合）
-
-### 输出格式
-
-请严格按以下结构输出。
-
-#### A. Priority Check Map
-
-1. Main explanation needs
-   -
-   -
-2. Main identification concerns
-   -
-   -
-3. Main interpretation boundaries
-   -
-   -
-
-#### B. Mechanism-Supporting Evidence
-
-最多输出 2–3 个。
-
-Check M1
-
-- Purpose:
-- Why this check was selected:
-- Data feasibility:
-- Result:
-- What it helps explain:
-- What it cannot prove:
-- Recommended placement: Main text / Appendix / Not recommended
-
-Check M2
-同上
-
-#### C. Heterogeneity / Conditional Effects
-
-最多输出 2–3 个。
-
-Check H1
-
-- Purpose:
-- Why this check was selected:
-- Data feasibility:
-- Result:
-- What pattern it shows:
-- What it cannot prove:
-- Recommended placement: Main text / Appendix / Not recommended
-
-Check H2
-同上
-
-#### D. Robustness / Alternative Explanation Checks
-
-最多输出 3–5 个。
-
-Check R1
-
-- Threat addressed:
-- Why this check was selected:
-- Data feasibility:
-- Result:
-- What concern it reduces:
-- What concern remains:
-- Recommended placement: Main text / Appendix / Not recommended
-
-Check R2
-同上
-
-#### E. Overall Assessment of Expanded Analysis
-
-- Do the expanded checks broadly support the baseline result? Yes / Partly / No
-- Which expanded result is most useful for the paper?
-- Which result is too weak or unstable to emphasize?
+### Phase 3: Explanation Check & Robustness
+
+**目标**：基于 baseline 结果，选择最有必要的扩展分析。不是尽可能多跑，而是有针对性地选择。
+
+推荐方法：
+**Step 1: 明确需要检验什么**
+- 识别主结果最需要补充解释的地方（Mechanism-supporting evidence needed）
+- 识别主结果最可能被质疑的地方（Robustness concerns）
+- 识别结果边界（Heterogeneity worth checking）
+
+**Step 2: 选择有针对性的检验**
+- Mechanism-Supporting Evidence：仅在数据有相关变量、时序关系合理时考虑（最多2-3个）
+- Heterogeneity：仅在理论明确预期条件差异时考虑（最多2-3个）
+- Robustness Checks：仅选最能回应 baseline concern 的（最多3-5个）
+- 若某检验不适合当前数据，输出 "not feasible"
+
+**Step 3: 执行并记录**
+- 对每个选中的检验：说明为什么选它、它对应哪个问题
+- 执行
+- 失败时做最小技术修复，不得改变检验逻辑
+
+**输出格式**：Priority Check Map、Mechanism-Supporting Evidence（最多3个）、Heterogeneity（最多3个）、Robustness Checks（最多5个）、Overall Assessment
+
+**落盘（必须）**：
+- 写入全部 5 个部分
+- 追加到 `executor/specification_log.md`（同 Phase 2，读后拼接再写）
 
 ---
 
-## 文件契约
+### Phase 4: Table & Figure Output
 
-保留一个轻量文件契约，用来保证后续 workflow 能稳定接上：
+**目标**：将已完成的分析结果转化为出版质量的输出材料。
 
-- 本阶段的结果都要写入 `executor/` 目录下对应阶段文件，不要只留在对话里。
-- 不要改这些文件名，也不要写到 `executor/` 目录之外。
-- `executor/stage_1_run_baseline.md` 和 `executor/stage_2_explanation_robustness.md` 是写作阶段的正式输入，绝不能省略。
-- 若某一阶段因资料不足、代码失败或数据不支持无法完成，也要写清楚当前阻塞、失败原因、最小修复建议和是否 `not feasible`。
+推荐方法：
+**Step 1: Final Output Selection**
+- 从已完成结果中识别主结果、最关键的扩展结果、最值得展示的稳健性结果
+- 决定哪些进正文，哪些进附录
 
-当前约定的阶段文件如下：
+**Step 2: Table Package**
+- 使用工具生成表格
+- Main Results Table（只保留最重要列，标注 baseline specification）
+- Explanation/Mechanism Table（若机制证据较弱，改为正文描述或附录表）
+- Robustness Table（只展示最关键检验）
+- 表格保存到 `executor/outputs/tables/`，**每张表必须同时输出四种格式**：
+  - `.tex` — 给 Writer 插入正式论文（`modelsummary(..., output="latex")` 或 `stargazer(..., type="latex")`）
+  - `.csv` — 原始数值，便于下游复用与审阅（`modelsummary(..., output="data.frame")` 再 `fwrite`）
+  - `.md` — **GFM 管道表格格式**，前端 workspace 预览直接可读（推荐 `modelsummary(..., output="markdown")`；若使用 stargazer，改用 `knitr::kable(..., format="pipe")` 把整理好的数据框转为 markdown）
+  - `.xlsx` — **用户可直接粘贴到 Word 的 Excel 表**（`modelsummary(..., output="table_baseline.xlsx")`，底层走 `openxlsx`，Docker 镜像已预装；或对自定义数据框用 `openxlsx::write.xlsx(df, "table.xlsx")`）
+- 四份文件**同名不同后缀**（如 `table_baseline.tex` / `.csv` / `.md` / `.xlsx`），便于对齐
 
-- `executor/stage_1_run_baseline.md`
-- `executor/stage_2_explanation_robustness.md`
+**Step 3: Figure Package**
+- 判断是否需要图形；不需要则明确说明原因
+- 最多推荐1-2张正文图，其他归附录
+- 使用 `analyze_image` 验证图表质量
+- 保存到 `executor/outputs/figures/`，**每张图必须同时输出两种格式**：
+  - `.png` — 300 DPI 栅格图，用于预览与对话内嵌（`ggsave("fig.png", p, dpi = 300, width = 7, height = 5)`）
+  - `.pdf` — 矢量图，用户直接用于投稿 / 插入 Word / 放大不糊（`ggsave("fig.pdf", p, device = cairo_pdf, width = 7, height = 5)`）
+  - 含中文的图务必用 `device = cairo_pdf`，否则 PDF 里中文会丢失
+
+**输出格式**：Final Output Recommendation、Table Package、Figure Package
+
+**落盘（必须）**：文件内需列出：
+- 所有 `executor/outputs/tables/` 下的表格四件套（`.tex` / `.csv` / `.md` / `.xlsx`）路径及一句话说明
+- 所有 `executor/outputs/figures/` 下的图表两件套（`.png` / `.pdf`）路径及一句话说明
+- 哪些进正文、哪些进附录
+
+---
+
+### Phase 5: Output Assessment
+
+**目标**：评估产出完整性，给出下一步建议。
+
+推荐方法：
+- 列出建议放附录的内容
+- 判断当前实证部分还缺什么（关键 robustness、变量定义说明、样本筛选说明等）
+- 给出简洁的下一步建议
+
+**输出格式**：Appendix & Next-Step Suggestions（建议附录内容、仍缺少什么、推荐下一步）
+
+**落盘（必须）**。
+
+---
+
+## 最终自检（所有 Phase 结束后执行）
+
+在给出最终总结**之前**，核对以下文件：
+
+- [ ] `executor/stage_1_data_preparation.md`
+- [ ] `executor/stage_2_run_baseline.md` ← Reviewer Mode B 必读
+- [ ] `executor/stage_3_explanation_robustness.md` ← Reviewer Mode B 必读
+- [ ] `executor/stage_4_table_figure_output.md`
+- [ ] `executor/stage_5_assessment.md`
+- [ ] `executor/specification_log.md` ← Reviewer Mode B 必读
+- [ ] 至少一个 `executor/outputs/tables/*.tex`（主回归表，给 Writer 用）
+- [ ] 对应的 `executor/outputs/tables/*.md`（同名 GFM 表格，前端预览用）
+- [ ] 对应的 `executor/outputs/tables/*.csv`（原始数值）
+- [ ] 对应的 `executor/outputs/tables/*.xlsx`（用户可直接粘到 Word 的 Excel 表）
+- [ ] 若产出图：每张图必须同时有 `.png`（300 DPI）和 `.pdf`（矢量，含中文用 `cairo_pdf`）
+
+缺失任何一个 → 立刻补写再给最终总结。
+
+完成核对后，提供 Executor 阶段的完整总结（不超过5000字），涵盖：基准回归结果、关键发现、稳健性检验结论、生成的表格和图表清单、Specification Log 摘要、对 Writer 的建议。
+

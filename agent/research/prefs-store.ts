@@ -21,14 +21,17 @@ function getPrefsPath(): string {
   return join(getConfigDir(), 'research-prefs.json');
 }
 
-const RESEARCH_PURPOSES: readonly ResearchPurpose[] = ['causal', 'associational'];
+const RESEARCH_PURPOSES: readonly ResearchPurpose[] = ['causal', 'associative'];
 
 function coercePrefs(input: unknown): ResearchPrefs {
   if (!input || typeof input !== 'object') return { ...DEFAULT_RESEARCH_PREFS };
   const raw = input as Record<string, unknown>;
+  // 旧版本（≤ alpha.24）用的是 'associational'，迁移到新字段名 'associative'，与
+  // planner_workflow / paper-reviewer skill 约定的 research_purpose 取值一致。
+  const rawPurpose = raw.researchPurpose === 'associational' ? 'associative' : raw.researchPurpose;
   return {
-    researchPurpose: RESEARCH_PURPOSES.includes(raw.researchPurpose as ResearchPurpose)
-      ? (raw.researchPurpose as ResearchPurpose)
+    researchPurpose: RESEARCH_PURPOSES.includes(rawPurpose as ResearchPurpose)
+      ? (rawPurpose as ResearchPurpose)
       : DEFAULT_RESEARCH_PREFS.researchPurpose,
   };
 }
@@ -74,12 +77,20 @@ export async function saveResearchPrefs(prefs: ResearchPrefs): Promise<ResearchP
 
 /**
  * 把研究偏好渲染成给 agent 系统提示词用的中文段落。
+ *
+ * 显式暴露 `research_purpose: causal|associative` 字段名，
+ * planner_workflow / paper-reviewer skill 里写的 "上下文会注入 research_purpose 字段"
+ * 指的就是这一行。改字段名时必须同步那两个 skill。
  */
 export function renderResearchPrefsForPrompt(prefs: ResearchPrefs): string {
   const purposeLine =
     prefs.researchPurpose === 'causal'
-      ? '- 研究目的：**因果识别**。Planner 必须采用明确的识别策略（DID / IV / RDD / 合成控制 / PSM 等），结论按因果效应撰写；如只能提供关联性证据，必须显式降级并在 verdict 中标注 "associational"。'
+      ? '- 研究目的：**因果识别**。Planner 必须采用明确的识别策略（DID / IV / RDD / 合成控制 / PSM 等），结论按因果效应撰写；若数据不支持任一因果策略，应回到 Phase 1 调整研究问题，不得降级为关联性研究。'
       : '- 研究目的：**关联性探索**。不强制因果识别；可用 OLS / Logit / Probit + 固定效应或聚类控制。结论严禁使用因果语言（因果、导致、使……，effect of X on Y 等），统一表述为"相关 / 关联 / 在控制…之后仍显著"。';
 
-  return ['【用户研究偏好（由"研究设置"面板设定，最高优先级）】', purposeLine].join('\n');
+  return [
+    '【用户研究偏好（由"研究设置"面板设定，最高优先级）】',
+    `- research_purpose: ${prefs.researchPurpose}`,
+    purposeLine,
+  ].join('\n');
 }

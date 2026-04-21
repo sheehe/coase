@@ -171,8 +171,8 @@ export default function CriticPanelCard({ providers }: Props) {
           {!warningText && savedIds.size >= 1 && (
             <div className="border-t border-border bg-black/[0.02] px-5 py-3 text-[12px] text-fg-muted dark:bg-white/[0.02]">
               {savedIds.size === 1
-                ? '已启用 1 个评审模型（单 critic 评语模式），运行 /full-research 或 /paper-review 时会被自动调度。再加 1 个 provider 可进入对抗共识模式。'
-                : `已启用 ${savedIds.size} 个评审模型（对抗共识模式），运行 /full-research 或 /paper-review 时会并行调度、聚合共识与分歧。`}
+                ? '已启用 1 个评审模型（单 critic 评语模式），运行 /full-research 或 /review 时会被自动调度。再加 1 个 provider 可进入对抗共识模式。'
+                : `已启用 ${savedIds.size} 个评审模型（对抗共识模式），运行 /full-research 或 /review 时会并行调度、聚合共识与分歧。`}
             </div>
           )}
         </>

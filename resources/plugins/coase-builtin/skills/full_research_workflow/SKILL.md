@@ -1,13 +1,13 @@
 ---
 name: full_research_workflow
-description: Coase 工作流 W1 完整研究管线（经管 Research Co-pilot）。从研究方向和数据出发，依次执行：读 readme / 扫描数据 → 生成 X 个假设 → 多模型对抗分析与评分迭代 → 阈值过滤 → 研究方案设计 → 模型对抗审方案 → 主回归 → 判定（p < 0.05 + effect size 双重）→ 通过则进入机制 + 鲁棒性检验；不通过则有限迭代或进入淘汰库 → 对检验结果再次模型对抗 → 保存最终表图 → 处理下一个候选假设。全程可选 human-in-the-loop。遵循《经管 Research Co-pilot 产品讨论书》第三节的 14 步流程。
+description: Coase 工作流 W1 完整研究管线（经管 Research Co-pilot）。从研究方向和数据出发，依次执行：读 readme / 扫描数据 → 生成 X 个假设 → 多模型对抗分析与评分迭代 → 阈值过滤 → 研究方案设计 → 模型对抗审方案 → 主回归 → 判定（p < 0.05 + effect size 双重）→ 通过则进入机制 + 鲁棒性检验；不通过则有限迭代或进入淘汰库 → 对检验结果再次模型对抗 → 保存最终表图 → 处理下一个候选假设。全程可选 human-in-the-loop。
 ---
 
 ## Workflow Notes
 
 - 本工作流是上层编排器，内部依次调用 `planner_workflow`、`executor_workflow`，以及 `idea-generator` / `idea-critic` / `significance-verdict` 三个新 skill。不要重复实现它们的逻辑。
-- 工作目录布局：`idea/`, `planner/`, `executor/`, `verdict/`。每阶段产物落入对应目录的 stage 文件。
-- 本 skill 定位为 **经管学者** 视角（非"社会科学学者"或经济学通用），参考期刊：SMJ, Organization Science, AMJ, JIBS, SEJ, JBV（不是 AJPS / AER）。
+- 工作目录布局：`idea/`, `planner/`, `executor/`。每阶段产物落入对应目录的 stage 文件。
+- 本 skill 定位为 **经管学者** 视角（非"社会科学学者"或经济学通用），参考期刊：SMJ, Organization Science, AMJ, JIBS, SEJ, JBV。
 - 对抗评分调用评审模型组（主模型是被评角色，critic 提供独立第二视角）：panelSize=1 走单 critic 评语模式、panelSize≥2 走多方对抗共识模式。若用户未在设置页配置"评审模型组"（panelSize=0），先提示用户配置再继续。
 - 方法迭代（step 8a）严格遵守 executor_workflow Phase 4 的规则：只允许调整**控制变量 / 样本定义 / 变量处理**，**不允许换 FE / cluster 来找结果**，**不允许改变 estimand 含义**。每次替代设定必须标注 changed what。
 

@@ -23,7 +23,7 @@ const PURPOSE_OPTIONS: OptionDef<ResearchPurpose>[] = [
     description: '明确的 X → Y 因果效应；要求 DID / IV / RDD / PSM 等识别策略。',
   },
   {
-    value: 'associational',
+    value: 'associative',
     label: '关联性探索',
     description:
       '变量间的相关关系；可用 OLS / Logit / Probit 等回归模型 + 固定效应或聚类控制，结果明确声明为关联性。',
