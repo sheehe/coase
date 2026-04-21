@@ -79,23 +79,8 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       '诊断失败进入 fallback 队列时，每一次切换在 verdict/spec_log.md 里写明：切换的诊断理由、被否决的策略、新策略。所有产物走 table / figure skill 规范化。',
     ].join('\n\n'),
   },
-  {
-    id: 'paper-writing',
-    trigger: '/paper-writing',
-    title: 'Paper Writing',
-    description:
-      'Workflow 4: 基于已有 executor/ 结果，组织 claims、章节文字、表图和完整 LaTeX 论文。',
-    kind: 'workflow',
-    source: 'alias',
-    sourceLabel: '工作流',
-    aliases: ['论文写作', '写论文', 'paper'],
-    targetSkills: ['writer_workflow'],
-    guidance: [
-      '把当前任务当作写作型 workflow。优先调用 writer_workflow，基于 executor/ 目录下已有的主回归、诊断、稳健性结果，组织 claims-evidence、章节文本、表图和完整论文。',
-      'Phase 6 Table Package: 调用 table skill 生成 Main Results Table / Explanation Table / Robustness Table / Appendix Tables。Phase 6 Figure Package: 调用 figure skill 生成 coefficient plot / event study plot / 分布图。Phase 6 Writing Blocks: 调用 paper-writing skill 生成各段文字；需要幻灯片调 beamer-ppt；需要文献综述调 literature-review。',
-      '若 verdict/spec_log.md 里有方法切换记录，appendix 必须披露 model building process（切换理由 + 诊断证据）。**本阶段不得新增回归、不得补跑方法 skill**，文字必须与表格结果完全一致。',
-    ].join('\n\n'),
-  },
+  // NOTE: paper-writing 工作流暂时隐藏（老板要求），保留定义不删，留待后续决策。
+  // 既不出现在图标菜单也不出现在斜杠命令选择器里。
   {
     id: 'paper-review',
     trigger: '/paper-review',

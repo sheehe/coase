@@ -237,6 +237,18 @@ export function BarChart2(props: IconProps) {
   );
 }
 
+export function Workflow(props: IconProps) {
+  // Lucide-style "workflow"：一个矩形容器里两排节点 + 连接线，表达"流水线"。
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="3" width="8" height="6" rx="1.5" />
+      <rect x="13" y="15" width="8" height="6" rx="1.5" />
+      <path d="M7 9v4a2 2 0 0 0 2 2h4" />
+      <path d="M13 3h3a2 2 0 0 1 2 2v10" />
+    </IconBase>
+  );
+}
+
 export function CoaseMark(props: IconProps) {
   return (
     <IconBase {...props}>

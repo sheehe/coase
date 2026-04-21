@@ -4,7 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AttachmentKind } from '../../../shared/ipc';
 import type { ProviderRecord } from '../../../shared/providers';
 import type { SkillInfo } from '../../../shared/skills';
-import { AlertCircle, ArrowUp, Box, Paperclip, RotateCcw, Square, X } from '../../components/Icons';
+import {
+  AlertCircle,
+  ArrowUp,
+  Box,
+  Check,
+  Paperclip,
+  RotateCcw,
+  Square,
+  Workflow,
+  X,
+} from '../../components/Icons';
 import Select from '../../components/ui/Select';
 import { useChat } from './ChatContext';
 import {
@@ -100,11 +110,14 @@ export default function ChatComposer() {
   const [providers, setProviders] = useState<ProviderRecord[] | null>(null);
   const [skills, setSkills] = useState<SkillInfo[] | null>(null);
   const [attachmentPanelOpen, setAttachmentPanelOpen] = useState(false);
+  const [workflowPanelOpen, setWorkflowPanelOpen] = useState(false);
   const [pickingKind, setPickingKind] = useState<AttachmentKind | null>(null);
   const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
   const [caretPosition, setCaretPosition] = useState(0);
   const attachmentButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentPanelRef = useRef<HTMLDivElement>(null);
+  const workflowButtonRef = useRef<HTMLButtonElement>(null);
+  const workflowPanelRef = useRef<HTMLDivElement>(null);
   const commandPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -165,7 +178,45 @@ export default function ChatComposer() {
     };
   }, [attachmentPanelOpen]);
 
+  useEffect(() => {
+    if (!workflowPanelOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (workflowPanelRef.current?.contains(target)) return;
+      if (workflowButtonRef.current?.contains(target)) return;
+      setWorkflowPanelOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setWorkflowPanelOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [workflowPanelOpen]);
+
   const slashCommands = useMemo(() => buildSlashCommands(skills ?? []), [skills]);
+  // 工作流图标菜单里只列"alias 型工作流"（full-research / idea-to-results /
+  // run-experiment / paper-review），不列从 skill 派生出的 workflow，避免菜单
+  // 里冒出一堆用户不认得的底层 workflow skill。paper-writing 已在 slash-commands
+  // 里注释隐藏，这里自动跟着消失。
+  const workflowCommands = useMemo(
+    () => slashCommands.filter((c) => c.kind === 'workflow' && c.source === 'alias'),
+    [slashCommands],
+  );
+  const selectedCommandIds = useMemo(
+    () => new Set(selectedCommands.map((c) => c.id)),
+    [selectedCommands],
+  );
   const slashMatch = useMemo(
     () => findSlashTriggerMatch(input, caretPosition),
     [input, caretPosition],
@@ -234,6 +285,24 @@ export default function ChatComposer() {
     } finally {
       setPickingKind(null);
     }
+  };
+
+  const toggleWorkflow = (command: SlashCommandDef) => {
+    if (selectedCommandIds.has(command.id)) {
+      removeSelectedCommand(command.id);
+    } else {
+      addSelectedCommand({
+        id: command.id,
+        trigger: command.trigger,
+        title: command.title,
+        description: command.description,
+        kind: command.kind,
+        sourceLabel: command.sourceLabel,
+        targetSkills: command.targetSkills,
+        guidance: command.guidance,
+      });
+    }
+    setWorkflowPanelOpen(false);
   };
 
   const replaceSlashTriggerWithSelection = (command: SlashCommandDef) => {
@@ -494,6 +563,80 @@ export default function ChatComposer() {
                 </div>
               )}
             </div>
+
+            {/* 工作流图标入口：和斜杠命令选择器并存，复用 selectedCommands 机制， */}
+            {/* 发送时由 injectSlashCommandContext 注入对应工作流的 guidance。 */}
+            {workflowCommands.length > 0 && (
+              <div className="relative">
+                <button
+                  ref={workflowButtonRef}
+                  type="button"
+                  onClick={() => setWorkflowPanelOpen((open) => !open)}
+                  title="选择工作流"
+                  aria-label="选择工作流"
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04] ${
+                    workflowPanelOpen || selectedCommands.length > 0
+                      ? 'bg-black/[0.04] text-fg dark:bg-white/[0.04]'
+                      : ''
+                  }`}
+                >
+                  <Workflow size={14} />
+                </button>
+
+                {workflowPanelOpen && (
+                  <div
+                    ref={workflowPanelRef}
+                    className="absolute bottom-[calc(100%+10px)] left-0 z-30 w-[460px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
+                  >
+                    <div className="border-b border-border/80 px-4 py-2 text-[13px] text-fg">
+                      <span className="font-medium">选择工作流</span>
+                      <span className="ml-2 text-[11px] text-fg-subtle">
+                        也可以直接在输入框里用 / 触发
+                      </span>
+                    </div>
+
+                    <div className="py-1">
+                      {workflowCommands.map((command) => {
+                        const active = selectedCommandIds.has(command.id);
+                        return (
+                          <button
+                            key={command.id}
+                            type="button"
+                            onClick={() => toggleWorkflow(command)}
+                            className={`block w-full px-4 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.03] ${
+                              active ? 'bg-accent/[0.08] dark:bg-accent/[0.12]' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-muted">
+                                {active ? (
+                                  <Check size={12} className="text-accent" />
+                                ) : (
+                                  <Workflow size={12} />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-baseline gap-2.5">
+                                  <span className="shrink-0 text-[14px] leading-5 text-fg">
+                                    {command.title}
+                                  </span>
+                                  <span className="min-w-0 truncate text-[13px] leading-5 text-fg-muted">
+                                    {command.description}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="shrink-0 font-mono text-[11px] text-fg-subtle">
+                                {command.trigger}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {providers && providers.length > 0 ? (
               <div className="inline-flex items-center rounded-lg border border-transparent px-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">

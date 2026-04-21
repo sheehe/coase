@@ -1,4 +1,8 @@
-// 会话侧边栏：用更像研究 Explorer 的方式同时呈现历史会话与工作区文件树。
+// 会话侧边栏：类 VSCode Explorer 的两段式布局。
+//   上段"工作区"：常驻展示当前会话绑定的工作区文件树，像 VSCode 的 Explorer。
+//   下段"会话历史"：折叠列表，只显示标题/时间/删除，不再内嵌文件树。
+// 这样无论是否展开历史会话，用户都能始终看到当前产出文件；切换历史会话会
+// 把上段内容也跟着切过去。
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
@@ -30,13 +34,13 @@ type SessionGroup = {
 export default function SessionSidebar() {
   const [sessions, setSessions] = useState<SessionLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  const [workspaceTrees, setWorkspaceTrees] = useState<Record<string, WorkspaceTreeNode[]>>({});
-  const [sessionWorkspaceRoots, setSessionWorkspaceRoots] = useState<Record<string, string | null>>({});
-  const [loadingTrees, setLoadingTrees] = useState<Record<string, boolean>>({});
+  const [currentTree, setCurrentTree] = useState<WorkspaceTreeNode[]>([]);
+  const [currentTreeRoot, setCurrentTreeRoot] = useState<string | null>(null);
+  const [loadingTree, setLoadingTree] = useState(false);
   const [previewFile, setPreviewFile] = useState<WorkspaceFilePreview | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const {
     onNewSession,
     chatState,
@@ -66,42 +70,36 @@ export default function SessionSidebar() {
     void loadSessions();
   }, [loadSessions, summaryRefreshKey]);
 
-  const loadWorkspaceTree = useCallback(
-    async (sessionId: string) => {
-      if (workspaceTrees[sessionId] || loadingTrees[sessionId]) return;
-      setLoadingTrees((prev) => ({ ...prev, [sessionId]: true }));
-      try {
-        const [tree, root] = await Promise.all([
-          window.coase.workspaces.listTree(sessionId),
-          window.coase.workspaces.getRoot(sessionId),
-        ]);
-        setWorkspaceTrees((prev) => ({ ...prev, [sessionId]: tree }));
-        setSessionWorkspaceRoots((prev) => ({ ...prev, [sessionId]: root }));
-      } catch (error) {
-        console.warn('load workspace tree failed', { sessionId, error });
-        setWorkspaceTrees((prev) => ({ ...prev, [sessionId]: [] }));
-        setSessionWorkspaceRoots((prev) => ({ ...prev, [sessionId]: null }));
-      } finally {
-        setLoadingTrees((prev) => ({ ...prev, [sessionId]: false }));
-      }
-    },
-    [loadingTrees, workspaceTrees],
-  );
+  const loadCurrentWorkspaceTree = useCallback(async () => {
+    if (!sessionId) {
+      setCurrentTree([]);
+      setCurrentTreeRoot(null);
+      return;
+    }
+    setLoadingTree(true);
+    try {
+      const [tree, root] = await Promise.all([
+        window.coase.workspaces.listTree(sessionId),
+        window.coase.workspaces.getRoot(sessionId),
+      ]);
+      setCurrentTree(tree);
+      setCurrentTreeRoot(root);
+    } catch (error) {
+      console.warn('load workspace tree failed', { sessionId, error });
+      setCurrentTree([]);
+      setCurrentTreeRoot(null);
+    } finally {
+      setLoadingTree(false);
+    }
+  }, [sessionId]);
+
+  // 会话切换 / 流程结束时重新拉工作区；summaryRefreshKey 变化也触发（这说明有
+  // 新的 turn_result / 产物落地），这样新生成的文件能即时出现在树里。
+  useEffect(() => {
+    void loadCurrentWorkspaceTree();
+  }, [loadCurrentWorkspaceTree, summaryRefreshKey]);
 
   const groups = useMemo(() => groupSessions(sessions), [sessions]);
-
-  const toggleSession = useCallback(
-    (sessionId: string) => {
-      setExpandedSessions((prev) => {
-        const nextOpen = !prev[sessionId];
-        if (nextOpen) {
-          void loadWorkspaceTree(sessionId);
-        }
-        return { ...prev, [sessionId]: nextOpen };
-      });
-    },
-    [loadWorkspaceTree],
-  );
 
   const toggleFolder = useCallback((nodePath: string) => {
     setExpandedFolders((prev) => ({ ...prev, [nodePath]: !prev[nodePath] }));
@@ -120,35 +118,22 @@ export default function SessionSidebar() {
   const handleDeleteSession = useCallback(
     async (entry: SessionLogEntry) => {
       if (entry.sessionId === sessionId) return;
-      // 运行中的会话（还没写最终 finishReason）不能删：main 进程也会拒绝。
-      if (entry.finishReason === undefined) return;
       const confirmed = window.confirm(`确定删除会话“${entry.firstPrompt.slice(0, 28)}”吗？`);
       if (!confirmed) return;
 
       setDeletingSessionId(entry.sessionId);
       try {
         await window.coase.sessions.delete(entry.sessionId);
-        // 磁盘删了，store 里残留的 runtime（如果有）也要释放，避免事件监听悬空
-        // 或用户从其他入口又切回到一条已经被删的会话视图。
         sessionsStore.disposeRuntime(entry.sessionId);
         setSessions((prev) => prev.filter((item) => item.sessionId !== entry.sessionId));
-        setExpandedSessions((prev) => {
-          const next = { ...prev };
-          delete next[entry.sessionId];
-          return next;
-        });
-        setWorkspaceTrees((prev) => {
-          const next = { ...prev };
-          delete next[entry.sessionId];
-          return next;
-        });
-        setSessionWorkspaceRoots((prev) => {
-          const next = { ...prev };
-          delete next[entry.sessionId];
-          return next;
-        });
       } catch (error) {
         console.error('delete session failed', error);
+        const message = error instanceof Error ? error.message : String(error);
+        window.alert(
+          message.includes('active session')
+            ? '该会话正在运行中，无法删除。请先停止或切换到其他会话。'
+            : `删除失败：${message}`,
+        );
       } finally {
         setDeletingSessionId(null);
       }
@@ -158,9 +143,13 @@ export default function SessionSidebar() {
 
   const canChangeWorkspace = chatState !== 'running';
 
+  const effectiveRoot = currentTreeRoot ?? workspaceRoot;
+  const workspaceTitle = effectiveRoot ? getWorkspaceRootName(effectiveRoot) : '工作区';
+
   return (
     <>
       <aside className="flex h-full w-full shrink-0 flex-col bg-sidebar">
+        {/* 头部：新会话 + 工作区目录 badge ----------------------------------- */}
         <div className="space-y-3 px-4 pb-3 pt-4">
           <button
             type="button"
@@ -176,7 +165,9 @@ export default function SessionSidebar() {
 
           <div className="rounded-lg border border-border/70 bg-surface px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">工作区目录</div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
+                工作区目录
+              </div>
               <button
                 type="button"
                 onClick={() => void chooseWorkspaceRoot()}
@@ -189,7 +180,10 @@ export default function SessionSidebar() {
               </button>
             </div>
             {workspaceMode === 'custom' && workspaceRoot ? (
-              <div className="mt-2 truncate text-[12px] leading-5 text-fg-muted" title={workspaceRoot}>
+              <div
+                className="mt-2 truncate text-[12px] leading-5 text-fg-muted"
+                title={workspaceRoot}
+              >
                 {middleEllipsis(workspaceRoot, 40)}
               </div>
             ) : null}
@@ -197,135 +191,167 @@ export default function SessionSidebar() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex items-center px-4 pb-2 pt-4">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">会话历史</span>
-            <button
-              type="button"
-              onClick={() => void loadSessions()}
-              className="ml-auto rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-              aria-label="刷新会话历史"
-            >
-              <RefreshCw size={12} />
-            </button>
+          {/* 上段：常驻工作区文件树 ---------------------------------------- */}
+          <div className="px-2 pb-3 pt-1">
+            <div className="flex items-center px-2 pb-1.5">
+              <span
+                className="truncate text-[11px] uppercase tracking-[0.16em] text-fg-subtle"
+                title={effectiveRoot ?? undefined}
+              >
+                {workspaceTitle}
+              </span>
+              <div className="ml-auto flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => void loadCurrentWorkspaceTree()}
+                  className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+                  aria-label="刷新工作区文件"
+                  title="刷新"
+                >
+                  <RefreshCw size={12} />
+                </button>
+                {effectiveRoot && (
+                  <button
+                    type="button"
+                    onClick={() => void window.coase.artifacts.openPath(effectiveRoot)}
+                    className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+                    aria-label="在资源管理器中打开"
+                    title="在资源管理器中打开"
+                  >
+                    <Folder size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!sessionId ? (
+              <div className="px-3 py-3 text-[12px] leading-5 text-fg-subtle">
+                还没开启会话。在右侧输入研究主题开始，工作区文件会自动出现在这里。
+              </div>
+            ) : loadingTree ? (
+              <div className="px-3 py-3 text-[12px] text-fg-subtle">加载文件树…</div>
+            ) : currentTree.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] leading-5 text-fg-subtle">
+                当前会话还没有工作区文件。Coase 生成结果后会在这里出现。
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {currentTree.map((node) => (
+                  <WorkspaceTreeItem
+                    key={node.path}
+                    node={node}
+                    expandedFolders={expandedFolders}
+                    onToggleFolder={toggleFolder}
+                    onSelectFile={handleSelectFile}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="px-4 py-10 text-center text-sm text-fg-subtle">加载中…</div>
-          ) : groups.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-fg-subtle">还没有会话，从右侧开始。</div>
-          ) : (
-            <div className="space-y-4 pb-6">
-              {groups.map((group) => (
-                <section key={group.title}>
-                  <div className="px-4 pb-1.5 text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
-                    {group.title}
-                  </div>
+          {/* 下段：会话历史（折叠式） --------------------------------------- */}
+          <div className="border-t border-border/60 px-1 pb-6 pt-3">
+            <button
+              type="button"
+              onClick={() => setHistoryCollapsed((v) => !v)}
+              className="flex w-full items-center gap-1.5 px-3 pb-1.5 text-left transition hover:text-fg"
+              aria-expanded={!historyCollapsed}
+            >
+              {historyCollapsed ? (
+                <ChevronRight size={10} className="text-fg-subtle" />
+              ) : (
+                <ChevronDown size={10} className="text-fg-subtle" />
+              )}
+              <span className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
+                会话历史
+              </span>
+              <span className="ml-auto text-[10.5px] text-fg-subtle">{sessions.length}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void loadSessions();
+                }}
+                className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+                aria-label="刷新会话历史"
+              >
+                <RefreshCw size={12} />
+              </button>
+            </button>
 
-                  <div className="space-y-0.5">
-                    {group.entries.map((entry) => {
-                      const isExpanded = !!expandedSessions[entry.sessionId];
-                      const tree = workspaceTrees[entry.sessionId] ?? [];
-                      const workspaceTreeRoot = buildWorkspaceTreeRoot(
-                        entry,
-                        sessionWorkspaceRoots[entry.sessionId] ?? null,
-                        tree,
-                      );
-                      const isLoadingTree = !!loadingTrees[entry.sessionId];
-                      // 磁盘 finishReason=undefined 的占位快照仍旧代表"运行中
-                      // （或上次崩溃未 seal）"——保留这个信号只用于禁用删除按钮，
-                      // 不再作为 UI 徽章展示。串行化模式下运行中会话永远就是前台。
-                      const isRunning = entry.finishReason === undefined;
-                      const isCurrent = entry.sessionId === sessionId;
-                      const deleteDisabled =
-                        deletingSessionId === entry.sessionId || isCurrent || isRunning;
-                      const deleteTitle = isCurrent
-                        ? '当前会话不可删除'
-                        : isRunning
-                          ? '运行中的会话不可删除'
-                          : '删除会话';
+            {!historyCollapsed &&
+              (loading ? (
+                <div className="px-4 py-6 text-center text-sm text-fg-subtle">加载中…</div>
+              ) : groups.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-fg-subtle">
+                  还没有会话，从右侧开始。
+                </div>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  {groups.map((group) => (
+                    <section key={group.title}>
+                      <div className="px-4 pb-1 text-[10.5px] uppercase tracking-[0.16em] text-fg-subtle">
+                        {group.title}
+                      </div>
+                      <div className="space-y-0.5 px-1">
+                        {group.entries.map((entry) => {
+                          const isCurrent = entry.sessionId === sessionId;
+                          const deleteDisabled = deletingSessionId === entry.sessionId || isCurrent;
+                          const deleteTitle = isCurrent ? '当前会话不可删除' : '删除会话';
 
-                      return (
-                        <div key={entry.sessionId} className="mx-1">
-                          <div
-                            className={[
-                              'group flex items-center gap-1 rounded-lg px-1 py-1 transition',
-                              isCurrent
-                                ? 'bg-accent/[0.08] dark:bg-accent/[0.12]'
-                                : isExpanded
-                                  ? 'bg-black/[0.05] dark:bg-white/[0.05]'
-                                  : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
-                            ].join(' ')}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => toggleSession(entry.sessionId)}
-                              className="inline-flex h-5 w-4 shrink-0 items-center justify-center text-fg-subtle transition hover:text-fg"
-                              aria-label={isExpanded ? '收起工作区文件树' : '展开工作区文件树'}
-                            >
-                              {isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void openHistoricalSession(entry)}
-                              className="flex min-w-0 flex-1 items-center gap-1 text-left"
-                              aria-label={`切换到会话 ${entry.firstPrompt.slice(0, 24)}`}
-                            >
-                              <span className="shrink-0 text-[12px] text-fg-muted">
-                                {formatClock(entry.startedAt)}
-                              </span>
-                              <span className="line-clamp-1 min-w-0 flex-1 text-[12px] leading-5 text-fg">
-                                {entry.firstPrompt.slice(0, 48)}
-                              </span>
-                            </button>
+                          return (
+                            <div key={entry.sessionId} className="mx-1">
+                              <div
+                                className={[
+                                  'group flex items-center gap-1 rounded-lg px-2 py-1 transition',
+                                  isCurrent
+                                    ? 'bg-accent/[0.08] dark:bg-accent/[0.12]'
+                                    : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]',
+                                ].join(' ')}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => void openHistoricalSession(entry)}
+                                  className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                                  aria-label={`切换到会话 ${entry.firstPrompt.slice(0, 24)}`}
+                                  title={entry.firstPrompt}
+                                >
+                                  <span className="shrink-0 text-[12px] text-fg-muted">
+                                    {formatClock(entry.startedAt)}
+                                  </span>
+                                  <span className="line-clamp-1 min-w-0 flex-1 text-[12px] leading-5 text-fg">
+                                    {entry.firstPrompt.slice(0, 48)}
+                                  </span>
+                                </button>
 
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteSession(entry)}
-                              disabled={deleteDisabled}
-                              title={deleteTitle}
-                              aria-label="删除会话"
-                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle opacity-0 transition hover:bg-black/[0.05] hover:text-fg group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/[0.06]"
-                            >
-                              <Trash size={11} />
-                            </button>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="pt-1">
-                              {isLoadingTree ? (
-                                <div className="px-2 py-2 text-[12px] text-fg-subtle">加载文件树…</div>
-                              ) : tree.length === 0 ? (
-                                <div className="px-2 py-2 text-[12px] text-fg-subtle">
-                                  当前会话还没有可展示的工作区文件。
-                                </div>
-                              ) : (
-                                <div className="space-y-0.5">
-                                  <WorkspaceTreeItem
-                                    key={workspaceTreeRoot.path}
-                                    node={workspaceTreeRoot}
-                                    expandedFolders={expandedFolders}
-                                    onToggleFolder={toggleFolder}
-                                    onSelectFile={handleSelectFile}
-                                  />
-                                </div>
-                              )}
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteSession(entry)}
+                                  disabled={deleteDisabled}
+                                  title={deleteTitle}
+                                  aria-label="删除会话"
+                                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle opacity-0 transition hover:bg-black/[0.05] hover:text-fg group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/[0.06]"
+                                >
+                                  <Trash size={11} />
+                                </button>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
               ))}
-            </div>
-          )}
+          </div>
         </div>
 
+        {/* 底部菜单 ---------------------------------------------------------- */}
         <div className="border-t border-border/80 px-2 pb-4 pt-3">
           <SidebarMenuLink
             to="/usage"
             icon={<BarChart2 size={14} />}
-            label="用量与花销"
+            label="用量"
             active={location.pathname === '/usage'}
           />
           <SidebarMenuLink
@@ -390,20 +416,25 @@ function WorkspaceTreeItem({
   onToggleFolder: (nodePath: string) => void;
   onSelectFile: (node: WorkspaceTreeNode) => void;
 }) {
-  const paddingLeft = `${depth * 10}px`;
+  const paddingLeft = `${depth * 12 + 6}px`;
 
   if (node.kind === 'directory') {
-    const isExpanded = expandedFolders[node.path] ?? true;
+    // 顶层目录默认展开，深层默认收起——跟 VSCode Explorer 的直觉一致。
+    const isExpanded = expandedFolders[node.path] ?? depth === 0;
     return (
       <div>
         <button
           type="button"
           onClick={() => onToggleFolder(node.path)}
-          className="flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-[11px] text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+          className="flex w-full items-center gap-1 rounded-md py-0.5 pr-2 text-left text-[12px] text-fg transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           style={{ paddingLeft }}
         >
-          {isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-          <Folder size={11} />
+          {isExpanded ? (
+            <ChevronDown size={10} className="shrink-0 text-fg-subtle" />
+          ) : (
+            <ChevronRight size={10} className="shrink-0 text-fg-subtle" />
+          )}
+          <Folder size={11} className="shrink-0 text-fg-subtle" />
           <span className="truncate">{node.name}</span>
         </button>
         {isExpanded &&
@@ -425,12 +456,12 @@ function WorkspaceTreeItem({
     <button
       type="button"
       onClick={() => onSelectFile(node)}
-      className="flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-[11px] text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
+      className="flex w-full items-center gap-1 rounded-md py-0.5 pr-2 text-left text-[12px] text-fg-muted transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
       style={{ paddingLeft }}
       title={node.filePath ?? node.path}
     >
       <span className="inline-block w-2.5 shrink-0" />
-      <FileText size={11} />
+      <FileText size={11} className="shrink-0 text-fg-subtle" />
       <span className="truncate">{node.name}</span>
     </button>
   );
@@ -491,24 +522,9 @@ function formatClock(ts: number): string {
   });
 }
 
-function buildWorkspaceTreeRoot(
-  entry: SessionLogEntry,
-  workspaceRoot: string | null,
-  children: WorkspaceTreeNode[],
-): WorkspaceTreeNode {
-  const resolvedRoot = workspaceRoot ?? entry.workspaceRoot ?? '';
-  return {
-    name: getWorkspaceRootName(resolvedRoot),
-    path: `workspace-root:${entry.sessionId}`,
-    kind: 'directory',
-    filePath: resolvedRoot || undefined,
-    children,
-  };
-}
-
 function getWorkspaceRootName(workspaceRoot: string): string {
   const trimmed = workspaceRoot.trim();
-  if (!trimmed) return '工作区目录';
+  if (!trimmed) return '工作区';
   const normalized = trimmed.replace(/[\\/]+$/, '');
   const segments = normalized.split(/[\\/]/).filter(Boolean);
   return segments.at(-1) ?? normalized;

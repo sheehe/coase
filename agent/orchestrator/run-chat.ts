@@ -60,6 +60,12 @@ export interface SessionStats {
   totalCostUsd: number;
   totalDurationMs: number;
   totalTokens: number;
+  /** 归一化后的 input token 累计。非 Anthropic 官方 provider 不信任 cache 字段，见 normalizeUsage。 */
+  totalInputTokens: number;
+  /** 输出 token 累计。 */
+  totalOutputTokens: number;
+  /** 缓存 token 累计（cache_creation + cache_read）。非官方 provider 取 0。 */
+  totalCacheTokens: number;
   ok: boolean;
   lastError?: string;
 }
@@ -146,6 +152,9 @@ export async function startChatSession(
       totalDurationMs: priorStats?.totalDurationMs ?? 0,
       totalCostUsd: priorStats?.totalCostUsd ?? 0,
       totalTokens: priorStats?.totalTokens ?? 0,
+      totalInputTokens: priorStats?.totalInputTokens ?? 0,
+      totalOutputTokens: priorStats?.totalOutputTokens ?? 0,
+      totalCacheTokens: priorStats?.totalCacheTokens ?? 0,
       ok: false,
       errorMessage: message,
     });
@@ -176,6 +185,9 @@ export async function startChatSession(
     totalCostUsd: priorStats?.totalCostUsd ?? 0,
     totalDurationMs: priorStats?.totalDurationMs ?? 0,
     totalTokens: priorStats?.totalTokens ?? 0,
+    totalInputTokens: priorStats?.totalInputTokens ?? 0,
+    totalOutputTokens: priorStats?.totalOutputTokens ?? 0,
+    totalCacheTokens: priorStats?.totalCacheTokens ?? 0,
     ok: true,
   };
 
@@ -187,7 +199,7 @@ export async function startChatSession(
     try {
       for await (const message of sdkQuery) {
         bindSdkSessionOnce(message, stats, onEvent);
-        translate(message, stats, onEvent, streamState);
+        translate(message, stats, provider, onEvent, streamState);
 
         const now = Date.now();
         if (message.type === 'result' || now - lastContextEmitAt >= 1200) {
@@ -279,6 +291,7 @@ function bindSdkSessionOnce(
 function translate(
   message: SDKMessageLike,
   stats: SessionStats,
+  provider: ResolvedProvider,
   onEvent: (event: ChatEvent) => void,
   streamState: StreamingTextBuffers,
 ): void {
@@ -290,7 +303,7 @@ function translate(
       handleUserToolResult(message, onEvent);
       return;
     case 'result':
-      handleResult(message, stats, onEvent);
+      handleResult(message, stats, provider, onEvent);
       return;
     case 'system':
       handleSystem(message, onEvent);
@@ -408,27 +421,82 @@ type UsageLike = {
   cache_read_input_tokens?: number;
 };
 
+interface NormalizedUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  /** 已归一化的总 token 数；若四项全为 0 则为 undefined。 */
+  totalTokens: number | undefined;
+}
+
+/**
+ * 归一化 SDK 返回的 usage。
+ *
+ * Anthropic 官方 API 的语义：input_tokens 不含 cache，四项相加 = 真实总量。
+ * 国产 Anthropic 兼容 provider（MiniMax / DeepSeek / Kimi / GLM 等）实现不统
+ * 一，**常把 cache tokens 同时计入 input_tokens 和 cache_*_input_tokens**，
+ * 导致累加时翻倍。这里对非官方 provider 一律忽略 cache 字段，只用 input+output。
+ * 代价是个别正确汇报 cache 的国产 provider 的 cache 命中不会被计入，但宁可
+ * 低估不翻倍。
+ */
+function normalizeUsage(providerId: string | undefined, usage: UsageLike): NormalizedUsage {
+  const input = usage.input_tokens ?? 0;
+  const output = usage.output_tokens ?? 0;
+  const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+
+  const isAnthropicOfficial = providerId === 'anthropic';
+
+  if (isAnthropicOfficial) {
+    const total = input + output + cacheCreation + cacheRead;
+    return {
+      inputTokens: input,
+      outputTokens: output,
+      cacheCreationInputTokens: cacheCreation,
+      cacheReadInputTokens: cacheRead,
+      totalTokens: total > 0 ? total : undefined,
+    };
+  }
+
+  const total = input + output;
+  return {
+    inputTokens: input,
+    outputTokens: output,
+    cacheCreationInputTokens: 0,
+    cacheReadInputTokens: 0,
+    totalTokens: total > 0 ? total : undefined,
+  };
+}
+
 function handleResult(
   message: SDKMessageLike,
   stats: SessionStats,
+  provider: ResolvedProvider,
   onEvent: (event: ChatEvent) => void,
 ): void {
   const subtype = message.subtype as string | undefined;
   const costUsd = typeof message.total_cost_usd === 'number' ? message.total_cost_usd : undefined;
   const durationMs = typeof message.duration_ms === 'number' ? message.duration_ms : undefined;
   const numTurns = typeof message.num_turns === 'number' ? message.num_turns : undefined;
-  const usage = (message.usage ?? {}) as UsageLike;
-  const inputTokens = usage.input_tokens ?? 0;
-  const outputTokens = usage.output_tokens ?? 0;
-  const cacheCreationInputTokens = usage.cache_creation_input_tokens ?? 0;
-  const cacheReadInputTokens = usage.cache_read_input_tokens ?? 0;
-  const totalTokens =
-    inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens || undefined;
+  const rawUsage = (message.usage ?? {}) as UsageLike;
+  const normalized = normalizeUsage(provider.providerId, rawUsage);
+  const {
+    inputTokens,
+    outputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+    totalTokens,
+  } = normalized;
+  const cacheTokens = cacheCreationInputTokens + cacheReadInputTokens;
 
   if (typeof costUsd === 'number') stats.totalCostUsd += costUsd;
   if (typeof durationMs === 'number') stats.totalDurationMs += durationMs;
   if (typeof numTurns === 'number') stats.agentTurnCount += numTurns;
   if (typeof totalTokens === 'number') stats.totalTokens += totalTokens;
+  stats.totalInputTokens += inputTokens;
+  stats.totalOutputTokens += outputTokens;
+  stats.totalCacheTokens += cacheTokens;
 
   if (subtype === 'success') {
     onEvent({
@@ -934,6 +1002,9 @@ function buildSessionLog(
     totalDurationMs: stats.totalDurationMs,
     totalCostUsd: stats.totalCostUsd,
     totalTokens: stats.totalTokens,
+    totalInputTokens: stats.totalInputTokens,
+    totalOutputTokens: stats.totalOutputTokens,
+    totalCacheTokens: stats.totalCacheTokens,
     ok: stats.ok,
     errorMessage: stats.lastError,
   };
@@ -987,6 +1058,9 @@ function makeDeadHandle(): ChatSessionHandle {
     totalCostUsd: 0,
     totalDurationMs: 0,
     totalTokens: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCacheTokens: 0,
     ok: false,
     lastError: 'session never started',
   };

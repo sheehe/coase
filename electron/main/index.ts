@@ -495,6 +495,9 @@ async function openChatSession(
     totalDurationMs: priorEntry?.totalDurationMs ?? 0,
     totalCostUsd: priorEntry?.totalCostUsd ?? 0,
     totalTokens: priorEntry?.totalTokens ?? 0,
+    totalInputTokens: priorEntry?.totalInputTokens ?? 0,
+    totalOutputTokens: priorEntry?.totalOutputTokens ?? 0,
+    totalCacheTokens: priorEntry?.totalCacheTokens ?? 0,
     ok: true,
   };
   try {
@@ -544,6 +547,9 @@ async function openChatSession(
           totalDurationMs: priorEntry.totalDurationMs,
           totalCostUsd: priorEntry.totalCostUsd,
           totalTokens: priorEntry.totalTokens ?? 0,
+          totalInputTokens: priorEntry.totalInputTokens ?? 0,
+          totalOutputTokens: priorEntry.totalOutputTokens ?? 0,
+          totalCacheTokens: priorEntry.totalCacheTokens ?? 0,
         }
       : undefined,
     originalStartedAt: priorEntry?.startedAt,

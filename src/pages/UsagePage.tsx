@@ -4,16 +4,15 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft } from '../components/Icons';
 import { Card, CardBody } from '../components/ui/Card';
 import type { SessionLogEntry } from '../../shared/runs';
-import { aggregateUsage, type Breakdown, type Bucket } from './usage-aggregation';
-
-function formatCost(value: number): string {
-  if (value === 0) return '$0';
-  if (value < 0.01) return `$${value.toFixed(4)}`;
-  if (value < 1) return `$${value.toFixed(3)}`;
-  return `$${value.toFixed(2)}`;
-}
+import {
+  aggregateUsage,
+  type Breakdown,
+  type Bucket,
+  type SessionTokenRow,
+} from './usage-aggregation';
 
 function formatTokens(value: number): string {
+  if (value <= 0) return '0';
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
   return `${value}`;
@@ -70,9 +69,9 @@ export default function UsagePage() {
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
           <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Usage</div>
-          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">用量与花销</h1>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">用量</h1>
           <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
-            按今天、本月、累计聚合 Coase 会话的 token 消耗、运行时长与成本。数据来自本地
+            按今天、本月、累计聚合 Coase 会话的 token 输入 / 输出量与运行时长。数据来自本地
             <span className="mx-1 font-mono text-fg-subtle">sessions.jsonl</span>
             ，仅统计已完成或中断的会话。
           </p>
@@ -119,51 +118,21 @@ export default function UsagePage() {
           <Card className="overflow-hidden">
             <CardBody className="border-b border-border px-5 py-4">
               <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
-                花销最高的会话
+                每次会话 token 消耗
               </div>
               <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-                列出 totalCostUsd 最高的前 10 条会话。续跑会累加到同一条记录。
+                列出 token 消耗最高的前 10 条会话。续跑会累加到同一条记录。
               </div>
             </CardBody>
 
             {usage.topSessions.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-fg-subtle">
-                还没有可统计的会话花销。
+                还没有可统计的会话用量。
               </div>
             ) : (
               <ul className="divide-y divide-border">
-                {usage.topSessions.map((entry, index) => (
-                  <li
-                    key={entry.sessionId}
-                    className="grid grid-cols-[40px_minmax(0,1fr)_150px] items-start gap-4 px-5 py-4"
-                  >
-                    <div className="pt-0.5 text-[12px] font-medium tabular-nums text-fg-subtle">
-                      {String(index + 1).padStart(2, '0')}
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="truncate text-[14px] leading-6 text-fg">
-                        {entry.firstPrompt || '(无标题)'}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
-                        <span>{formatDateTime(entry.startedAt)}</span>
-                        <span>{entry.model || '未知模型'}</span>
-                        {entry.providerLabel && <span>{entry.providerLabel}</span>}
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-[14px] font-medium text-fg">
-                        {formatCost(entry.totalCostUsd ?? 0)}
-                      </div>
-                      <div className="mt-1 text-[12px] text-fg-muted">
-                        {formatTokens(entry.totalTokens ?? 0)} tokens
-                      </div>
-                      <div className="text-[12px] text-fg-muted">
-                        {formatDuration(entry.totalDurationMs ?? 0)}
-                      </div>
-                    </div>
-                  </li>
+                {usage.topSessions.map((row, index) => (
+                  <SessionRow key={row.entry.sessionId} row={row} index={index} />
                 ))}
               </ul>
             )}
@@ -197,13 +166,24 @@ function SummaryPanel({
 
         <div className="flex items-baseline gap-3">
           <span className="text-[34px] font-semibold tracking-[-0.04em] text-fg">
-            {formatCost(bucket.costUsd)}
+            {formatTokens(bucket.totalTokens)}
           </span>
-          <span className="text-[13px] text-fg-muted">{bucket.count} 次会话</span>
+          <span className="text-[13px] text-fg-muted">tokens · {bucket.count} 次会话</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
-          <span>{formatTokens(bucket.tokens)} tokens</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-fg-muted">
+          <span>
+            输入 <span className="font-medium text-fg">{formatTokens(bucket.inputTokens)}</span>
+          </span>
+          <span>
+            输出 <span className="font-medium text-fg">{formatTokens(bucket.outputTokens)}</span>
+          </span>
+          {bucket.cacheTokens > 0 && (
+            <span>
+              缓存 <span className="font-medium text-fg">{formatTokens(bucket.cacheTokens)}</span>
+            </span>
+          )}
+          <span>·</span>
           <span>{formatDuration(bucket.durationMs)}</span>
         </div>
       </CardBody>
@@ -220,7 +200,7 @@ function BreakdownPanel({
 }) {
   if (rows.length === 0) return null;
 
-  const maxCost = Math.max(...rows.map((row) => row.bucket.costUsd), 0.0001);
+  const maxTokens = Math.max(...rows.map((row) => row.bucket.totalTokens), 1);
 
   return (
     <Card className="overflow-hidden">
@@ -230,7 +210,7 @@ function BreakdownPanel({
 
       <ul className="divide-y divide-border">
         {rows.map((row, index) => {
-          const pct = Math.min(100, (row.bucket.costUsd / maxCost) * 100);
+          const pct = Math.min(100, (row.bucket.totalTokens / maxTokens) * 100);
           return (
             <li key={row.key} className="px-5 py-4">
               <div className="flex items-start justify-between gap-4">
@@ -243,15 +223,20 @@ function BreakdownPanel({
                   </div>
                   <div className="ml-8 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
                     <span>{row.bucket.count} 次</span>
-                    <span>{formatTokens(row.bucket.tokens)} tokens</span>
+                    <span>输入 {formatTokens(row.bucket.inputTokens)}</span>
+                    <span>输出 {formatTokens(row.bucket.outputTokens)}</span>
+                    {row.bucket.cacheTokens > 0 && (
+                      <span>缓存 {formatTokens(row.bucket.cacheTokens)}</span>
+                    )}
                     <span>{formatDuration(row.bucket.durationMs)}</span>
                   </div>
                 </div>
 
                 <div className="shrink-0 text-right">
                   <div className="text-[14px] font-medium text-fg">
-                    {formatCost(row.bucket.costUsd)}
+                    {formatTokens(row.bucket.totalTokens)}
                   </div>
+                  <div className="mt-0.5 text-[11px] text-fg-subtle">tokens</div>
                 </div>
               </div>
 
@@ -263,5 +248,36 @@ function BreakdownPanel({
         })}
       </ul>
     </Card>
+  );
+}
+
+function SessionRow({ row, index }: { row: SessionTokenRow; index: number }) {
+  const { entry } = row;
+  return (
+    <li className="grid grid-cols-[40px_minmax(0,1fr)_170px] items-start gap-4 px-5 py-4">
+      <div className="pt-0.5 text-[12px] font-medium tabular-nums text-fg-subtle">
+        {String(index + 1).padStart(2, '0')}
+      </div>
+
+      <div className="min-w-0">
+        <div className="truncate text-[14px] leading-6 text-fg">
+          {entry.firstPrompt || '(无标题)'}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+          <span>{formatDateTime(entry.startedAt)}</span>
+          <span>{entry.model || '未知模型'}</span>
+          {entry.providerLabel && <span>{entry.providerLabel}</span>}
+        </div>
+      </div>
+
+      <div className="text-right">
+        <div className="text-[14px] font-medium text-fg">{formatTokens(row.totalTokens)} tokens</div>
+        <div className="mt-1 text-[12px] text-fg-muted">
+          入 {formatTokens(row.inputTokens)} · 出 {formatTokens(row.outputTokens)}
+          {row.cacheTokens > 0 && <> · 缓存 {formatTokens(row.cacheTokens)}</>}
+        </div>
+        <div className="text-[12px] text-fg-muted">{formatDuration(entry.totalDurationMs ?? 0)}</div>
+      </div>
+    </li>
   );
 }
