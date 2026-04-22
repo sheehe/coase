@@ -5,12 +5,11 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Dialog from '../components/ui/Dialog';
-import { ChevronLeft, ChevronRight, CoaseMark } from '../components/Icons';
+import { CoaseMark } from '../components/Icons';
 import { useChat } from '../features/chat/ChatContext';
 
 type MenuId = 'file' | 'edit' | 'view' | 'window' | 'help';
@@ -228,22 +227,6 @@ export default function DesktopChromeBar({
             ))}
           </nav>
 
-          <div
-            className="ml-5 flex items-center gap-0.5"
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          >
-            <ChromeIconButton
-              label="返回"
-              onClick={() => navigate(-1)}
-              icon={<ChevronLeft size={16} />}
-            />
-            <ChromeIconButton
-              label="前进"
-              onClick={() => navigate(1)}
-              icon={<ChevronRight size={16} />}
-            />
-          </div>
-
           <div className="min-w-0 flex-1" />
         </div>
       </header>
@@ -271,23 +254,3 @@ export default function DesktopChromeBar({
   );
 }
 
-function ChromeIconButton({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition hover:bg-black/[0.04] hover:text-fg"
-    >
-      {icon}
-    </button>
-  );
-}

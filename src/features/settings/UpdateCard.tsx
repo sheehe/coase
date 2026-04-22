@@ -140,16 +140,6 @@ export default function UpdateCard() {
             </p>
           )}
 
-          {snapshot.updateInfoUrl && (
-            <a
-              href={snapshot.updateInfoUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex text-[13px] text-fg underline underline-offset-2"
-            >
-              查看发行说明
-            </a>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
