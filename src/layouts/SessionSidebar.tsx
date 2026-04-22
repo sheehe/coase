@@ -17,9 +17,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
-  Target,
   Trash,
-  Wrench,
 } from '../components/Icons';
 import MarkdownContent from '../components/MarkdownContent';
 import Button from '../components/ui/Button';
@@ -352,18 +350,11 @@ export default function SessionSidebar() {
             active={location.pathname === '/usage'}
           />
           <SidebarMenuLink
-            to="/research-settings"
-            icon={<Target size={14} />}
-            label="研究设置"
-            active={location.pathname === '/research-settings'}
-          />
-          <SidebarMenuLink
             to="/settings"
-            icon={<Wrench size={14} />}
-            label="技能与模型"
+            icon={<Settings size={14} />}
+            label="设置"
             active={location.pathname === '/settings'}
           />
-          <SidebarMenuLink to="/settings" icon={<Settings size={14} />} label="设置" />
         </div>
       </aside>
 

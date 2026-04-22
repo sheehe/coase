@@ -1,85 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { ChevronLeft } from '../components/Icons';
-import CriticPanelCard from '../features/settings/CriticPanelCard';
-import ProviderEditDialog, { type DialogMode } from '../features/settings/ProviderEditDialog';
-import ProviderList from '../features/settings/ProviderList';
-import SkillList from '../features/settings/SkillList';
+import ModelsAndSkillsSection from '../features/settings/ModelsAndSkillsSection';
+import ResearchPrefsSection from '../features/settings/ResearchPrefsSection';
 import UpdateCard from '../features/settings/UpdateCard';
-import type { ProviderPreset, ProviderRecord, ProvidersFile } from '../../shared/providers';
+
+type SettingsTab = 'research' | 'models' | 'updates';
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'research', label: '研究偏好' },
+  { id: 'models', label: '模型与技能' },
+  { id: 'updates', label: '应用更新' },
+];
+
+const DEFAULT_TAB: SettingsTab = 'research';
+
+function normalizeTab(value: string | null): SettingsTab {
+  if (value === 'research' || value === 'models' || value === 'updates') return value;
+  return DEFAULT_TAB;
+}
 
 export default function SettingsPage() {
-  const [file, setFile] = useState<ProvidersFile | null>(null);
-  const [presets, setPresets] = useState<ProviderPreset[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = useMemo(() => normalizeTab(searchParams.get('tab')), [searchParams]);
 
-  const [editing, setEditing] = useState<{
-    mode: DialogMode;
-    record: ProviderRecord | null;
-  } | null>(null);
-
-  const reload = useCallback(async () => {
-    try {
-      const [f, p] = await Promise.all([
-        window.coase.providers.list(),
-        window.coase.providers.presets(),
-      ]);
-      setFile(f);
-      setPresets(p);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const handleAdd = useCallback(() => {
-    setEditing({ mode: 'new', record: null });
-  }, []);
-
-  const handleEdit = useCallback((record: ProviderRecord) => {
-    setEditing({ mode: 'edit', record });
-  }, []);
-
-  const handleDelete = useCallback(
-    async (id: string) => {
-      const target = file?.providers.find((p) => p.id === id);
-      if (!target) return;
-      const ok = window.confirm(`确定要删除模型提供方“${target.label}”吗？`);
-      if (!ok) return;
-      await window.coase.providers.delete(id);
-      await reload();
-    },
-    [file, reload],
-  );
-
-  const handleSetActive = useCallback(
-    async (id: string) => {
-      await window.coase.providers.setActive(id);
-      await reload();
-    },
-    [reload],
-  );
-
-  const handleSave = useCallback(
-    async (record: ProviderRecord) => {
-      await window.coase.providers.upsert(record);
-      await reload();
-    },
-    [reload],
-  );
+  const selectTab = (tab: SettingsTab) => {
+    // replace: true 是为了不把每次 tab 切换都压进 history 栈，否则用户点"后退"会
+    // 在几个 tab 之间蹦跶而不是退出设置页。
+    setSearchParams({ tab }, { replace: true });
+  };
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
-          <h1 className="text-[30px] font-semibold tracking-[-0.03em] text-fg">技能与模型</h1>
+          <h1 className="text-[30px] font-semibold tracking-[-0.03em] text-fg">设置</h1>
           <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
-            在这里集中管理模型提供方、API 配置和本地技能。
+            在这里集中管理研究偏好、模型提供方、本地技能和应用更新。
           </p>
         </div>
 
@@ -92,37 +50,31 @@ export default function SettingsPage() {
         </Link>
       </section>
 
-      {loadError && (
-        <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          读取设置失败：{loadError}
-        </section>
-      )}
+      <nav className="flex items-center gap-1 border-b border-border">
+        {TABS.map((tab) => {
+          const active = tab.id === activeTab;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => selectTab(tab.id)}
+              className={[
+                '-mb-px border-b-2 px-4 py-2.5 text-[13px] font-medium transition',
+                active
+                  ? 'border-fg text-fg'
+                  : 'border-transparent text-fg-muted hover:text-fg',
+              ].join(' ')}
+              aria-current={active ? 'page' : undefined}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
 
-      {file && (
-        <ProviderList
-          providers={file.providers}
-          activeId={file.activeProviderId}
-          onAdd={handleAdd}
-          onEdit={handleEdit}
-          onDelete={(id) => void handleDelete(id)}
-          onSetActive={(id) => void handleSetActive(id)}
-        />
-      )}
-
-      {file && <CriticPanelCard providers={file.providers} />}
-
-      <SkillList />
-
-      <UpdateCard />
-
-      <ProviderEditDialog
-        open={editing !== null}
-        mode={editing?.mode ?? 'new'}
-        initial={editing?.record ?? null}
-        presets={presets}
-        onClose={() => setEditing(null)}
-        onSave={handleSave}
-      />
+      {activeTab === 'research' && <ResearchPrefsSection />}
+      {activeTab === 'models' && <ModelsAndSkillsSection />}
+      {activeTab === 'updates' && <UpdateCard />}
     </div>
   );
 }

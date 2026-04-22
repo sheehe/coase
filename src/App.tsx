@@ -3,7 +3,6 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import RuntimeGate from './features/runtime/RuntimeGate';
 import AppLayout from './layouts/AppLayout';
 import ChatPage from './pages/ChatPage';
-import ResearchSettingsPage from './pages/ResearchSettingsPage';
 import SettingsPage from './pages/SettingsPage';
 import UsagePage from './pages/UsagePage';
 import type { CoaseApi } from '../shared/ipc';
@@ -32,7 +31,10 @@ export default function App() {
             <Route index element={<Navigate to="/chat" replace />} />
             <Route path="chat" element={<ChatPage />} />
             <Route path="usage" element={<UsagePage />} />
-            <Route path="research-settings" element={<ResearchSettingsPage />} />
+            <Route
+              path="research-settings"
+              element={<Navigate to="/settings?tab=research" replace />}
+            />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/chat" replace />} />
           </Route>

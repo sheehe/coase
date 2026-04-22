@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
-import { ChevronLeft } from '../components/Icons';
-import Button from '../components/ui/Button';
-import { Card, CardBody } from '../components/ui/Card';
+import Button from '../../components/ui/Button';
+import { Card, CardBody } from '../../components/ui/Card';
 import {
   DEFAULT_RESEARCH_PREFS,
   type ResearchPrefs,
   type ResearchPurpose,
-} from '../../shared/research-prefs';
+} from '../../../shared/research-prefs';
 
 type OptionDef<T extends string> = {
   value: T;
@@ -30,7 +28,7 @@ const PURPOSE_OPTIONS: OptionDef<ResearchPurpose>[] = [
   },
 ];
 
-export default function ResearchSettingsPage() {
+export default function ResearchPrefsSection() {
   const [prefs, setPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [savedPrefs, setSavedPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [loading, setLoading] = useState(true);
@@ -79,46 +77,39 @@ export default function ResearchSettingsPage() {
   }, [savedPrefs]);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
-      <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
-        <div className="min-w-0">
-          <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Workspace</div>
-          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">研究设置</h1>
-          <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
-            这里的偏好会被注入系统提示词，从下一个新会话起生效；运行中的会话不会被动切换口径。
-            改动只影响 agent 的默认行为，你依然可以在单次会话里临时覆盖。
-          </p>
-        </div>
+    <div className="flex flex-col gap-4">
+      <Card className="overflow-hidden">
+        <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">研究偏好</div>
+            <div className="mt-1 text-[13px] leading-6 text-fg-muted">
+              这里的偏好会被注入系统提示词，从下一个新会话起生效；运行中的会话不会被动切换口径。
+            </div>
+          </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {isDirty && (
+          <div className="flex shrink-0 gap-2">
+            {isDirty && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                disabled={busy}
+                className="rounded-full px-3.5"
+              >
+                撤销
+              </Button>
+            )}
             <Button
-              variant="ghost"
               size="sm"
-              onClick={handleReset}
-              disabled={busy}
+              onClick={() => void handleSave()}
+              disabled={busy || !isDirty}
               className="rounded-full px-3.5"
             >
-              撤销
+              {busy ? '保存中…' : '保存'}
             </Button>
-          )}
-          <Button
-            size="sm"
-            onClick={() => void handleSave()}
-            disabled={busy || !isDirty}
-            className="rounded-full px-3.5"
-          >
-            {busy ? '保存中…' : '保存'}
-          </Button>
-          <Link
-            to="/chat"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
-          >
-            <ChevronLeft size={13} />
-            <span>返回对话</span>
-          </Link>
-        </div>
-      </section>
+          </div>
+        </CardBody>
+      </Card>
 
       {error && (
         <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">

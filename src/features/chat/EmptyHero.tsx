@@ -12,7 +12,7 @@ export default function EmptyHero() {
         <div className="max-w-[520px] text-center">
           <div className="text-[38px] font-semibold tracking-tight text-fg">Coase</div>
           <div className="mt-3 text-[15px] text-fg-muted">多智能体经济学实证研究助手</div>
-          <div className="mt-2 text-[12px] text-fg-subtle">从研究设计到论文草稿 · 全流程陪跑</div>
+          <div className="mt-2 text-[12px] text-fg-subtle">从研究设计到实证分析 · 全流程陪跑</div>
         </div>
 
         <div className="mt-10 w-full max-w-[560px] space-y-2 text-[13px] leading-7 text-fg-muted">
