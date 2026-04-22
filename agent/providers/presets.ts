@@ -57,6 +57,15 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     hint: '在 platform.moonshot.cn 开通 Anthropic 兼容端点。',
   },
   {
+    id: 'moonshot-k2-6',
+    label: 'Moonshot (Kimi K2.6)',
+    protocol: 'anthropic',
+    baseURL: 'https://api.moonshot.cn/anthropic',
+    defaultModel: 'kimi-k2.6',
+    authMode: 'auth_token',
+    hint: 'Kimi K2.6 走同一套 Anthropic 兼容端点。',
+  },
+  {
     id: 'zai',
     label: 'Z.ai (智谱 GLM)',
     protocol: 'anthropic',
