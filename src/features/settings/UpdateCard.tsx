@@ -113,9 +113,8 @@ export default function UpdateCard() {
       <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">应用更新</div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-6 text-fg-muted">
-            <span>当前版本 {snapshot.currentVersion}</span>
-            {snapshot.provider && <span>{snapshot.provider}</span>}
+          <div className="mt-1 text-[13px] leading-6 text-fg-muted">
+            当前版本 {snapshot.currentVersion}
           </div>
         </div>
 

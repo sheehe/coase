@@ -89,8 +89,7 @@ export default function CriticPanelCard({ providers }: Props) {
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">评审模型组</div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            用于 idea 对抗评分、方案 critique、论文 referee 评审。主模型负责产出，评审模型提供独立第二视角。
-            勾选 1 个即生效（单 critic 评语）；勾选 ≥ 2 个时聚合展示共识与分歧。目前仅支持 anthropic 协议 provider。
+            主模型之外的独立第二视角。勾 1 个为单 critic 评语，勾 ≥ 2 个聚合展示共识与分歧。仅支持 anthropic 协议 provider。
           </div>
         </div>
 

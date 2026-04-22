@@ -66,7 +66,7 @@ export default function SkillList() {
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">技能</div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            这里只显示用户自己安装的技能。导入 `SKILL.md` 文件或技能文件夹即可安装新技能。
+            这里显示用户自己安装的技能。导入 `SKILL.md` 文件或技能文件夹即可安装新技能。
           </div>
         </div>
 
@@ -111,7 +111,6 @@ export default function SkillList() {
       {skills && (
         <SkillGroup
           title="用户"
-          sourceLabel="COASE-USER"
           entries={user}
           emptyHint="还没有安装用户技能。点击“导入技能”来安装，或把 `SKILL.md` 放入用户技能目录。"
           onDelete={handleDelete}
@@ -124,14 +123,12 @@ export default function SkillList() {
 
 function SkillGroup({
   title,
-  sourceLabel,
   entries,
   emptyHint,
   onDelete,
   busy,
 }: {
   title: string;
-  sourceLabel: string;
   entries: SkillInfo[];
   emptyHint: string;
   onDelete?: (name: string) => Promise<void>;
@@ -141,7 +138,6 @@ function SkillGroup({
     <section className="px-5 py-4">
       <div className="mb-3 flex items-center gap-2 text-[12px] text-fg-subtle">
         <span>{title}</span>
-        <span>({sourceLabel})</span>
         <span>·</span>
         <span>{entries.length}</span>
       </div>
