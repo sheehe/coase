@@ -152,6 +152,9 @@ class CoaseAppUpdater {
   private resolveDisabledReason(): string | null {
     if (!app.isPackaged) return '开发模式下不检查自动更新';
     if (isPortableBuild()) return '便携版不支持自动更新，请使用安装版';
+    if (process.platform === 'darwin') {
+      return 'macOS 版本暂不支持自动更新，请前往 GitHub Release 手动下载最新 dmg 覆盖安装';
+    }
     if (!this.repoInfo) return '未配置 GitHub 仓库地址，无法检查更新';
     return null;
   }

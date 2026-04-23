@@ -140,6 +140,18 @@ export default function UpdateCard() {
             </p>
           )}
 
+          {snapshot.status === 'disabled' && (
+            <p>
+              <a
+                href="https://github.com/sheehe/coase/releases/latest"
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                前往 GitHub Releases 手动下载最新版
+              </a>
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
