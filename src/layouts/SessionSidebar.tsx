@@ -278,7 +278,7 @@ export default function SessionSidebar() {
                 <div className="space-y-3 pt-1">
                   {groups.map((group) => (
                     <section key={group.title}>
-                      <div className="px-4 pb-1 text-[10.5px] uppercase tracking-[0.16em] text-fg-subtle">
+                      <div className="px-4 pb-1 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
                         {group.title}
                       </div>
                       <div className="space-y-0.5 px-1">
@@ -311,10 +311,10 @@ export default function SessionSidebar() {
                                   aria-label={`切换到会话 ${entry.firstPrompt.slice(0, 24)}`}
                                   title={entry.firstPrompt}
                                 >
-                                  <span className="shrink-0 text-[12px] text-fg-muted">
+                                  <span className="shrink-0 text-[13px] text-fg-muted">
                                     {formatClock(entry.startedAt)}
                                   </span>
-                                  <span className="line-clamp-1 min-w-0 flex-1 text-[12px] leading-5 text-fg">
+                                  <span className="line-clamp-1 min-w-0 flex-1 text-[13px] leading-5 text-fg">
                                     {entry.firstPrompt.slice(0, 48)}
                                   </span>
                                 </button>
