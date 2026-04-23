@@ -34,10 +34,10 @@ export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'he
 
       {variant === 'page' && (
         <div className="ml-auto flex shrink-0 items-center gap-4 text-[11px] font-mono text-fg-muted">
-          <span title="已结账 turn 的累计 input token">
+          <span title="历轮 input token 累计（计费口径，非当前上下文占用）——每轮 input 包含当时的完整历史，累加会跨轮重复，用来估算真实 token 消耗总量">
             Input {formatNumber(metrics.inputTokens)}
           </span>
-          <span title="已结账 turn 的累计 output token">
+          <span title="历轮 output token 累计（assistant 生成的全部 token）">
             Output {formatNumber(metrics.outputTokens)}
           </span>
           <span>{metrics.durationMs == null ? '—' : formatDuration(metrics.durationMs)}</span>

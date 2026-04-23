@@ -211,23 +211,29 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       );
     case 'tool_use': {
       const running = entry.status === 'running';
+      // Skill 卡片只显示工具名，不允许展开 args——避免把 prompt 原文暴露给用户
+      const isSkill = entry.name === 'Skill';
+      const showExpanded = expanded && !isSkill;
       return (
         <div className="-mt-3">
           <button
             type="button"
-            onClick={() => setExpanded((value) => !value)}
+            onClick={isSkill ? undefined : () => setExpanded((value) => !value)}
             className={COLLAPSIBLE_PILL_CLASS}
+            aria-expanded={isSkill ? undefined : expanded}
+            style={isSkill ? { cursor: 'default' } : undefined}
           >
             <Wrench size={10} className={COLLAPSIBLE_ICON_CLASS} />
             <span className="font-medium text-fg-muted">{entry.name}</span>
             {running && <LiveTimer elapsedSeconds={entry.elapsedSeconds ?? 0} baseTs={entry.ts} />}
-            {expanded ? (
-              <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
-            ) : (
-              <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
-            )}
+            {!isSkill &&
+              (expanded ? (
+                <ChevronUp size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+              ) : (
+                <ChevronDown size={9} className={COLLAPSIBLE_CHEVRON_CLASS} />
+              ))}
           </button>
-          {expanded && (
+          {showExpanded && (
             <pre className="mt-1 overflow-x-auto rounded-2xl border border-border/60 bg-surface p-2 text-[10.5px] whitespace-pre-wrap text-fg-muted">
               {JSON.stringify(entry.input, null, 2)}
             </pre>

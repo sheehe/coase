@@ -144,6 +144,13 @@ export default function DesktopChromeBar({
       ],
       help: [
         {
+          label: '访问官网',
+          onClick: () => {
+            window.open('https://sheehe.github.io/coase/', '_blank', 'noopener');
+          },
+        },
+        { separator: true, label: '' },
+        {
           label: '关于 Coase',
           onClick: () => setAboutOpen(true),
         },

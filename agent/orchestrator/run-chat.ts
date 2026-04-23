@@ -439,15 +439,18 @@ function handleAssistant(
   // carries authoritative text; we replace the streaming fragment with it).
   if (messageId) streamState.finalize(messageId);
 
-  // 每条 assistant message 的 usage 表示"这次 LLM call 的消耗"——累加到 per-turn
-  // live 计数上，发 turn_partial_usage 让 UI 实时滴答。result 到达时由 accumulateResult
-  // 清零累加器，同时前端用 turn_result 的权威值覆盖，不会重复计入总数。
-  // 不发 assistant 消息 usage 的 provider（部分国产兼容实现）自然退化为不滴答，
-  // 不会比现状更差。
+  // 每条 assistant message 的 usage 表示"这次 LLM call 的消耗"。input 和 output
+  // 语义不同，必须分别处理：
+  //   - input_tokens 是"本次请求喂进去的完整上下文大小"，同一个 turn 内多次 tool
+  //     call 会重复发送历史上下文，所以取 max 作为"本轮上下文水位"，不能累加
+  //     （累加会虚高 N 倍，turn 结束 live 清零时还会出现数字"下降"的幻觉）。
+  //   - output_tokens 是"本次 assistant 回复生成的 token"，各次独立不重叠，累加
+  //     才是真实的本轮输出总量。
+  // turn_result 到达时由 accumulateResult 清零两者，权威值通过 transcript 接管。
   if (inner?.usage && typeof inner.usage === 'object') {
     const normalized = normalizeUsage(provider.providerId, inner.usage);
     if (normalized.inputTokens > 0 || normalized.outputTokens > 0) {
-      stats.liveTurnInputTokens += normalized.inputTokens;
+      stats.liveTurnInputTokens = Math.max(stats.liveTurnInputTokens, normalized.inputTokens);
       stats.liveTurnOutputTokens += normalized.outputTokens;
       onEvent({
         type: 'turn_partial_usage',

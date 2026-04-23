@@ -1,7 +1,7 @@
 {
   "name": "coase",
   "private": true,
-  "version": "2.0.0-alpha.43",
+  "version": "2.0.0-alpha.44",
   "description": "Coase · Multi-Agent Research System Desktop (v2)",
   "main": "./out/main/index.js",
   "author": "Coase",
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.107",
+    "driver.js": "^1.4.0",
     "electron-updater": "^6.3.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

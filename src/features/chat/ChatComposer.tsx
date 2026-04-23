@@ -509,6 +509,7 @@ export default function ChatComposer() {
               <button
                 ref={attachmentButtonRef}
                 type="button"
+                data-coach-attachments
                 onClick={() => setAttachmentPanelOpen((open) => !open)}
                 title="添加本地文件"
                 className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04] ${
@@ -638,7 +639,10 @@ export default function ChatComposer() {
             )}
 
             {providers && providers.length > 0 ? (
-              <div className="inline-flex items-center rounded-lg border border-transparent px-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">
+              <div
+                data-coach-provider
+                className="inline-flex items-center rounded-lg border border-transparent px-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+              >
                 <Select
                   value={selectedProviderId || providers[0]?.id}
                   onChange={(e) => void window.coase.providers.setActive(e.target.value || null)}
@@ -653,7 +657,10 @@ export default function ChatComposer() {
                 </Select>
               </div>
             ) : (
-              <div className="inline-flex items-center rounded-lg border border-transparent px-1">
+              <div
+                data-coach-provider
+                className="inline-flex items-center rounded-lg border border-transparent px-1"
+              >
                 <div className="py-0 text-[12px] font-medium text-fg">{providerLabel}</div>
               </div>
             )}
@@ -697,6 +704,7 @@ export default function ChatComposer() {
             {chatState === 'running' ? (
               <button
                 type="button"
+                data-coach-send
                 onClick={() => void onCancel()}
                 title="终止本次研究"
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-danger/30 text-danger transition hover:bg-danger/5"
@@ -706,6 +714,7 @@ export default function ChatComposer() {
             ) : (
               <button
                 type="button"
+                data-coach-send
                 onClick={onSubmit}
                 disabled={!input.trim() && selectedCommands.length === 0}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-fg transition hover:opacity-92 disabled:bg-border disabled:text-fg-subtle"

@@ -2,7 +2,6 @@
 name: paper-reviewer
 description: 经管实证研究单模型 referee 评审器，对应 /review 工作流。评审对象涵盖三种：研究 idea / baseline 方案（Mode A）、已执行的主回归与诊断结果（Mode B）、论文 draft 写作（Mode C）。每次调用对应一个选中的 provider 模型，由 /review 按用户选定的"评审模型组"并行调度 N 次，每次生成一份独立的 referee report。参考经管期刊标准：SMJ, Organization Science, AMJ, JIBS, SEJ, JBV。
 ---
-你是多智能体实证经济学研究系统中的 **评审人**。
 ## Workflow Notes
 
 - 本 skill 描述 referee 评审的 prompt 模板和输出格式。并行调度多个模型通过 **`mcp__coase-critic-panel__invoke`** tool 完成（底层是并行调用用户设置的"评审模型组"各 provider）。
