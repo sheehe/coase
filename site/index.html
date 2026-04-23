@@ -148,32 +148,32 @@
             <!-- f1 -->
             <div class="card reveal">
               <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
-              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f1_title">3-Agent ReAct loop</h3>
-              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f1_body">Planner, Executor, Reviewer — each runs Think → Tool → Observe until the job is done.</p>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f1_title">End-to-end empirical pipeline</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f1_body">Scan the data, design the study, generate R / Python code, and run regressions, significance tests, and figure export locally.</p>
             </div>
             <!-- f2 -->
             <div class="card reveal d1">
               <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 4v5M12 4v5M17 4v5"/></svg></div>
-              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f2_title">Isolated R execution</h3>
-              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f2_body">Every R analysis runs in a clean, isolated workspace. A crash cannot poison the next step.</p>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f2_title">Bundled R + Python runtime</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f2_body">A conda environment ships with the app. R, Python, and common econometrics / plotting packages work out of the box with zero system PATH pollution.</p>
             </div>
             <!-- f3 -->
             <div class="card reveal d2">
               <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
-              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f3_title">Human-in-the-loop</h3>
-              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f3_body">Explicit checkpoints between agents. You approve, edit, or roll back at any point.</p>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f3_title">Human-in-the-loop handoffs</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f3_body">Planner, Reviewer, and Executor handoffs pause for you. Approve, edit, or restart — the orchestrator never pushes past you.</p>
             </div>
             <!-- f4 -->
             <div class="card reveal">
               <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
               <h3 class="text-lg font-semibold mb-2" data-i18n="features.f4_title">Adversarial review</h3>
-              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f4_body">Use a different LLM family to review the draft. Different training, different blind spots.</p>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f4_body">Point the Reviewer agent at a different LLM vendor than Planner / Executor — cross-family review, fewer shared blind spots.</p>
             </div>
             <!-- f5 -->
             <div class="card reveal d1">
               <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
-              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f5_title">Anti-hallucination guardrails</h3>
-              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f5_body">Agents can only reference numbers that came from real tool outputs. No fabricated statistics.</p>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f5_title">Execution-backed results</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f5_body">Every statistic in the report traces back to real R / Python stdout, exported tables, or figure files on disk.</p>
             </div>
             <!-- f6 -->
             <div class="card reveal d2">
