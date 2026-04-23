@@ -10,7 +10,7 @@
     "nav.download": "Download",
     "nav.cta": "Download",
 
-    "hero.badge": "v1.1.0 · Available now",
+    "hero.badge": "v2.0.0 · Available now",
     "hero.eyebrow": "MULTI-AGENT RESEARCH SYSTEM",
     "hero.title": "Let AI run your entire research",
     "hero.subtitle": "Autonomous agents plan the study, run R analyses locally, and adversarially review the results - while you stay in control at every checkpoint.",
@@ -88,7 +88,7 @@
     "cta.button": "Download the launcher",
 
     "footer.tagline": "Built with LangGraph and a lot of R",
-    "footer.version": "v1.1.0"
+    "footer.version": "v2.0.0"
   },
   */
 
@@ -101,7 +101,7 @@
     "nav.download": "下载",
     "nav.cta": "立即下载",
 
-    "hero.badge": "v1.0.0 · 测试版现已可用",
+    "hero.badge": "v2.0.0 · 测试版现已可用",
     "hero.eyebrow": "多智能体实证研究助手",
     "hero.title": " AI赋能实证分析",
     "hero.subtitle": "自主智能体做研究设计、在本地运行统计分析、对抗式审稿——每个交接点你都是最终决策人。",
@@ -175,6 +175,6 @@
     "cta.button": "下载启动器",
 
     "footer.tagline": "由 LangGraph 与开源 R 组件协同驱动",
-    "footer.version": "v1.0.0"
+    "footer.version": "v2.0.0"
   }
 };

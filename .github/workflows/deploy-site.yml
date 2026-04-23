@@ -7,6 +7,8 @@ on:
       - 'site/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -26,6 +28,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 用 GitHub 最新 release 的 tag 重写 site/index.html 里的下载链接。
+      # 既处理 URL 里的 /releases/download/<tag>/ 段，也处理文件名里的版本号前缀
+      # （electron-builder artifactName: Coase-${version}-<target>-${arch}.${ext}）。
+      # 没有 release 时跳过——首次部署、空仓库仍能跑。
+      - name: Rewrite download links to latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          LATEST_TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName' 2>/dev/null || true)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No release found on $GITHUB_REPOSITORY, skip rewrite."
+            exit 0
+          fi
+          VERSION=${LATEST_TAG#v}
+          echo "Rewriting download links to tag=$LATEST_TAG version=$VERSION"
+          sed -E -i \
+            -e "s#releases/download/v[^/]+/#releases/download/${LATEST_TAG}/#g" \
+            -e "s#/Coase-[^/\"]+-(win|mac|portable)-#/Coase-${VERSION}-\1-#g" \
+            site/index.html
+          echo "---- post-rewrite hrefs ----"
+          grep -oE 'href="https://github\.com/[^"]+"' site/index.html | grep -E '\.(exe|dmg|zip)' || true
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
