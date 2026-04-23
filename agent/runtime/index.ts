@@ -12,3 +12,5 @@ export {
   researchEnvExists,
 } from './env';
 export { runtimeInstallManager, ensureRuntimeFiles } from './install';
+export { verifyResearchEnv } from './verify';
+export type { VerifyResult } from './verify';
