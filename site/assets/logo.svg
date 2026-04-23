@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 28" fill="none">
+  <g fill="currentColor">
+    <circle cx="14" cy="14" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="3"/>
+    <circle cx="22.5" cy="7" r="1.4"/>
+    <circle cx="6" cy="20" r="1.1"/>
+  </g>
+  <text x="34" y="19" font-family="-apple-system, 'SF Pro Display', Inter, sans-serif" font-size="14" font-weight="600" letter-spacing="-0.02em" fill="currentColor">Coase AI</text>
+</svg>

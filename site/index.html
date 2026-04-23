@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI agents plan, execute R code, and review — end-to-end research automation." />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Coase AI — Multi-Agent Research System" />
+    <meta property="og:description" content="AI agents plan, execute R code, and review — end-to-end research automation." />
+    <title data-i18n="meta.title">Coase AI — Multi-Agent Research System</title>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="antialiased">
+
+    <!-- ═════════════════ NAV ═════════════════ -->
+    <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl" style="background: rgba(10,10,10,0.7); border-bottom: 1px solid var(--line);">
+      <div class="container-xl flex items-center justify-between h-16">
+        <a href="#top" class="flex items-center" style="color: var(--fg-0);">
+          <div class="w-[110px] h-7">
+            <object data="assets/logo.svg" type="image/svg+xml" class="w-full h-full pointer-events-none" aria-label="Coase AI"></object>
+          </div>
+          <span class="ml-3 px-2 py-0.5 text-[10px] rounded-full border" style="border-color: var(--line); color: var(--fg-2); letter-spacing: 0.06em;">v1.1.0</span>
+        </a>
+
+        <nav class="desktop-nav items-center gap-8 hidden md:flex">
+          <a href="#features" class="nav-link" data-i18n="nav.features">Features</a>
+          <a href="#workflow" class="nav-link" data-i18n="nav.workflow">Workflow</a>
+          <a href="#download" class="nav-link" data-i18n="nav.download">Download</a>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <!-- 🔒 语言切换隐藏 - 恢复英文时取消隐藏 -->
+          <!-- <div class="lang-pill">
+            <button data-lang-btn="en" class="active">EN</button>
+            <button data-lang-btn="zh">中</button>
+          </div> -->
+          <a href="#download" class="btn-primary hidden sm:inline-flex" style="padding: 8px 16px; font-size: 13px;">
+            <span data-i18n="nav.cta">Download</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+          </a>
+          <button class="mobile-nav md:hidden" data-mobile-toggle style="color: var(--fg-0);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mobile nav overlay -->
+    <div data-mobile-overlay class="mobile-overlay">
+      <div class="mobile-overlay-inner">
+        <a href="#features" class="mobile-link" data-i18n="nav.features">Features</a>
+        <a href="#workflow" class="mobile-link" data-i18n="nav.workflow">Workflow</a>
+        <a href="#download" class="mobile-link" data-i18n="nav.download">Download</a>
+      </div>
+    </div>
+
+    <main id="top">
+
+      <!-- ═════════════════ HERO ═════════════════ -->
+      <section class="relative pt-40 pb-32 overflow-hidden">
+        <div class="hero-atmosphere"></div>
+        <div class="container-xl relative z-10">
+          <div class="max-w-4xl">
+            <div class="reveal inline-flex items-center gap-2 px-3 py-1.5 rounded-full border mb-8" style="border-color: var(--line); background: rgba(255,255,255,0.02);">
+              <span class="w-1.5 h-1.5 rounded-full" style="background: var(--fg-0); box-shadow: 0 0 10px rgba(255,255,255,0.6);"></span>
+              <span class="text-xs" style="color: var(--fg-1);" data-i18n="hero.badge">v1.1.0 · Available now</span>
+            </div>
+
+            <p class="eyebrow reveal d1 mb-5" data-i18n="hero.eyebrow">MULTI-AGENT RESEARCH SYSTEM</p>
+
+            <h1 class="display reveal d2 mb-7" style="font-size: clamp(42px, 7vw, 88px);" data-i18n="hero.title">
+              Let AI run your entire research
+            </h1>
+
+            <p class="reveal d3 text-lg md:text-xl max-w-2xl mb-10" style="color: var(--fg-1); line-height: 1.6;" data-i18n="hero.subtitle">
+              Autonomous agents plan the study, run R analyses locally, and adversarially review the results — while you stay in control at every checkpoint.
+            </p>
+
+            <div class="reveal d4 flex flex-wrap items-center gap-4 mb-16">
+              <a href="#download" class="btn-primary" data-download-primary>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+                <span data-i18n="hero.cta_primary">Download</span>
+              </a>
+              <a href="#features" class="btn-ghost">
+                <span data-i18n="hero.cta_secondary">Learn more</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+
+            <!-- Terminal preview -->
+            <div class="reveal d4 terminal max-w-2xl">
+              <div class="flex items-center gap-1.5 mb-4" style="opacity: 0.6;">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+              <div data-i18n="hero.terminal_line1">&gt; coase start --data panel_2024.dta</div>
+              <div><span class="check">✓</span><span data-i18n="hero.terminal_line2">Planner  designed 7-stage research protocol</span></div>
+              <div><span class="check">✓</span><span data-i18n="hero.terminal_line3">Executor ran 14 R scripts locally</span></div>
+              <div><span class="check">✓</span><span data-i18n="hero.terminal_line4">Reviewer flagged 3 issues · awaiting your approval</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════ PROBLEM ═════════════════ -->
+      <section class="relative py-32 section-edge">
+        <div class="container-xl">
+          <div class="max-w-3xl mb-16">
+            <p class="eyebrow reveal mb-5" data-i18n="problem.eyebrow">THE PROBLEM</p>
+            <h2 class="display-sm reveal d1" style="font-size: clamp(32px, 4.5vw, 52px);" data-i18n="problem.title">
+              Where does a researcher's time actually go?
+            </h2>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-8">
+            <div class="reveal d1">
+              <div class="text-2xl mb-4" style="color: var(--fg-0); font-weight: 500;" data-i18n="problem.card1_title">Endless data wrangling</div>
+              <p class="text-base" style="color: var(--fg-1); line-height: 1.65;" data-i18n="problem.card1_body">Cleaning, reshaping, merging — before any real analysis begins.</p>
+            </div>
+            <div class="reveal d2">
+              <div class="text-2xl mb-4" style="color: var(--fg-0); font-weight: 500;" data-i18n="problem.card2_title">Code that won't run</div>
+              <p class="text-base" style="color: var(--fg-1); line-height: 1.65;" data-i18n="problem.card2_body">Environment drift, dependency hell, a crash at 2 a.m. before submission.</p>
+            </div>
+            <div class="reveal d3">
+              <div class="text-2xl mb-4" style="color: var(--fg-0); font-weight: 500;" data-i18n="problem.card3_title">Endless revision cycles</div>
+              <p class="text-base" style="color: var(--fg-1); line-height: 1.65;" data-i18n="problem.card3_body">Every round of feedback means re-running analyses, updating tables, and checking consistency all over again.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════ FEATURES ═════════════════ -->
+      <section id="features" class="relative py-32 section-edge" style="background: var(--bg-1);">
+        <div class="ambient-spot a"></div>
+        <div class="container-xl relative z-10">
+          <div class="max-w-3xl mb-16">
+            <p class="eyebrow reveal mb-5" data-i18n="features.eyebrow">CAPABILITIES</p>
+            <h2 class="display-sm reveal d1" style="font-size: clamp(32px, 4.5vw, 52px);" data-i18n="features.title">
+              Six things that make Coase AI different
+            </h2>
+          </div>
+
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- f1 -->
+            <div class="card reveal">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f1_title">3-Agent ReAct loop</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f1_body">Planner, Executor, Reviewer — each runs Think → Tool → Observe until the job is done.</p>
+            </div>
+            <!-- f2 -->
+            <div class="card reveal d1">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 4v5M12 4v5M17 4v5"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f2_title">Isolated R execution</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f2_body">Every R analysis runs in a clean, isolated workspace. A crash cannot poison the next step.</p>
+            </div>
+            <!-- f3 -->
+            <div class="card reveal d2">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f3_title">Human-in-the-loop</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f3_body">Explicit checkpoints between agents. You approve, edit, or roll back at any point.</p>
+            </div>
+            <!-- f4 -->
+            <div class="card reveal">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f4_title">Adversarial review</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f4_body">Use a different LLM family to review the draft. Different training, different blind spots.</p>
+            </div>
+            <!-- f5 -->
+            <div class="card reveal d1">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f5_title">Anti-hallucination guardrails</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f5_body">Agents can only reference numbers that came from real tool outputs. No fabricated statistics.</p>
+            </div>
+            <!-- f6 -->
+            <div class="card reveal d2">
+              <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>
+              <h3 class="text-lg font-semibold mb-2" data-i18n="features.f6_title">File-centric state</h3>
+              <p class="text-[15px]" style="color: var(--fg-1); line-height: 1.65;" data-i18n="features.f6_body">Substantive artifacts live on disk. The graph state holds paths, not payloads.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════ WORKFLOW ═════════════════ -->
+      <section id="workflow" class="relative py-32 section-edge overflow-hidden">
+        <div class="ambient-spot b"></div>
+        <div class="container-xl relative z-10">
+          <div class="max-w-3xl mb-16">
+            <p class="eyebrow reveal mb-5" data-i18n="workflow.eyebrow">WORKFLOW</p>
+            <h2 class="display-sm reveal d1" style="font-size: clamp(32px, 4.5vw, 52px);" data-i18n="workflow.title">
+              A full research workflow, orchestrated end to end
+            </h2>
+          </div>
+
+          <div class="pipeline reveal d2">
+            <div class="pipe-rail"></div>
+            <div class="pipe-token"></div>
+            <div class="grid grid-cols-3 md:grid-cols-3 gap-6 relative">
+              <div class="pipe-node">
+                <div class="pipe-node-title" data-i18n="workflow.planner">Planner</div>
+                <div class="pipe-node-sub" data-i18n="workflow.planner_sub">Research design</div>
+              </div>
+              <div class="pipe-node">
+                <div class="pipe-node-title" data-i18n="workflow.executor">Executor</div>
+                <div class="pipe-node-sub" data-i18n="workflow.executor_sub">R code execution</div>
+              </div>
+              <div class="pipe-node">
+                <div class="pipe-node-title" data-i18n="workflow.reviewer">Reviewer</div>
+                <div class="pipe-node-sub" data-i18n="workflow.reviewer_sub">Adversarial critique</div>
+              </div>
+            </div>
+          </div>
+
+          <p class="reveal d3 max-w-2xl mt-12 text-base" style="color: var(--fg-1); line-height: 1.7;" data-i18n="workflow.caption">
+            Each agent runs its own ReAct loop. Failures roll back to the last checkpoint. You approve the handoff between every stage.
+          </p>
+        </div>
+      </section>
+
+      <!-- ═════════════════ STACK ═════════════════ -->
+      <section class="relative py-24 section-edge">
+        <div class="container-xl">
+          <div class="max-w-3xl mb-10 text-center mx-auto">
+            <p class="eyebrow reveal mb-4" data-i18n="stack.eyebrow">BUILT ON</p>
+            <h2 class="display-sm reveal d1" style="font-size: clamp(26px, 3.5vw, 36px);" data-i18n="stack.title">
+              Open, inspectable, hackable
+            </h2>
+          </div>
+          <div class="reveal d2 flex flex-wrap items-center justify-center gap-3">
+            <span class="stack-item">LangGraph</span>
+            <span class="stack-item">R</span>
+            <span class="stack-item">Python</span>
+            <span class="stack-item">FastAPI</span>
+            <span class="stack-item">React</span>
+            <span class="stack-item">Anthropic</span>
+            <span class="stack-item">OpenAI</span>
+            <span class="stack-item">DeepSeek</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════ DOWNLOAD ═════════════════ -->
+      <section id="download" class="relative py-32 section-edge" style="background: var(--bg-1);">
+        <div class="container-xl">
+          <div class="max-w-3xl mb-16 text-center mx-auto">
+            <p class="eyebrow reveal mb-5" data-i18n="download.eyebrow">DOWNLOAD</p>
+            <h2 class="display-sm reveal d1 mb-5" style="font-size: clamp(32px, 4.5vw, 52px);" data-i18n="download.title">
+              One click to the GUI launcher
+            </h2>
+            <p class="reveal d2 text-lg" style="color: var(--fg-1); line-height: 1.65;" data-i18n="download.subtitle">
+              The desktop app manages the full research lifecycle. No CLI required.
+            </p>
+          </div>
+
+          <!-- Install-time security notice -->
+          <div class="reveal d3 max-w-4xl mx-auto mb-8 p-5 rounded-xl border flex items-start gap-4" style="border-color: rgba(245, 158, 11, 0.25); background: rgba(245, 158, 11, 0.05);">
+            <div class="flex-shrink-0 mt-0.5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="color: #f59e0b;">
+                <path d="M12 9v4M12 17h.01"/>
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-base font-semibold mb-1" style="color: var(--fg-0);" data-i18n="download.notice_title">Install-time security prompts</p>
+              <p class="text-sm mb-3" style="color: var(--fg-1); line-height: 1.6;" data-i18n="download.notice_desc">Windows SmartScreen may show “Windows protected your PC” after download — click “More info” → “Run anyway” to continue. The installer is not code-signed yet, so this warning is expected.</p>
+              <p class="text-sm" style="color: var(--fg-1); line-height: 1.6;" data-i18n="download.notice_av">Some antivirus tools may quarantine or delete the installer automatically. If the download disappears, whitelist Coase AI (or temporarily disable the antivirus) and download again.</p>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <!-- Windows card -->
+            <div class="download-card reveal">
+              <div class="os-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5L10.5 4.4v7.6H3V5.5zm0 13L10.5 20V12H3v6.5zm8.3 1.7L21 21.7V12h-9.7v8.2zm0-16.2V12H21V2.3l-9.7 1.7z"/></svg>
+              </div>
+              <h3 class="text-2xl font-semibold mb-2" data-i18n="download.win_title">Windows</h3>
+              <p class="text-sm" style="color: var(--fg-2);" data-i18n="download.win_sub">Windows 10 / 11 · 64-bit</p>
+              <div class="cta-row">
+                <a href="https://mars-launcher.oss-cn-hangzhou.aliyuncs.com/MARS-Launcher.exe" class="btn-primary" style="padding: 12px 22px; font-size: 14px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+                  <span data-i18n="download.win_cta">Download .exe</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- macOS card -->
+            <div class="download-card reveal d1">
+              <div class="os-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.03-2.93 2.4-4.34 2.51-4.42-1.37-2-3.5-2.28-4.26-2.31-1.81-.18-3.53 1.07-4.45 1.07-.92 0-2.34-1.04-3.85-1.01-1.98.03-3.81 1.15-4.83 2.93-2.06 3.57-.53 8.85 1.49 11.75.99 1.42 2.16 3.02 3.7 2.96 1.49-.06 2.05-.96 3.85-.96 1.8 0 2.3.96 3.87.93 1.6-.03 2.61-1.45 3.59-2.88 1.13-1.65 1.6-3.25 1.62-3.33-.04-.02-3.11-1.19-3.14-4.73zm-2.93-8.68c.82-.99 1.37-2.37 1.22-3.74-1.18.05-2.6.79-3.45 1.78-.76.87-1.42 2.27-1.24 3.61 1.31.1 2.65-.67 3.47-1.65z"/></svg>
+              </div>
+              <h3 class="text-2xl font-semibold mb-2" data-i18n="download.mac_title">macOS</h3>
+              <p class="text-sm" style="color: var(--fg-2);" data-i18n="download.mac_sub">macOS 12+ · Apple Silicon & Intel</p>
+              <div class="cta-row">
+                <a href="https://mars-launcher.oss-cn-hangzhou.aliyuncs.com/MARS-Launcher-macOS.zip" class="btn-primary" style="padding: 12px 22px; font-size: 14px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+                  <span data-i18n="download.mac_cta">Download .zip</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <p class="reveal d2 text-center mt-12 text-sm" style="color: var(--fg-2);" data-i18n="download.reqs">
+            16 GB RAM recommended · ~10 GB disk
+          </p>
+        </div>
+      </section>
+
+      <!-- ═════════════════ FAQ ═════════════════ -->
+      <section class="relative py-32 section-edge">
+        <div class="container-xl">
+          <div class="max-w-3xl mx-auto">
+            <div class="mb-14 text-center">
+              <p class="eyebrow reveal mb-5" data-i18n="faq.eyebrow">FAQ</p>
+              <h2 class="display-sm reveal d1" style="font-size: clamp(32px, 4.5vw, 52px);" data-i18n="faq.title">
+                Answers before you ask
+              </h2>
+            </div>
+
+            <div class="reveal d2">
+              <details class="faq-item">
+                <summary data-i18n="faq.q1">Do I need an API key?</summary>
+                <div class="faq-body" data-i18n="faq.a1">Yes. Coase AI talks to external LLMs — DeepSeek, OpenAI, or Anthropic. Any one works. We recommend running with two providers from different families so the Reviewer agent can give you a genuinely independent read.</div>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="faq.q2">Where does my data live?</summary>
+                <div class="faq-body" data-i18n="faq.a2">Entirely on your machine, in the local data/ folder. Nothing is uploaded anywhere except the natural-language prompts and tool outputs that go to the LLM APIs you chose. Raw datasets never leave your disk.</div>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="faq.q3">Can it run offline?</summary>
+                <div class="faq-body" data-i18n="faq.a3">The R execution layer is fully local and offline. But the four agents depend on LLM API calls, so you need an internet connection while the pipeline is running.</div>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="faq.q5">How is this different from ChatGPT or Claude chat?</summary>
+                <div class="faq-body" data-i18n="faq.a5">A chat UI is a conversation — you drive every step. Coase AI is an automation loop: the agents design the study, run the code, and critique their own output. You sit at the checkpoints, not at the keyboard for every prompt.</div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════ FINAL CTA ═════════════════ -->
+      <section class="relative py-32 section-edge" style="background: var(--bg-1);">
+        <div class="ambient-spot a" style="opacity: 0.2;"></div>
+        <div class="container-xl relative z-10 text-center">
+          <h2 class="display-sm reveal mb-6 max-w-3xl mx-auto" style="font-size: clamp(32px, 5vw, 60px);" data-i18n="cta.title">
+            Stop typing. Start shipping research
+          </h2>
+          <p class="reveal d1 text-lg mb-10 max-w-2xl mx-auto" style="color: var(--fg-1);" data-i18n="cta.subtitle">
+            Install Coase AI and hand the busywork to four agents that don't need coffee.
+          </p>
+          <div class="reveal d2">
+            <a href="#download" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+              <span data-i18n="cta.button">Download the launcher</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ═════════════════ FOOTER ═════════════════ -->
+    <footer class="py-12 section-edge" style="background: var(--bg-0);">
+      <div class="container-xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-4">
+          <div class="w-[90px] h-6" style="color: var(--fg-2);">
+            <object data="assets/logo.svg" type="image/svg+xml" class="w-full h-full pointer-events-none" aria-label="Coase AI"></object>
+          </div>
+          <span class="text-xs" style="color: var(--fg-2);">© 2026</span>
+          <span class="text-xs" style="color: var(--fg-2);" data-i18n="footer.version">v1.1.0</span>
+        </div>
+        <p class="text-xs" style="color: var(--fg-2);" data-i18n="footer.tagline">Built with LangGraph and a lot of R</p>
+      </div>
+    </footer>
+
+    <script src="i18n.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
