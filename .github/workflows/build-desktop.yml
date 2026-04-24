@@ -61,10 +61,16 @@ jobs:
 
   # GITHUB_TOKEN 创建的 release 不会触发其他 workflow 的 release:published 事件，
   # 所以发版后主动触发 deploy-site，让官网下载链接自动重写到最新 tag。
+  #
+  # 顶层 permissions 只有 contents: write 满足 softprops 上传 release 资产；
+  # 这里要 dispatch 另一个 workflow，必须再显式声明 actions: write，
+  # 否则 `gh workflow run` 会 403 "Resource not accessible by integration"。
   trigger-site-deploy:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Trigger deploy-site workflow
         env:
