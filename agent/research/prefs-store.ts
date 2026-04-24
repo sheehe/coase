@@ -33,6 +33,10 @@ function coercePrefs(input: unknown): ResearchPrefs {
     researchPurpose: RESEARCH_PURPOSES.includes(rawPurpose as ResearchPurpose)
       ? (rawPurpose as ResearchPurpose)
       : DEFAULT_RESEARCH_PREFS.researchPurpose,
+    webSearchEnabled:
+      typeof raw.webSearchEnabled === 'boolean'
+        ? raw.webSearchEnabled
+        : DEFAULT_RESEARCH_PREFS.webSearchEnabled,
   };
 }
 
@@ -88,9 +92,15 @@ export function renderResearchPrefsForPrompt(prefs: ResearchPrefs): string {
       ? '- 研究目的：**因果识别**。Planner 必须采用明确的识别策略（DID / IV / RDD / 合成控制 / PSM 等），结论按因果效应撰写；若数据不支持任一因果策略，应回到 Phase 1 调整研究问题，不得降级为关联性研究。'
       : '- 研究目的：**关联性探索**。不强制因果识别；可用 OLS / Logit / Probit + 固定效应或聚类控制。结论严禁使用因果语言（因果、导致、使……，effect of X on Y 等），统一表述为"相关 / 关联 / 在控制…之后仍显著"。';
 
+  const webSearchLine = prefs.webSearchEnabled
+    ? '- 联网搜索：**开启**。可按需使用 WebSearch 在互联网搜索参考文献与资料。'
+    : '- 联网搜索：**关闭**。WebSearch 工具已被禁用，不得调用；参考文献仅能来自已下载文献与本地资源，不要在回复中承诺"联网检索"。';
+
   return [
     '【用户研究偏好（由"研究设置"面板设定，最高优先级）】',
     `- research_purpose: ${prefs.researchPurpose}`,
     purposeLine,
+    `- web_search_enabled: ${prefs.webSearchEnabled}`,
+    webSearchLine,
   ].join('\n');
 }

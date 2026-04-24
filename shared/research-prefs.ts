@@ -14,10 +14,16 @@ export interface ResearchPrefs {
    *   + 固定效应或聚类控制，结果明确声明为关联性。
    */
   researchPurpose: ResearchPurpose;
+  /**
+   * 是否允许 agent 调用 WebSearch 工具联网搜索参考文献 / 网页资料。
+   * 关闭后会从 SDK 工具清单中剔除 WebSearch，agent 只能使用已下载文献与本地资源。
+   */
+  webSearchEnabled: boolean;
 }
 
 export const DEFAULT_RESEARCH_PREFS: ResearchPrefs = {
   researchPurpose: 'causal',
+  webSearchEnabled: true,
 };
 
 /** 磁盘持久化结构，带 version 便于以后演进。 */

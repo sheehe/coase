@@ -28,6 +28,19 @@ const PURPOSE_OPTIONS: OptionDef<ResearchPurpose>[] = [
   },
 ];
 
+const WEB_SEARCH_OPTIONS: OptionDef<'on' | 'off'>[] = [
+  {
+    value: 'on',
+    label: '开启（推荐）',
+    description: 'Agent 可按需调用 WebSearch 联网检索参考文献、数据来源与网页资料。',
+  },
+  {
+    value: 'off',
+    label: '关闭',
+    description: '禁用 WebSearch 工具。参考文献仅依赖已下载文献与本地资源，适合离线环境或需严格限定外部来源的研究。',
+  },
+];
+
 export default function ResearchPrefsSection() {
   const [prefs, setPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [savedPrefs, setSavedPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
@@ -53,7 +66,9 @@ export default function ResearchPrefsSection() {
     void reload();
   }, [reload]);
 
-  const isDirty = prefs.researchPurpose !== savedPrefs.researchPurpose;
+  const isDirty =
+    prefs.researchPurpose !== savedPrefs.researchPurpose ||
+    prefs.webSearchEnabled !== savedPrefs.webSearchEnabled;
 
   const handleSave = useCallback(async () => {
     setBusy(true);
@@ -128,14 +143,24 @@ export default function ResearchPrefsSection() {
           加载偏好…
         </section>
       ) : (
-        <PrefSection
-          title="研究目的"
-          caption="决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。"
-          options={PURPOSE_OPTIONS}
-          value={prefs.researchPurpose}
-          onChange={(value) => setPrefs({ researchPurpose: value })}
-          disabled={busy}
-        />
+        <>
+          <PrefSection
+            title="研究目的"
+            caption="决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。"
+            options={PURPOSE_OPTIONS}
+            value={prefs.researchPurpose}
+            onChange={(value) => setPrefs({ ...prefs, researchPurpose: value })}
+            disabled={busy}
+          />
+          <PrefSection
+            title="联网搜索文献"
+            caption="控制 agent 是否可以使用 WebSearch 工具联网检索参考文献。关闭后该工具会从 SDK 工具清单中移除。"
+            options={WEB_SEARCH_OPTIONS}
+            value={prefs.webSearchEnabled ? 'on' : 'off'}
+            onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}
+            disabled={busy}
+          />
+        </>
       )}
     </div>
   );
