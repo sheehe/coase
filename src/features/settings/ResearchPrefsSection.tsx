@@ -32,12 +32,13 @@ const WEB_SEARCH_OPTIONS: OptionDef<'on' | 'off'>[] = [
   {
     value: 'on',
     label: '开启（推荐）',
-    description: 'Agent 可按需调用 WebSearch 联网检索参考文献、数据来源与网页资料。',
+    description: 'Agent 可按需联网检索参考文献、综述与作者主页等文献资料。',
   },
   {
     value: 'off',
     label: '关闭',
-    description: '禁用 WebSearch 工具。参考文献仅依赖已下载文献与本地资源，适合离线环境或需严格限定外部来源的研究。',
+    description:
+      '不再联网检索参考文献，literature-review 仅使用已下载文献与本地资源。数据源定位、政策 / API 文档等非文献场景不受此开关影响。',
   },
 ];
 
@@ -154,7 +155,7 @@ export default function ResearchPrefsSection() {
           />
           <PrefSection
             title="联网搜索文献"
-            caption="控制 agent 是否可以使用 WebSearch 工具联网检索参考文献。关闭后该工具会从 SDK 工具清单中移除。"
+            caption="控制 agent 是否可以联网检索参考文献。仅约束文献类检索，数据源定位等其它联网用途不受影响。"
             options={WEB_SEARCH_OPTIONS}
             value={prefs.webSearchEnabled ? 'on' : 'off'}
             onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}

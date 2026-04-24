@@ -303,9 +303,6 @@ export async function createChatQuery({
     settings: flagSettings,
     settingSources: ['project'],
     tools: { type: 'preset', preset: 'claude_code' },
-    // 用户在「研究偏好」面板关闭"联网搜索文献"时，从 SDK 工具清单里摘掉 WebSearch。
-    // disallowedTools 会直接把工具从模型上下文中移除，不只是拦截调用。
-    ...(researchPrefs.webSearchEnabled ? {} : { disallowedTools: ['WebSearch'] }),
     plugins: [
       { type: 'local', path: pluginPaths.builtin },
       { type: 'local', path: pluginPaths.user },

@@ -93,8 +93,8 @@ export function renderResearchPrefsForPrompt(prefs: ResearchPrefs): string {
       : '- 研究目的：**关联性探索**。不强制因果识别；可用 OLS / Logit / Probit + 固定效应或聚类控制。结论严禁使用因果语言（因果、导致、使……，effect of X on Y 等），统一表述为"相关 / 关联 / 在控制…之后仍显著"。';
 
   const webSearchLine = prefs.webSearchEnabled
-    ? '- 联网搜索：**开启**。可按需使用 WebSearch 在互联网搜索参考文献与资料。'
-    : '- 联网搜索：**关闭**。WebSearch 工具已被禁用，不得调用；参考文献仅能来自已下载文献与本地资源，不要在回复中承诺"联网检索"。';
+    ? '- 联网搜索文献：**开启**。可按需使用 WebSearch / WebFetch 检索学术文献、综述、作者主页、文献数据库等参考资料。'
+    : '- 联网搜索文献：**关闭**。不得使用 WebSearch / WebFetch 检索学术文献、综述、作者主页、引文数据库或任何参考文献，参考文献仅能来自已下载文献与本地资源；literature-review 类任务若无本地资料应明确告知用户而非联网补齐。**此限制只针对文献检索**：定位数据源、查询数据字典、查看政策 / 新闻 / API 文档等非文献用途仍允许联网。';
 
   return [
     '【用户研究偏好（由"研究设置"面板设定，最高优先级）】',
