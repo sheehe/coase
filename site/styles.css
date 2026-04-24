@@ -50,6 +50,17 @@ body {
   line-height: 1.25;
 }
 
+/* Section 标题强制一行显示；小屏视口塞不下时回退到自动换行 + balance, 避免溢出。 */
+.heading-nowrap {
+  white-space: nowrap;
+  max-width: none;
+}
+@media (max-width: 640px) {
+  .heading-nowrap {
+    white-space: normal;
+  }
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.14em;
