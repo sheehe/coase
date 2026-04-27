@@ -24,6 +24,8 @@ coverage/
 playwright-report/
 test-results/
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 Auto-claude-code-research-in-sleep-main/
 参考skill/
 tmp_pdf_extract.txt
+workspace/

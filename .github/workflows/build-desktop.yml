@@ -43,6 +43,13 @@ jobs:
       - name: Fetch pixi binaries
         run: pnpm fetch-pixi:all
 
+      # PortableGit (含 git-bash) 仅 Windows 包需要——Claude Agent SDK 在 Windows 上
+      # 启动期硬依赖 git-bash，bundle 进安装包让用户机器无需自己装 Git for Windows。
+      # 该脚本里 SFX 解压一步只能在 Windows 上跑（PortableGit 是 .7z.exe SFX）。
+      - name: Fetch PortableGit (Windows only)
+        if: runner.os == 'Windows'
+        run: pnpm fetch-portable-git
+
       - name: Build desktop package
         run: ${{ matrix.command }}
 

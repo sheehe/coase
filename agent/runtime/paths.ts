@@ -25,6 +25,23 @@ export function runtimeManagerResourcesDir(): string {
   return join(app.getAppPath(), 'resources', 'runtime-manager');
 }
 
+/**
+ * 自带 PortableGit 的根目录（仅 Windows 有意义）。
+ *
+ * 打包态：electron-builder 的 win.extraResources 把 resources/portable-git/win32-x64
+ *   复制到 <resourcesPath>/portable-git/win32-x64/
+ * 开发态：仓库根的 resources/portable-git/win32-x64/（由 scripts/fetch-mingit.mjs 解出）
+ *
+ * 不保证目录真的存在——非 Windows 平台或还没跑过 fetch 脚本时返回的路径不存在。
+ * 调用方需要自己用 existsSync 兜底。
+ */
+export function portableGitDir(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'portable-git', 'win32-x64');
+  }
+  return join(app.getAppPath(), 'resources', 'portable-git', 'win32-x64');
+}
+
 /** 当前平台对应的 pixi 可执行文件路径。不保证文件真的存在。 */
 export function pixiBinaryPath(): string {
   const key = currentPlatformKey();

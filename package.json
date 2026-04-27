@@ -14,6 +14,7 @@
     "build": "electron-vite build",
     "fetch-pixi": "node scripts/fetch-pixi.mjs",
     "fetch-pixi:all": "node scripts/fetch-pixi.mjs --all",
+    "fetch-portable-git": "node scripts/fetch-portable-git.mjs",
     "dist:dir": "pnpm build && electron-builder --dir",
     "dist": "pnpm build && electron-builder",
     "dist:win": "pnpm build && electron-builder --win nsis portable",
@@ -113,6 +114,33 @@
         {
           "from": "resources/runtime-manager/bin/win32-x64",
           "to": "runtime-manager/bin/win32-x64"
+        },
+        {
+          "from": "resources/portable-git/win32-x64",
+          "to": "portable-git/win32-x64",
+          "filter": [
+            "**/*",
+            "!**/share/doc/**",
+            "!**/share/info/**",
+            "!**/share/man/**",
+            "!**/share/locale/**",
+            "!**/share/git-doc/**",
+            "!**/share/git-gui/**",
+            "!**/share/gitk/**",
+            "!**/share/gtk-doc/**",
+            "!**/share/vim/**",
+            "!**/share/nano/**",
+            "!**/lib/tcl8.6/**",
+            "!**/lib/tk8.6/**",
+            "!**/lib/tcl8/**",
+            "!**/lib/perl5/*/pod/**",
+            "!**/bin/vim.exe",
+            "!**/bin/vimdiff.exe",
+            "!**/bin/view.exe",
+            "!**/bin/ex.exe",
+            "!**/bin/rvim.exe",
+            "!**/bin/rview.exe"
+          ]
         }
       ]
     },
