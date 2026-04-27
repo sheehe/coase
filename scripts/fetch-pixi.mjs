@@ -2,9 +2,13 @@
 // 通过 GitHub 官方 dist-manifest.json 拿 SHA256，校验后再解压，保证供应链完整性。
 //
 // 用法：
-//   node scripts/fetch-pixi.mjs            只下载当前平台（开发者日常）
-//   node scripts/fetch-pixi.mjs --all      下载所有支持平台（CI 打包前）
-//   node scripts/fetch-pixi.mjs --force    忽略缓存重下
+//   node scripts/fetch-pixi.mjs                       只下载当前平台（开发者日常）
+//   node scripts/fetch-pixi.mjs --all                 下载所有支持平台
+//   node scripts/fetch-pixi.mjs darwin-x64 darwin-arm64  只下载指定平台（CI 按 OS 拆分）
+//   node scripts/fetch-pixi.mjs --force               忽略缓存重下
+//
+// CI 不再用 --all：macOS 任务一次性拉 Windows 二进制时，GitHub releases 偶发 502
+// 会让整轮 build 跪。按 OS 只拉自己要的产物，副作用面更小。
 //
 // 产物：
 //   resources/runtime-manager/bin/<platform>-<arch>/pixi[.exe]
@@ -41,15 +45,39 @@ function log(msg) {
   console.log(`[fetch-pixi] ${msg}`);
 }
 
+// GitHub releases 的 CDN 偶发 502/503/504。给所有 fetch 加 3 次指数退避重试，
+// 否则一次抖动就让整个 CI build 跪——alpha.44–.47 连续四个版本都是这样炸的。
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(url, init) {
+  const attempts = 3;
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok) return res;
+      if (!RETRYABLE_STATUS.has(res.status) || i === attempts - 1) {
+        throw new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
+      }
+      lastErr = new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
+    } catch (err) {
+      lastErr = err;
+      if (i === attempts - 1) throw err;
+    }
+    const waitMs = 1000 * Math.pow(3, i); // 1s -> 3s -> 9s
+    log(`重试中（${i + 1}/${attempts - 1}）${waitMs}ms 后再试: ${lastErr.message}`);
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+  throw lastErr;
+}
+
 async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
+  const res = await fetchWithRetry(url);
   return res.json();
 }
 
 async function downloadToFile(url, destPath) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
+  const res = await fetchWithRetry(url);
   if (!res.body) throw new Error(`GET ${url} -> empty body`);
   await mkdir(dirname(destPath), { recursive: true });
   await pipeline(res.body, createWriteStream(destPath));
@@ -152,16 +180,25 @@ async function fetchOne(platformKey, manifest, opts) {
 }
 
 async function main() {
-  const args = new Set(process.argv.slice(2));
-  const all = args.has('--all');
-  const force = args.has('--force');
+  const argv = process.argv.slice(2);
+  const flags = new Set(argv.filter((a) => a.startsWith('--')));
+  const positional = argv.filter((a) => !a.startsWith('--'));
+  const all = flags.has('--all');
+  const force = flags.has('--force');
 
   const currentKey = `${process.platform}-${process.arch}`;
-  const platforms = all ? Object.keys(TARGETS) : [currentKey];
+  let platforms;
+  if (all) {
+    platforms = Object.keys(TARGETS);
+  } else if (positional.length > 0) {
+    platforms = positional;
+  } else {
+    platforms = [currentKey];
+  }
   for (const p of platforms) {
     if (!TARGETS[p]) {
       throw new Error(
-        `当前平台 ${p} 不在支持列表 ${Object.keys(TARGETS).join(', ')}。` +
+        `平台 ${p} 不在支持列表 ${Object.keys(TARGETS).join(', ')}。` +
           `如需新增，编辑 scripts/fetch-pixi.mjs 的 TARGETS。`,
       );
     }

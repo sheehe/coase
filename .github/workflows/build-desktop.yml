@@ -40,8 +40,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Fetch pixi binaries
-        run: pnpm fetch-pixi:all
+      # 不再用 --all：macOS 任务一次性拉 Windows 二进制时被 GitHub releases
+      # 偶发 502 拖死，alpha.44–.47 连续 4 个版本都是这样跪的。每个 OS 只拉
+      # 自己要打进包里的那几个 target（见 package.json 的 win/mac.extraResources）。
+      - name: Fetch pixi binaries (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/fetch-pixi.mjs win32-x64
+
+      - name: Fetch pixi binaries (macOS)
+        if: runner.os == 'macOS'
+        run: node scripts/fetch-pixi.mjs darwin-x64 darwin-arm64
 
       # PortableGit (含 git-bash) 仅 Windows 包需要——Claude Agent SDK 在 Windows 上
       # 启动期硬依赖 git-bash，bundle 进安装包让用户机器无需自己装 Git for Windows。
