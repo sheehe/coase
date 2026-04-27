@@ -65,7 +65,7 @@ export default function GeneralSection() {
                 className={[
                   'rounded-full border px-4 py-1.5 text-[13px] font-medium transition',
                   active
-                    ? 'border-fg bg-fg text-bg'
+                    ? 'border-fg bg-fg text-app'
                     : 'border-border text-fg hover:border-border-strong hover:bg-black/[0.03] dark:hover:bg-white/[0.04]',
                   loading ? 'opacity-50' : '',
                 ].join(' ')}
