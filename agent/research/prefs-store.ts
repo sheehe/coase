@@ -6,6 +6,7 @@ import { app } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { ResolvedLanguage } from '../../shared/app-prefs';
 import {
   DEFAULT_RESEARCH_PREFS,
   type ResearchPrefs,
@@ -80,13 +81,35 @@ export async function saveResearchPrefs(prefs: ResearchPrefs): Promise<ResearchP
 }
 
 /**
- * 把研究偏好渲染成给 agent 系统提示词用的中文段落。
+ * 把研究偏好渲染成给 agent 系统提示词用的段落，按 language 走中 / 英文版本。
  *
- * 显式暴露 `research_purpose: causal|associative` 字段名，
- * planner_workflow / paper-reviewer skill 里写的 "上下文会注入 research_purpose 字段"
- * 指的就是这一行。改字段名时必须同步那两个 skill。
+ * 显式暴露 `research_purpose: causal|associative` 字段名（中英版本都保留，因为
+ * planner_workflow / paper-reviewer skill 里写的"上下文会注入 research_purpose 字段"
+ * 指的就是这一行）。改字段名时必须同步那两个 skill。
  */
-export function renderResearchPrefsForPrompt(prefs: ResearchPrefs): string {
+export function renderResearchPrefsForPrompt(
+  prefs: ResearchPrefs,
+  language: ResolvedLanguage = 'zh',
+): string {
+  if (language === 'en') {
+    const purposeLine =
+      prefs.researchPurpose === 'causal'
+        ? '- Research purpose: **causal identification**. The planner must adopt an explicit identification strategy (DID / IV / RDD / synthetic control / PSM, etc.) and write conclusions as causal effects; if no data supports any causal strategy, return to Phase 1 to revise the research question — do not silently downgrade to an associational study.'
+        : '- Research purpose: **associational exploration**. Causal identification is not required; OLS / Logit / Probit with fixed effects or clustering are acceptable. Conclusions must avoid causal language (cause, lead to, effect of X on Y); use "associated with / correlated with / remains significant after controlling for…" instead.';
+
+    const webSearchLine = prefs.webSearchEnabled
+      ? '- Literature web search: **enabled**. You may use WebSearch / WebFetch to retrieve academic literature, reviews, author pages, citation databases and similar reference materials as needed.'
+      : '- Literature web search: **disabled**. Do not use WebSearch / WebFetch for academic literature, reviews, author pages, citation databases or any references; references must come only from already-downloaded literature and local resources. For literature-review tasks without local material, tell the user explicitly instead of going online. **This restriction targets literature only** — locating data sources, looking up data dictionaries, browsing policy / news / API documentation and other non-literature uses remain permitted.';
+
+    return [
+      '[User research preferences (set in the "Research Preferences" panel — highest priority)]',
+      `- research_purpose: ${prefs.researchPurpose}`,
+      purposeLine,
+      `- web_search_enabled: ${prefs.webSearchEnabled}`,
+      webSearchLine,
+    ].join('\n');
+  }
+
   const purposeLine =
     prefs.researchPurpose === 'causal'
       ? '- 研究目的：**因果识别**。Planner 必须采用明确的识别策略（DID / IV / RDD / 合成控制 / PSM 等），结论按因果效应撰写；若数据不支持任一因果策略，应回到 Phase 1 调整研究问题，不得降级为关联性研究。'

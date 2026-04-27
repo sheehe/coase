@@ -1,0 +1,22 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage research preferences, model providers, local skills, and app updates here.",
+  "backToChat": "Back to chat",
+  "tabs": {
+    "general": "General",
+    "research": "Research",
+    "models": "Models & Skills",
+    "updates": "Updates"
+  },
+  "general": {
+    "language": {
+      "title": "Interface language",
+      "description": "Switch the UI and agent output language. Running sessions keep the language they started with; new sessions adopt the latest setting immediately.",
+      "options": {
+        "auto": "Follow system",
+        "zh": "简体中文",
+        "en": "English"
+      }
+    }
+  }
+}

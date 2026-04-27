@@ -11,6 +11,7 @@ import type {
   RuntimeSnapshot,
   TranscriptEntryPersisted,
 } from '../../shared/ipc';
+import type { AppPrefs } from '../../shared/app-prefs';
 import type { ProviderRecord } from '../../shared/providers';
 import type { ResearchPrefs } from '../../shared/research-prefs';
 
@@ -96,6 +97,12 @@ const api: CoaseApi = {
   researchPrefs: {
     get: () => ipcRenderer.invoke('researchPrefs:get'),
     set: (prefs: ResearchPrefs) => ipcRenderer.invoke('researchPrefs:set', prefs),
+  },
+
+  appPrefs: {
+    get: () => ipcRenderer.invoke('appPrefs:get'),
+    set: (prefs: AppPrefs) => ipcRenderer.invoke('appPrefs:set', prefs),
+    resolvedLanguage: () => ipcRenderer.invoke('appPrefs:resolvedLanguage'),
   },
 
   sessions: {

@@ -1,3 +1,4 @@
+import type { AppPrefs, ResolvedLanguage } from './app-prefs';
 import type {
   CriticPanelResult,
   ProviderPreset,
@@ -208,6 +209,13 @@ export interface CriticPanelInvokePayload {
 export interface ResearchPrefsApi {
   get: () => Promise<ResearchPrefs>;
   set: (prefs: ResearchPrefs) => Promise<ResearchPrefs>;
+}
+
+export interface AppPrefsApi {
+  get: () => Promise<AppPrefs>;
+  set: (prefs: AppPrefs) => Promise<AppPrefs>;
+  /** 把 'auto' 收敛后的当前实际语言。renderer 端 i18n 初始化时读这个值。 */
+  resolvedLanguage: () => Promise<ResolvedLanguage>;
 }
 
 export interface ProvidersApi {
@@ -506,6 +514,7 @@ export interface CoaseApi {
   workspaces: WorkspacesApi;
   providers: ProvidersApi;
   researchPrefs: ResearchPrefsApi;
+  appPrefs: AppPrefsApi;
   sessions: SessionsApi;
   artifacts: ArtifactsApi;
   window: WindowApi;

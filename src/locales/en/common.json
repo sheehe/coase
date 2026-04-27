@@ -1,0 +1,14 @@
+{
+  "actions": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm"
+  },
+  "nav": {
+    "chat": "Chat",
+    "usage": "Usage",
+    "settings": "Settings"
+  }
+}

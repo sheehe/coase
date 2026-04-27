@@ -1,0 +1,22 @@
+{
+  "title": "设置",
+  "subtitle": "在这里集中管理研究偏好、模型提供方、本地技能和应用更新。",
+  "backToChat": "返回对话",
+  "tabs": {
+    "general": "通用",
+    "research": "研究偏好",
+    "models": "模型与技能",
+    "updates": "应用更新"
+  },
+  "general": {
+    "language": {
+      "title": "界面语言",
+      "description": "切换 UI 与 agent 输出语言。已运行的会话会保留启动时的语言；新会话立即使用最新设置。",
+      "options": {
+        "auto": "跟随系统",
+        "zh": "简体中文",
+        "en": "English"
+      }
+    }
+  }
+}

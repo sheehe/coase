@@ -39,6 +39,7 @@ import {
   setCriticPanelIds,
   upsertProvider,
 } from '../../agent/providers/config-store';
+import { loadAppPrefs, resolveAppLanguage, saveAppPrefs } from '../../agent/app/prefs-store';
 import { loadResearchPrefs, saveResearchPrefs } from '../../agent/research/prefs-store';
 import { invokeCriticPanel } from '../../agent/providers/invoke';
 import { PROVIDER_PRESETS } from '../../agent/providers/presets';
@@ -58,6 +59,7 @@ import type {
   WorkspaceFilePreview,
   WorkspaceTreeNode,
 } from '../../shared/ipc';
+import type { AppPrefs } from '../../shared/app-prefs';
 import type { ProviderRecord } from '../../shared/providers';
 import type { ResearchPrefs } from '../../shared/research-prefs';
 
@@ -292,6 +294,17 @@ function registerIpc(): void {
     }
     return saveResearchPrefs(prefs);
   });
+
+  ipcMain.handle('appPrefs:get', () => loadAppPrefs());
+
+  ipcMain.handle('appPrefs:set', async (_event, prefs: AppPrefs) => {
+    if (!prefs || typeof prefs !== 'object') {
+      throw new Error('appPrefs:set expects an object payload');
+    }
+    return saveAppPrefs(prefs);
+  });
+
+  ipcMain.handle('appPrefs:resolvedLanguage', async () => resolveAppLanguage(await loadAppPrefs()));
 
   ipcMain.handle('sessions:recent', async (_event, limit?: number) => {
     const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : 100;

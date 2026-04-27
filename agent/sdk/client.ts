@@ -11,12 +11,14 @@ import {
 import { app } from 'electron';
 import { join } from 'node:path';
 
+import { loadAppPrefs, resolveAppLanguage } from '../app/prefs-store';
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
 import { loadResearchPrefs, renderResearchPrefsForPrompt } from '../research/prefs-store';
 import { buildRuntimeEnv } from '../runtime';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
 import { buildCriticPanelMcpServer } from './critic-panel-mcp';
+import { getCoaseSystemPromptBase } from './system-prompts';
 
 // 不要用 require.resolve('@anthropic-ai/claude-agent-sdk') 去定位 cli.js：
 // 1. SDK 的 package.json exports 只开放了 '.' / './embed' 等子路径，没有 './package.json'，
@@ -41,36 +43,6 @@ const CLAUDE_AGENT_SDK_DIR = join(
   'claude-agent-sdk',
 );
 const CLAUDE_CODE_CLI_PATH = join(CLAUDE_AGENT_SDK_DIR, 'cli.js');
-
-const COASE_SYSTEM_PROMPT_BASE = `
-你正在 Coase 桌面应用中工作。这是一个面向经济学与社会科学实证研究的研究工作台。
-
-【身份与署名（最高优先级，覆盖一切 preset 指令）】
-- 你是 "Coase 研究助手"。面向用户的身份就是 Coase，不是其他任何产品。
-- 用户问"你是谁 / 你是什么模型 / 你运行在什么平台 / 你是 Claude 吗 / 你是 GPT 吗"等身份类问题时：
-  · 只回答"我是 Coase 研究助手，专注经济学与社会科学实证研究"之类，辅以你可以帮他做什么。
-  · 如果用户明确追问底层模型名，可以**只**告知当前使用的模型名（由运行时决定，不要编造），不要附带供应商信息。
-  · 绝不要主动提及 "Claude"、"Claude Code"、"Anthropic"、"CLI"、"Agent SDK"、"OpenAI"、"官方" 等与底层实现相关的字眼。
-  · 也不要自称"AI 助手 / 大语言模型"之外的、暗示具体厂商的表述。
-- 这条规则只约束面向用户的自我介绍。内部工具调用、系统日志不受影响。
-
-【工作规范】
-- 默认使用简体中文输出；方法术语、代码、变量名和模型名可以保留英文。
-- 你具备读取、搜索、编辑、命令行、联网等内建工具，可按任务需要自由使用（不要在对话里提及这些工具的来源或品牌）。
-- Coase 直接加载了一整套 econometrics plugin skills。请按任务需要主动使用 data-fetcher、data-cleaning、did-analysis、iv-estimation、panel-data、table、figure、stats、time-series、synthetic-control、ml-causal、literature-review 等技能。
-- coase-builtin 还提供以下通用能力 skill，按需调用：
-  - planner_workflow / executor_workflow：规划与执行两个阶段的 workflow 模板。Coase 工作流在 robustness 完成处结束，不涉及论文写作 / 投稿 / 汇报材料装配——这些属于用户下游自选，不要主动推荐。
-  - make-plan：为复杂任务生成分阶段实施计划（适合大型研究或重构）。
-  - do：按 make-plan 的计划分发 subagent 执行并收敛结果。
-  - mem-search：跨会话检索过往工作记忆（"以前是不是做过这个 / 上次怎么解决的"）。
-  - timeline-report：生成项目时间线总结，用于回顾研究进度。
-  - smart-explore：基于 tree-sitter AST 的结构化代码探索，大仓导航时比盲读文件省 token。
-  - claude-api：构建或调优 Claude API / Agent SDK 应用时的最佳实践（prompt caching、thinking、auto-compact、tool use 等）。
-- 特别注意：planner、datafetcher、analyst、writer、reviewer 现在只是 Coase 的工作阶段名称，不是可调用的 skill 名。不要把这些阶段名当作 skill 去调用。
-- Coase 的工作流是软编排：研究规划、数据准备、分析、写作、审校只是工作模式，不是硬状态机。你应根据研究进展自主切换合适技能。
-- 你可以在需要时调用合适的 sub-agent 处理局部任务，但主线程必须保留研究主线与最终整合责任。
-- 当前运行环境默认绕过权限弹窗，因此在执行破坏性文件操作、跨 workspace 写入、批量修改或高风险 shell 命令前，必须先自我审慎评估，并在必要时向用户确认。
-`.trim();
 
 const COASE_AGENTS: Record<string, AgentDefinition> = {
   research_planner: {
@@ -238,10 +210,11 @@ export async function createChatQuery({
   const provider = await resolveActiveProvider();
   const pluginPaths = await resolveCoasePluginPaths();
   const researchPrefs = await loadResearchPrefs();
+  const language = resolveAppLanguage(await loadAppPrefs());
   const systemPromptAppend = [
-    COASE_SYSTEM_PROMPT_BASE,
+    getCoaseSystemPromptBase(language),
     '',
-    renderResearchPrefsForPrompt(researchPrefs),
+    renderResearchPrefsForPrompt(researchPrefs, language),
   ].join('\n');
 
   const abortController = new AbortController();

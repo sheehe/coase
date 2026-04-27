@@ -1,27 +1,26 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { ChevronLeft } from '../components/Icons';
+import GeneralSection from '../features/settings/GeneralSection';
 import ModelsAndSkillsSection from '../features/settings/ModelsAndSkillsSection';
 import ResearchPrefsSection from '../features/settings/ResearchPrefsSection';
 import UpdateCard from '../features/settings/UpdateCard';
 
-type SettingsTab = 'research' | 'models' | 'updates';
+type SettingsTab = 'general' | 'research' | 'models' | 'updates';
 
-const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'research', label: '研究偏好' },
-  { id: 'models', label: '模型与技能' },
-  { id: 'updates', label: '应用更新' },
-];
+const TAB_IDS: SettingsTab[] = ['general', 'research', 'models', 'updates'];
 
-const DEFAULT_TAB: SettingsTab = 'research';
+const DEFAULT_TAB: SettingsTab = 'general';
 
 function normalizeTab(value: string | null): SettingsTab {
-  if (value === 'research' || value === 'models' || value === 'updates') return value;
+  if ((TAB_IDS as string[]).includes(value ?? '')) return value as SettingsTab;
   return DEFAULT_TAB;
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation('settings');
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = useMemo(() => normalizeTab(searchParams.get('tab')), [searchParams]);
 
@@ -35,9 +34,9 @@ export default function SettingsPage() {
     <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
-          <h1 className="text-[30px] font-semibold tracking-[-0.03em] text-fg">设置</h1>
+          <h1 className="text-[30px] font-semibold tracking-[-0.03em] text-fg">{t('title')}</h1>
           <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
-            在这里集中管理研究偏好、模型提供方、本地技能和应用更新。
+            {t('subtitle')}
           </p>
         </div>
 
@@ -46,18 +45,18 @@ export default function SettingsPage() {
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
         >
           <ChevronLeft size={13} />
-          <span>返回对话</span>
+          <span>{t('backToChat')}</span>
         </Link>
       </section>
 
       <nav className="flex items-center gap-1 border-b border-border">
-        {TABS.map((tab) => {
-          const active = tab.id === activeTab;
+        {TAB_IDS.map((id) => {
+          const active = id === activeTab;
           return (
             <button
-              key={tab.id}
+              key={id}
               type="button"
-              onClick={() => selectTab(tab.id)}
+              onClick={() => selectTab(id)}
               className={[
                 '-mb-px border-b-2 px-4 py-2.5 text-[13px] font-medium transition',
                 active
@@ -66,12 +65,13 @@ export default function SettingsPage() {
               ].join(' ')}
               aria-current={active ? 'page' : undefined}
             >
-              {tab.label}
+              {t(`tabs.${id}`)}
             </button>
           );
         })}
       </nav>
 
+      {activeTab === 'general' && <GeneralSection />}
       {activeTab === 'research' && <ResearchPrefsSection />}
       {activeTab === 'models' && <ModelsAndSkillsSection />}
       {activeTab === 'updates' && <UpdateCard />}
