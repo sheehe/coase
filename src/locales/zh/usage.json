@@ -1,0 +1,37 @@
+{
+  "kicker": "Usage",
+  "title": "用量",
+  "description": "按今天、本月、累计聚合 Coase 会话的 token 输入 / 输出量与运行时长。数据来自本地",
+  "descriptionTail": "，仅统计已完成或中断的会话。",
+  "backToChat": "返回对话",
+  "loadError": "会话历史读取失败：{{message}}",
+  "loading": "正在读取会话历史…",
+  "buckets": {
+    "today": "今天",
+    "month": "本月",
+    "total": "累计"
+  },
+  "extraRunning": "另有 {{count}} 个会话运行中",
+  "tokensSuffix": "tokens",
+  "sessionsCount": "{{count}} 次会话",
+  "input": "输入",
+  "output": "输出",
+  "cache": "缓存",
+  "breakdown": {
+    "byProvider": "按模型提供方",
+    "byModel": "按模型",
+    "times": "{{count}} 次"
+  },
+  "topSessions": {
+    "title": "每次会话 token 消耗",
+    "subtitle": "列出 token 消耗最高的前 10 条会话。续跑会累加到同一条记录。",
+    "empty": "还没有可统计的会话用量。",
+    "untitled": "(无标题)",
+    "unknownModel": "未知模型",
+    "tokensSuffix": "tokens",
+    "inputShort": "入",
+    "outputShort": "出",
+    "cacheShort": "缓存"
+  },
+  "providerUnnamed": "(未命名)"
+}

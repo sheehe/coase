@@ -4,6 +4,7 @@
 // 这样无论是否展开历史会话，用户都能始终看到当前产出文件；切换历史会话会
 // 把上段内容也跟着切过去。
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import type { WorkspaceFilePreview, WorkspaceTreeNode } from '../../shared/ipc';
@@ -31,6 +32,7 @@ type SessionGroup = {
 };
 
 export default function SessionSidebar() {
+  const { t } = useTranslation('chat');
   const [sessions, setSessions] = useState<SessionLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
@@ -129,7 +131,15 @@ export default function SessionSidebar() {
     };
   }, [sessionId, chatState, loadCurrentWorkspaceTree]);
 
-  const groups = useMemo(() => groupSessions(sessions), [sessions]);
+  const groups = useMemo(
+    () =>
+      groupSessions(sessions, {
+        today: t('sidebar.groupToday'),
+        yesterday: t('sidebar.groupYesterday'),
+        earlier: t('sidebar.groupEarlier'),
+      }),
+    [sessions, t],
+  );
 
   const toggleFolder = useCallback((nodePath: string) => {
     setExpandedFolders((prev) => ({ ...prev, [nodePath]: !prev[nodePath] }));
@@ -152,8 +162,8 @@ export default function SessionSidebar() {
       const isRunning = isCurrent && chatState === 'running';
       const confirmed = window.confirm(
         isRunning
-          ? `会话"${title}"正在运行中，删除会先停止它再清理数据，确定继续吗？`
-          : `确定删除会话"${title}"吗？`,
+          ? t('sidebar.deleteConfirmRunning', { title })
+          : t('sidebar.deleteConfirm', { title }),
       );
       if (!confirmed) return;
 
@@ -169,18 +179,20 @@ export default function SessionSidebar() {
       } catch (error) {
         console.error('delete session failed', error);
         const message = error instanceof Error ? error.message : String(error);
-        window.alert(`删除失败：${message}`);
+        window.alert(t('sidebar.deleteFailed', { message }));
       } finally {
         setDeletingSessionId(null);
       }
     },
-    [sessionId, chatState, onNewSession, navigate],
+    [sessionId, chatState, onNewSession, navigate, t],
   );
 
   const canChangeWorkspace = chatState !== 'running';
 
   const effectiveRoot = currentTreeRoot ?? workspaceRoot;
-  const workspaceTitle = effectiveRoot ? getWorkspaceRootName(effectiveRoot) : '工作区';
+  const workspaceTitle = effectiveRoot
+    ? getWorkspaceRootName(effectiveRoot, t('sidebar.workspaceFallback'))
+    : t('sidebar.workspaceFallback');
 
   return (
     <>
@@ -196,7 +208,7 @@ export default function SessionSidebar() {
             className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface px-3 text-[13px] font-medium text-fg transition hover:bg-app"
           >
             <Plus size={13} />
-            <span>新会话</span>
+            <span>{t('sidebar.newSession')}</span>
           </button>
         </div>
 
@@ -208,15 +220,15 @@ export default function SessionSidebar() {
                 className="truncate text-[11px] uppercase tracking-[0.16em] text-fg-subtle"
                 title={effectiveRoot ?? undefined}
               >
-                工作区：{workspaceTitle}
+                {t('sidebar.workspaceLabel', { name: workspaceTitle })}
               </span>
               <div className="ml-auto flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => void loadCurrentWorkspaceTree()}
                   className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-                  aria-label="刷新工作区文件"
-                  title="刷新"
+                  aria-label={t('sidebar.refreshWorkspace')}
+                  title={t('sidebar.refresh')}
                 >
                   <RefreshCw size={12} />
                 </button>
@@ -225,8 +237,8 @@ export default function SessionSidebar() {
                     type="button"
                     onClick={() => void window.coase.artifacts.openPath(effectiveRoot)}
                     className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-                    aria-label="在资源管理器中打开"
-                    title="在资源管理器中打开"
+                    aria-label={t('sidebar.openInExplorer')}
+                    title={t('sidebar.openInExplorer')}
                   >
                     <Folder size={12} />
                   </button>
@@ -236,8 +248,8 @@ export default function SessionSidebar() {
                   onClick={() => void chooseWorkspaceRoot()}
                   disabled={!canChangeWorkspace}
                   className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.04]"
-                  aria-label="选择工作区目录"
-                  title="选择工作区目录"
+                  aria-label={t('sidebar.chooseWorkspace')}
+                  title={t('sidebar.chooseWorkspace')}
                 >
                   <Plus size={12} />
                 </button>
@@ -246,13 +258,13 @@ export default function SessionSidebar() {
 
             {!sessionId ? (
               <div className="px-3 py-3 text-[12px] leading-5 text-fg-subtle">
-                还没开启会话。在右侧输入研究主题开始，工作区文件会自动出现在这里。
+                {t('sidebar.noSessionHint')}
               </div>
             ) : loadingTree ? (
-              <div className="px-3 py-3 text-[12px] text-fg-subtle">加载文件树…</div>
+              <div className="px-3 py-3 text-[12px] text-fg-subtle">{t('sidebar.loadingTree')}</div>
             ) : currentTree.length === 0 ? (
               <div className="px-3 py-3 text-[12px] leading-5 text-fg-subtle">
-                当前会话还没有工作区文件。Coase 生成结果后会在这里出现。
+                {t('sidebar.emptyTreeHint')}
               </div>
             ) : (
               <div className="space-y-0.5">
@@ -283,7 +295,7 @@ export default function SessionSidebar() {
                 <ChevronDown size={10} className="text-fg-subtle" />
               )}
               <span className="text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
-                会话历史
+                {t('sidebar.history')}
               </span>
               <span className="ml-auto text-[10.5px] text-fg-subtle">{sessions.length}</span>
               <button
@@ -293,7 +305,7 @@ export default function SessionSidebar() {
                   void loadSessions();
                 }}
                 className="rounded-md p-1 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
-                aria-label="刷新会话历史"
+                aria-label={t('sidebar.refreshHistory')}
               >
                 <RefreshCw size={12} />
               </button>
@@ -301,10 +313,12 @@ export default function SessionSidebar() {
 
             {!historyCollapsed &&
               (loading ? (
-                <div className="px-4 py-6 text-center text-sm text-fg-subtle">加载中…</div>
+                <div className="px-4 py-6 text-center text-sm text-fg-subtle">
+                  {t('sidebar.loading')}
+                </div>
               ) : groups.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-fg-subtle">
-                  还没有会话，从右侧开始。
+                  {t('sidebar.noSessions')}
                 </div>
               ) : (
                 <div className="space-y-3 pt-1">
@@ -317,7 +331,9 @@ export default function SessionSidebar() {
                         {group.entries.map((entry) => {
                           const isCurrent = entry.sessionId === sessionId;
                           const deleteDisabled = deletingSessionId === entry.sessionId || isCurrent;
-                          const deleteTitle = isCurrent ? '当前会话不可删除' : '删除会话';
+                          const deleteTitle = isCurrent
+                            ? t('sidebar.currentNotDeletable')
+                            : t('sidebar.deleteSession');
 
                           return (
                             <div key={entry.sessionId} className="mx-1">
@@ -340,7 +356,9 @@ export default function SessionSidebar() {
                                     }
                                   }}
                                   className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                                  aria-label={`切换到会话 ${entry.firstPrompt.slice(0, 24)}`}
+                                  aria-label={t('sidebar.switchTo', {
+                                    title: entry.firstPrompt.slice(0, 24),
+                                  })}
                                   title={entry.firstPrompt}
                                 >
                                   <span className="shrink-0 text-[13px] text-fg-muted">
@@ -356,7 +374,7 @@ export default function SessionSidebar() {
                                   onClick={() => void handleDeleteSession(entry)}
                                   disabled={deleteDisabled}
                                   title={deleteTitle}
-                                  aria-label="删除会话"
+                                  aria-label={t('sidebar.deleteSession')}
                                   className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle opacity-0 transition hover:bg-black/[0.05] hover:text-fg group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-white/[0.06]"
                                 >
                                   <Trash size={11} />
@@ -378,13 +396,13 @@ export default function SessionSidebar() {
           <SidebarMenuLink
             to="/usage"
             icon={<BarChart2 size={14} />}
-            label="用量"
+            label={t('sidebar.menuUsage')}
             active={location.pathname === '/usage'}
           />
           <SidebarMenuLink
             to="/settings"
             icon={<Settings size={14} />}
-            label="设置"
+            label={t('sidebar.menuSettings')}
             active={location.pathname === '/settings'}
           />
         </div>
@@ -393,20 +411,20 @@ export default function SessionSidebar() {
       <Dialog
         open={!!previewFile}
         onClose={() => setPreviewFile(null)}
-        title={previewFile?.name ?? '文件预览'}
+        title={previewFile?.name ?? t('sidebar.filePreview')}
         widthClass="max-w-3xl"
         footer={
           previewFile?.filePath ? (
             <>
               <Button variant="secondary" onClick={() => setPreviewFile(null)}>
-                关闭
+                {t('sidebar.previewClose')}
               </Button>
               <Button
                 onClick={() => {
                   void window.coase.artifacts.openPath(previewFile.filePath);
                 }}
               >
-                打开原文件
+                {t('sidebar.previewOpenOriginal')}
               </Button>
             </>
           ) : undefined
@@ -518,7 +536,10 @@ function SidebarMenuLink({
   );
 }
 
-function groupSessions(entries: SessionLogEntry[]): SessionGroup[] {
+function groupSessions(
+  entries: SessionLogEntry[],
+  titles: { today: string; yesterday: string; earlier: string },
+): SessionGroup[] {
   const today: SessionLogEntry[] = [];
   const yesterday: SessionLogEntry[] = [];
   const earlier: SessionLogEntry[] = [];
@@ -534,9 +555,9 @@ function groupSessions(entries: SessionLogEntry[]): SessionGroup[] {
   }
 
   return [
-    { title: '今天', entries: today },
-    { title: '昨天', entries: yesterday },
-    { title: '更早', entries: earlier },
+    { title: titles.today, entries: today },
+    { title: titles.yesterday, entries: yesterday },
+    { title: titles.earlier, entries: earlier },
   ].filter((group) => group.entries.length > 0);
 }
 
@@ -548,9 +569,9 @@ function formatClock(ts: number): string {
   });
 }
 
-function getWorkspaceRootName(workspaceRoot: string): string {
+function getWorkspaceRootName(workspaceRoot: string, fallback: string): string {
   const trimmed = workspaceRoot.trim();
-  if (!trimmed) return '工作区';
+  if (!trimmed) return fallback;
   const normalized = trimmed.replace(/[\\/]+$/, '');
   const segments = normalized.split(/[\\/]/).filter(Boolean);
   return segments.at(-1) ?? normalized;

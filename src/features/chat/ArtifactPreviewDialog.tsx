@@ -1,4 +1,6 @@
 // 产物预览弹窗：展示推导产物或生成文件的完整内容，并支持打开原文件。
+import { useTranslation } from 'react-i18next';
+
 import MarkdownContent from '../../components/MarkdownContent';
 import Dialog from '../../components/ui/Dialog';
 import type { ArtifactRecord } from './run-insights';
@@ -10,6 +12,7 @@ export default function ArtifactPreviewDialog({
   artifact: ArtifactRecord | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('chat');
   const handleOpenFile = async (): Promise<void> => {
     if (!artifact?.filePath) return;
     const result = await window.coase.artifacts.openPath(artifact.filePath);
@@ -33,7 +36,7 @@ export default function ArtifactPreviewDialog({
     <Dialog
       open={artifact !== null}
       onClose={onClose}
-      title={artifact?.title ?? '产物预览'}
+      title={artifact?.title ?? t('artifactPreview.title')}
       widthClass="max-w-3xl"
     >
       {artifact && (
@@ -49,7 +52,9 @@ export default function ArtifactPreviewDialog({
           {artifact.filePath && (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2">
               <div className="min-w-0 text-xs text-fg-muted">
-                <div className="text-[11px] uppercase tracking-wider text-fg-subtle">源文件</div>
+                <div className="text-[11px] uppercase tracking-wider text-fg-subtle">
+                  {t('artifactPreview.sourceFile')}
+                </div>
                 <div className="mt-1 truncate">{artifact.filePath}</div>
               </div>
               <button
@@ -59,7 +64,7 @@ export default function ArtifactPreviewDialog({
                 }}
                 className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-sm text-fg transition hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
               >
-                打开原文件
+                {t('artifactPreview.openOriginal')}
               </button>
             </div>
           )}

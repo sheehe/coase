@@ -13,7 +13,13 @@
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
+import i18n from '../../lib/i18n';
+
 const STORAGE_KEY = 'coase:onboarding:v1';
+
+function tt(key: string): string {
+  return i18n.t(key, { ns: 'chat' }) as string;
+}
 
 export function hasSeenOnboarding(): boolean {
   try {
@@ -41,45 +47,17 @@ export function resetOnboarding(): void {
 
 interface StepDef {
   selector: string;
-  title: string;
-  description: string;
+  i18nKey: string;
   side?: 'top' | 'bottom' | 'left' | 'right';
   align?: 'start' | 'center' | 'end';
 }
 
+// 标题/描述按当前 i18n 语言现取。这里只锁 selector + 锚点位置。
 const STEPS: StepDef[] = [
-  {
-    selector: '[data-coach-empty-hero]',
-    title: '你的研究工作台',
-    description:
-      '直接输入研究问题，或用 <code>/full-research</code>、<code>/idea-to-results</code> 等斜杠命令让 agent 从选题、数据、回归到写作一气呵成。',
-    side: 'top',
-    align: 'center',
-  },
-  {
-    selector: '[data-coach-attachments]',
-    title: '挂载本地数据与文献',
-    description:
-      '数据集（<code>.csv</code> / <code>.dta</code> / <code>.xlsx</code>）会被自动识别结构；论文 PDF 会作为背景文献让 agent 引用。',
-    side: 'top',
-    align: 'start',
-  },
-  {
-    selector: '[data-coach-provider]',
-    title: '切换 Provider 和模型',
-    description:
-      '首次使用请先到「设置 → 模型与技能」填 API Key，否则无法调用 agent。',
-    side: 'top',
-    align: 'center',
-  },
-  {
-    selector: '[data-coach-send]',
-    title: 'Enter 发送，Shift+Enter 换行',
-    description:
-      'Agent 跑起来后这里会变成红色停止按钮——随时可以打断，已生成的内容不会丢。',
-    side: 'top',
-    align: 'end',
-  },
+  { selector: '[data-coach-empty-hero]', i18nKey: 'hero', side: 'top', align: 'center' },
+  { selector: '[data-coach-attachments]', i18nKey: 'attachments', side: 'top', align: 'start' },
+  { selector: '[data-coach-provider]', i18nKey: 'provider', side: 'top', align: 'center' },
+  { selector: '[data-coach-send]', i18nKey: 'send', side: 'top', align: 'end' },
 ];
 
 function waitForAnchor(selector: string, timeoutMs = 3000): Promise<Element | null> {
@@ -125,9 +103,9 @@ export async function startOnboardingTour(options?: { force?: boolean }): Promis
   const d = driver({
     showProgress: available.length > 1,
     progressText: '{{current}} / {{total}}',
-    nextBtnText: '下一步',
-    prevBtnText: '上一步',
-    doneBtnText: '开始使用',
+    nextBtnText: tt('tour.next'),
+    prevBtnText: tt('tour.prev'),
+    doneBtnText: tt('tour.done'),
     allowClose: true,
     overlayOpacity: 0.55,
     stagePadding: 6,
@@ -137,8 +115,8 @@ export async function startOnboardingTour(options?: { force?: boolean }): Promis
     steps: available.map((step) => ({
       element: step.selector,
       popover: {
-        title: step.title,
-        description: step.description,
+        title: tt(`tour.steps.${step.i18nKey}.title`),
+        description: tt(`tour.steps.${step.i18nKey}.description`),
         side: step.side,
         align: step.align,
       },

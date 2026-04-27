@@ -1,5 +1,6 @@
-// 浼氳瘽璇︽儏寮圭獥锛氬睍绀哄巻鍙蹭細璇濈殑鍏冩暟鎹€佸彧璇诲洖鏀俱€佷骇鐗╋紝骞舵敮鎸佺户缁爺绌躲€?
+// 会话详情弹窗：展示历史会话的元数据、只读回放、产物，并支持继续研究。
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import type { RunInsightsPersisted, TranscriptEntryPersisted } from '../../../shared/ipc';
@@ -20,6 +21,7 @@ export default function SessionDetailDialog({
   session: SessionLogEntry | null;
   onClose: () => void;
 }) {
+  const { t, i18n } = useTranslation('chat');
   const navigate = useNavigate();
   const { resumeHistoricalSession } = useChat();
   const [tab, setTab] = useState<TabKey>('meta');
@@ -88,6 +90,9 @@ export default function SessionDetailDialog({
     };
   }, [session]);
 
+  const locale = i18n.language === 'en' ? 'en-US' : 'zh-CN';
+  const dash = t('sessionDetail.meta.dash');
+
   const footer = (
     <div className="flex items-center justify-end gap-2">
       {session?.sdkSessionId && (
@@ -111,10 +116,10 @@ export default function SessionDetailDialog({
               });
           }}
         >
-          {resuming ? '缁х画涓€?' : '缁х画鐮旂┒'}
+          {resuming ? t('sessionDetail.actions.resuming') : t('sessionDetail.actions.resume')}
         </Button>
       )}
-      <Button onClick={onClose}>鍏抽棴</Button>
+      <Button onClick={onClose}>{t('sessionDetail.actions.close')}</Button>
     </div>
   );
 
@@ -122,7 +127,7 @@ export default function SessionDetailDialog({
     <Dialog
       open={session !== null}
       onClose={onClose}
-      title={session?.firstPrompt ?? '浼氳瘽璇︽儏'}
+      title={session?.firstPrompt ?? t('sessionDetail.title')}
       footer={footer}
       widthClass="max-w-4xl"
     >
@@ -130,13 +135,13 @@ export default function SessionDetailDialog({
         <div className="space-y-5">
           <div className="inline-flex rounded-xl border border-border bg-app p-1">
             <TabButton active={tab === 'meta'} onClick={() => setTab('meta')}>
-              鍏冩暟鎹?
+              {t('sessionDetail.tabs.meta')}
             </TabButton>
             <TabButton active={tab === 'log'} onClick={() => setTab('log')}>
-              瀵硅瘽璁板綍
+              {t('sessionDetail.tabs.log')}
             </TabButton>
             <TabButton active={tab === 'artifacts'} onClick={() => setTab('artifacts')}>
-              浜х墿涓庨噷绋嬬
+              {t('sessionDetail.tabs.artifacts')}
             </TabButton>
           </div>
 
@@ -147,32 +152,62 @@ export default function SessionDetailDialog({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <MetaItem label="寮€濮嬫椂闂?" value={formatDateTime(session.startedAt)} />
-                <MetaItem label="缁撴潫鏃堕棿" value={formatDateTime(session.endedAt)} />
-                <MetaItem label="鏃堕暱" value={formatDuration(session.totalDurationMs)} />
-                <MetaItem label="鐢ㄦ埛娑堟伅鏁?" value={String(session.userMessageCount)} />
-                <MetaItem label="浠ｇ悊杞" value={String(session.agentTurnCount)} />
-                <MetaItem label="鏈嶅姟鎻愪緵鏂?" value={session.providerLabel ?? '鐜鍙橀噺'} />
-                <MetaItem label="妯″瀷" value={session.model} />
-                <MetaItem label="鎺ュ彛鍦板潃" value={session.baseURL ?? '鈥?'} />
-                <MetaItem label="绱鎴愭湰" value={`$${session.totalCostUsd.toFixed(4)}`} />
                 <MetaItem
-                  label="绱 Token"
+                  label={t('sessionDetail.meta.startedAt')}
+                  value={formatDateTime(session.startedAt, locale, dash)}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.endedAt')}
+                  value={formatDateTime(session.endedAt, locale, dash)}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.duration')}
+                  value={formatDuration(session.totalDurationMs)}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.userMessages')}
+                  value={String(session.userMessageCount)}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.agentTurns')}
+                  value={String(session.agentTurnCount)}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.provider')}
+                  value={session.providerLabel ?? t('sessionDetail.meta.providerFallback')}
+                />
+                <MetaItem label={t('sessionDetail.meta.model')} value={session.model} />
+                <MetaItem
+                  label={t('sessionDetail.meta.baseURL')}
+                  value={session.baseURL ?? dash}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.totalCost')}
+                  value={`$${session.totalCostUsd.toFixed(4)}`}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.totalTokens')}
                   value={
                     typeof session.totalTokens === 'number'
-                      ? session.totalTokens.toLocaleString('zh-CN')
-                      : '鈥?'
+                      ? session.totalTokens.toLocaleString(locale)
+                      : dash
                   }
                 />
-                <MetaItem label="Claude 浼氳瘽 ID" value={session.sdkSessionId ?? '鈥?'} />
-                <MetaItem label="缁撴灉" value={renderSessionResult(session)} />
+                <MetaItem
+                  label={t('sessionDetail.meta.sdkSessionId')}
+                  value={session.sdkSessionId ?? dash}
+                />
+                <MetaItem
+                  label={t('sessionDetail.meta.result')}
+                  value={renderSessionResult(session, t)}
+                />
               </div>
             </div>
           ) : tab === 'log' ? (
             <div className="rounded-2xl border border-border bg-surface p-3">
               {entries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-app px-4 py-10 text-center text-sm text-fg-muted">
-                  璇ヤ細璇濇湭鎸佷箙鍖栧璇濊褰曪紙鏃т細璇濇垨绯荤粺寮傚父锛?
+                  {t('sessionDetail.log.empty')}
                 </div>
               ) : (
                 <div className="max-h-[60vh] overflow-y-auto">
@@ -188,11 +223,13 @@ export default function SessionDetailDialog({
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-border bg-surface p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-[11px] uppercase tracking-wider text-fg-subtle">閲岀▼纰?</div>
+                  <div className="text-[11px] uppercase tracking-wider text-fg-subtle">
+                    {t('sessionDetail.artifacts.milestones')}
+                  </div>
                   <div className="text-[11px] text-fg-subtle">{insights.milestones.length}</div>
                 </div>
                 {insights.milestones.length === 0 ? (
-                  <EmptyState text="褰撳墠娌℃湁鍙洖鏀剧殑閲岀▼纰?" />
+                  <EmptyState text={t('sessionDetail.artifacts.noMilestones')} />
                 ) : (
                   <div className="space-y-2">
                     {insights.milestones.map((milestone) => (
@@ -202,7 +239,7 @@ export default function SessionDetailDialog({
                       >
                         <div className="text-sm text-fg">{milestone.label}</div>
                         <div className="mt-1 text-[11px] text-fg-subtle">
-                          {formatDateTime(milestone.ts)}
+                          {formatDateTime(milestone.ts, locale, dash)}
                         </div>
                       </div>
                     ))}
@@ -212,11 +249,13 @@ export default function SessionDetailDialog({
 
               <div className="rounded-2xl border border-border bg-surface p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-[11px] uppercase tracking-wider text-fg-subtle">浜х墿</div>
+                  <div className="text-[11px] uppercase tracking-wider text-fg-subtle">
+                    {t('sessionDetail.artifacts.artifactsLabel')}
+                  </div>
                   <div className="text-[11px] text-fg-subtle">{insights.artifacts.length}</div>
                 </div>
                 {insights.artifacts.length === 0 ? (
-                  <EmptyState text="褰撳墠娌℃湁鍙洖鏀剧殑鎺ㄥ浜х墿" />
+                  <EmptyState text={t('sessionDetail.artifacts.noArtifacts')} />
                 ) : (
                   <div className="space-y-2">
                     {insights.artifacts.map((artifact) => (
@@ -245,8 +284,8 @@ export default function SessionDetailDialog({
 
           <div className="text-xs text-fg-subtle">
             {session.sdkSessionId
-              ? '鐐瑰嚮鈥滅户缁爺绌垛€濆悗锛屽皢鍥炲埌褰撳墠鑱婂ぉ椤碉紝骞跺熀浜?Claude 鍘熺敓浼氳瘽缁х画銆?'
-              : '璇ュ巻鍙蹭細璇濈己灏戝彲鎭㈠鐨?Claude 鍘熺敓浼氳瘽 ID锛岀洰鍓嶄粎鏀寔鍙鍥炴斁銆?'}
+              ? t('sessionDetail.footerHint.resumable')
+              : t('sessionDetail.footerHint.readOnly')}
           </div>
         </div>
       )}
@@ -259,19 +298,24 @@ export default function SessionDetailDialog({
   );
 }
 
-function renderSessionResult(session: SessionLogEntry): ReactNode {
+function renderSessionResult(
+  session: SessionLogEntry,
+  t: ReturnType<typeof useTranslation>['t'],
+): ReactNode {
   if (session.finishReason === 'user_interrupt') {
-    return <span className="text-fg">宸叉殏鍋滐紝鍙户缁爺绌?</span>;
+    return <span className="text-fg">{t('sessionDetail.result.interrupt')}</span>;
   }
   if (session.finishReason === 'user_cancel') {
-    return <span className="text-fg-muted">宸茬粓姝?</span>;
+    return <span className="text-fg-muted">{t('sessionDetail.result.cancel')}</span>;
   }
   if (session.ok) {
-    return <span className="text-success">鎴愬姛</span>;
+    return <span className="text-success">{t('sessionDetail.result.success')}</span>;
   }
   return (
     <span className="text-danger">
-      澶辫触{session.errorMessage ? ` 路 ${session.errorMessage}` : ''}
+      {session.errorMessage
+        ? t('sessionDetail.result.failedWithDetail', { message: session.errorMessage })
+        : t('sessionDetail.result.failed')}
     </span>
   );
 }
@@ -318,9 +362,9 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function formatDateTime(ts: number | undefined): string {
-  if (!ts) return '鈥?';
-  return new Date(ts).toLocaleString('zh-CN', { hour12: false });
+function formatDateTime(ts: number | undefined, locale: string, dash: string): string {
+  if (!ts) return dash;
+  return new Date(ts).toLocaleString(locale, { hour12: false });
 }
 
 function formatDuration(ms: number): string {

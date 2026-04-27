@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function CriticPanelCard({ providers }: Props) {
+  const { t } = useTranslation('settings');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -79,17 +81,19 @@ export default function CriticPanelCard({ providers }: Props) {
   }, [savedIds]);
 
   const warningText = useMemo(() => {
-    if (selected.size === 0) return '尚未选择任何评审模型。至少勾选 1 个独立 provider 作为对抗视角。';
+    if (selected.size === 0) return t('criticPanel.warningNoneSelected');
     return null;
-  }, [selected]);
+  }, [selected, t]);
 
   return (
     <Card className="overflow-hidden">
       <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">评审模型组</div>
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
+            {t('criticPanel.title')}
+          </div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            主模型之外的独立第二视角。勾 1 个为单 critic 评语，勾 ≥ 2 个聚合展示共识与分歧。仅支持 anthropic 协议 provider。
+            {t('criticPanel.description')}
           </div>
         </div>
 
@@ -102,7 +106,7 @@ export default function CriticPanelCard({ providers }: Props) {
               disabled={busy}
               className="rounded-full px-3.5"
             >
-              撤销
+              {t('criticPanel.undo')}
             </Button>
           )}
           <Button
@@ -111,7 +115,7 @@ export default function CriticPanelCard({ providers }: Props) {
             disabled={busy || !isDirty}
             className="shrink-0 rounded-full px-3.5"
           >
-            {busy ? '保存中…' : '保存'}
+            {busy ? t('criticPanel.saving') : t('criticPanel.save')}
           </Button>
         </div>
       </CardBody>
@@ -123,10 +127,7 @@ export default function CriticPanelCard({ providers }: Props) {
       )}
 
       {anthropicProviders.length === 0 ? (
-        <div className="px-5 py-12 text-sm text-fg-subtle">
-          还没有 anthropic 协议的 provider。先到上方"模型提供方"卡片里添加几个不同 provider
-          （例如 Claude 官方 + 第三方兼容端点 + 自有 proxy），再回来配置评审模型组。
-        </div>
+        <div className="px-5 py-12 text-sm text-fg-subtle">{t('criticPanel.noProviders')}</div>
       ) : (
         <>
           <ul className="divide-y divide-border">
@@ -170,8 +171,8 @@ export default function CriticPanelCard({ providers }: Props) {
           {!warningText && savedIds.size >= 1 && (
             <div className="border-t border-border bg-black/[0.02] px-5 py-3 text-[12px] text-fg-muted dark:bg-white/[0.02]">
               {savedIds.size === 1
-                ? '已启用 1 个评审模型（单 critic 评语模式），运行 /full-research 或 /review 时会被自动调度。再加 1 个 provider 可进入对抗共识模式。'
-                : `已启用 ${savedIds.size} 个评审模型（对抗共识模式），运行 /full-research 或 /review 时会并行调度、聚合共识与分歧。`}
+                ? t('criticPanel.savedSingle')
+                : t('criticPanel.savedMulti', { count: savedIds.size })}
             </div>
           )}
         </>

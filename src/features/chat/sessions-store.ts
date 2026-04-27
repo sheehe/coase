@@ -22,12 +22,19 @@ import type {
   Unsubscribe,
 } from '../../../shared/ipc';
 import type { SessionLogEntry } from '../../../shared/runs';
+import i18n from '../../lib/i18n';
 import type { TranscriptEntry } from './TranscriptMessage';
 import { deriveRunInsights } from './run-insights';
 import {
   injectSlashCommandContext,
   type SelectedSlashCommand,
 } from './slash-commands';
+
+// 此 store 跑在渲染进程，i18n 已在 bootstrap 时初始化（main.tsx 里 await initI18n
+// 之后才 createRoot），所以这里直接同步 t() 取当前语言文本，不会拿到空字符串。
+function tt(key: string, options?: Record<string, unknown>): string {
+  return i18n.t(key, { ns: 'chat', ...(options ?? {}) }) as string;
+}
 
 export type ChatState = 'idle' | 'running' | 'waiting';
 export type RunStatus =
@@ -162,7 +169,10 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
   switch (event.type) {
     case 'session_started':
       return {
-        transcript: [...prev, { kind: 'status', ts, text: '研究已启动，自动运行中' }],
+        transcript: [
+          ...prev,
+          { kind: 'status', ts, text: tt('transcript.skipStatus.sessionStartedBanner') },
+        ],
         bumpSummary: true,
       };
     case 'sdk_session_bound':
@@ -212,12 +222,12 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
       const reason = event.reason;
       const text =
         reason === 'user_interrupt'
-          ? '研究已暂停，等待你的指导'
+          ? tt('transcript.sessionFinished.interrupt')
           : reason === 'user_cancel'
-            ? '研究已终止'
+            ? tt('transcript.sessionFinished.cancel')
             : reason === 'error'
-              ? '研究因错误中止'
-              : '研究已完成当前自动运行';
+              ? tt('transcript.sessionFinished.error')
+              : tt('transcript.sessionFinished.completed');
       const nextRun: RunStatus =
         reason === 'user_interrupt'
           ? 'awaiting_user_guidance'
@@ -238,14 +248,25 @@ export function reduceRuntime(runtime: SessionRuntime, event: ChatEvent, ts: num
       };
     }
     case 'provider': {
-      const label = event.providerLabel ?? (event.source === 'env' ? '环境变量回退' : '未命名');
+      const label =
+        event.providerLabel ??
+        (event.source === 'env'
+          ? tt('transcript.provider.envFallback')
+          : tt('transcript.provider.unnamed'));
+      const text = event.baseURL
+        ? tt('transcript.provider.useLineWithUrl', {
+            label,
+            model: event.model,
+            url: event.baseURL,
+          })
+        : tt('transcript.provider.useLine', { label, model: event.model });
       return {
         transcript: [
           ...prev,
           {
             kind: 'provider',
             ts,
-            text: `使用 ${label} · ${event.model}${event.baseURL ? ` · ${event.baseURL}` : ''}`,
+            text,
             providerId: event.providerId,
             providerLabel: event.providerLabel,
             model: event.model,
@@ -862,7 +883,7 @@ export class SessionsStore {
    */
   async openHistoricalForResume(entry: SessionLogEntry): Promise<void> {
     if (!entry.sdkSessionId) {
-      throw new Error('该历史会话没有可恢复的 Claude 原生会话 ID');
+      throw new Error(tt('errors.noSdkSessionId'));
     }
 
     const existing = this.runtimes.get(entry.sessionId);
@@ -1023,22 +1044,26 @@ export function isDraftKey(key: string): boolean {
 
 export function withAttachmentSummary(text: string, attachments: ComposerAttachment[]): string {
   if (attachments.length === 0) return text;
+  // 用全角分隔（中文）/ 半角（英文）让 LLM 读着更顺。runtime text 走当前 UI 语言；
+  // 已运行的会话 system prompt 也是按相同语言锁定的，对齐。
+  const sep = i18n.language === 'en' ? '; ' : '；';
+  const colon = i18n.language === 'en' ? ': ' : '：';
   const summary = attachments
-    .map((attachment) => `${attachmentLabel(attachment.kind)}：${attachment.name}`)
-    .join('；');
-  return `${text}\n\n附加资料：${summary}`;
+    .map((attachment) => `${attachmentLabel(attachment.kind)}${colon}${attachment.name}`)
+    .join(sep);
+  return `${text}\n\n${tt('transcript.attachmentSummary.prefix')}${colon}${summary}`;
 }
 
 function attachmentLabel(kind: AttachmentKind): string {
   switch (kind) {
     case 'dataset_folder':
-      return '数据集文件夹';
+      return tt('transcript.attachmentSummary.kindDatasetFolder');
     case 'data_file':
-      return '数据文件';
+      return tt('transcript.attachmentSummary.kindDataFile');
     case 'paper_file':
-      return '参考论文';
+      return tt('transcript.attachmentSummary.kindPaperFile');
     default:
-      return '附加文件';
+      return tt('transcript.attachmentSummary.kindOther');
   }
 }
 

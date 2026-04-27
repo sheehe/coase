@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 
 import type { AttachedPath, AttachmentKind } from '../../../shared/ipc';
 import type { SessionLogEntry } from '../../../shared/runs';
+import i18n from '../../lib/i18n';
 import type { TranscriptEntry } from './TranscriptMessage';
+
+function tt(key: string, options?: Record<string, unknown>): string {
+  return i18n.t(key, { ns: 'chat', ...(options ?? {}) }) as string;
+}
 import { deriveRunInsights, type ArtifactRecord, type MilestoneRecord } from './run-insights';
 import {
   injectSlashCommandContext,
@@ -310,8 +315,12 @@ function findLatestProviderBadge(transcript: TranscriptEntry[]):
   for (let i = transcript.length - 1; i >= 0; i -= 1) {
     const entry = transcript[i];
     if (entry.kind === 'provider') {
-      const label =
-        entry.providerLabel ?? (entry.text.match(/^使用\s+(.+?)\s+·/) ?? [])[1] ?? '未命名';
+      // 兼容历史 transcript：早期版本 provider 行只塞了文本，没有 providerLabel 字段，
+      // 同时识别中英文两种"使用 / Using" 起始模板。
+      const fromText =
+        (entry.text.match(/^使用\s+(.+?)\s+·/) ?? [])[1] ??
+        (entry.text.match(/^Using\s+(.+?)\s+·/) ?? [])[1];
+      const label = entry.providerLabel ?? fromText ?? tt('providerBadgeFallback');
       return {
         label,
         model: entry.model,
@@ -377,13 +386,11 @@ function inferStage(transcript: TranscriptEntry[]): InferredStage {
 }
 
 function buildPlaceholder(chatState: ChatState, runStatus: RunStatus, runId: string | null): string {
-  if (runStatus === 'awaiting_user_guidance') return '输入你的纠偏建议，Enter 继续当前研究';
-  if (runStatus === 'completed' && runId) {
-    return '可继续补充修改意见，Enter 让 Coase 在当前结果上继续迭代';
-  }
-  if (chatState === 'idle') return '输入研究主题 / 问题开始新研究，Enter 发送，Shift+Enter 换行';
-  if (chatState === 'waiting') return '当前回合已结束，可继续补充约束或问题';
-  return 'agent 正在自动推进研究，可通过右侧暂停按钮打断';
+  if (runStatus === 'awaiting_user_guidance') return tt('placeholder.awaitingGuidance');
+  if (runStatus === 'completed' && runId) return tt('placeholder.completedFollowup');
+  if (chatState === 'idle') return tt('placeholder.idle');
+  if (chatState === 'waiting') return tt('placeholder.waiting');
+  return tt('placeholder.running');
 }
 
 // 兼容老导入：部分上游组件可能通过 useChatSession 重新 re-export 读这些类型。

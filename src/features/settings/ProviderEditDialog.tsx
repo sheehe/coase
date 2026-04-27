@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import Button from '../../components/ui/Button';
 import Dialog from '../../components/ui/Dialog';
@@ -39,23 +41,28 @@ function emptyRecord(): ProviderRecord {
   };
 }
 
-function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, string>> {
+// validate 返回的是直接渲染到 <Field error> 的本地化字符串。t 由组件传入，
+// 切语言时错误提示也跟着切。
+function validate(
+  record: ProviderRecord,
+  t: TFunction<'settings'>,
+): Partial<Record<keyof ProviderRecord, string>> {
   const errors: Partial<Record<keyof ProviderRecord, string>> = {};
 
-  if (!record.id.trim()) errors.id = 'ID 不能为空';
+  if (!record.id.trim()) errors.id = t('providers.dialog.id.errorEmpty');
   else if (!/^[a-z0-9][a-z0-9-_]*$/i.test(record.id)) {
-    errors.id = 'ID 只能包含字母、数字、- 和 _';
+    errors.id = t('providers.dialog.id.errorFormat');
   }
 
-  if (!record.label.trim()) errors.label = '名称不能为空';
+  if (!record.label.trim()) errors.label = t('providers.dialog.labelField.errorEmpty');
 
-  if (!record.baseURL.trim()) errors.baseURL = '接口地址不能为空';
+  if (!record.baseURL.trim()) errors.baseURL = t('providers.dialog.baseURL.errorEmpty');
   else if (!/^https?:\/\//.test(record.baseURL)) {
-    errors.baseURL = '接口地址必须以 http(s):// 开头';
+    errors.baseURL = t('providers.dialog.baseURL.errorFormat');
   }
 
-  if (!record.model.trim()) errors.model = '模型不能为空';
-  if (!record.credential.trim()) errors.credential = 'API Key / Token 不能为空';
+  if (!record.model.trim()) errors.model = t('providers.dialog.model.errorEmpty');
+  if (!record.credential.trim()) errors.credential = t('providers.dialog.credential.errorEmpty');
 
   if (record.autoCompactWindow !== undefined) {
     if (
@@ -63,7 +70,10 @@ function validate(record: ProviderRecord): Partial<Record<keyof ProviderRecord, 
       record.autoCompactWindow < AUTO_COMPACT_MIN ||
       record.autoCompactWindow > AUTO_COMPACT_MAX
     ) {
-      errors.autoCompactWindow = `自动压缩阈值需在 ${AUTO_COMPACT_MIN.toLocaleString()} - ${AUTO_COMPACT_MAX.toLocaleString()} 之间`;
+      errors.autoCompactWindow = t('providers.dialog.autoCompact.errorRange', {
+        min: AUTO_COMPACT_MIN.toLocaleString(),
+        max: AUTO_COMPACT_MAX.toLocaleString(),
+      });
     }
   }
 
@@ -78,6 +88,7 @@ export default function ProviderEditDialog({
   onClose,
   onSave,
 }: Props) {
+  const { t } = useTranslation('settings');
   const [form, setForm] = useState<ProviderRecord>(() => initial ?? emptyRecord());
   const [errors, setErrors] = useState<Partial<Record<keyof ProviderRecord, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -116,7 +127,7 @@ export default function ProviderEditDialog({
   }
 
   async function handleSave() {
-    const nextErrors = validate(form);
+    const nextErrors = validate(form, t);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -132,7 +143,7 @@ export default function ProviderEditDialog({
   }
 
   async function handleTest() {
-    const nextErrors = validate(form);
+    const nextErrors = validate(form, t);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -145,7 +156,9 @@ export default function ProviderEditDialog({
       setTestResult({
         ok: false,
         latencyMs: 0,
-        message: `调用失败：${err instanceof Error ? err.message : String(err)}`,
+        message: t('providers.dialog.test.callError', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
       });
     } finally {
       setTesting(false);
@@ -156,7 +169,11 @@ export default function ProviderEditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={mode === 'new' ? '新增模型提供方' : `编辑模型提供方 · ${form.label || form.id}`}
+      title={
+        mode === 'new'
+          ? t('providers.dialog.newTitle')
+          : t('providers.dialog.editTitle', { label: form.label || form.id })
+      }
       footer={
         <>
           <Button
@@ -165,13 +182,15 @@ export default function ProviderEditDialog({
             disabled={saving || testing}
             className="mr-auto"
           >
-            {testing ? '测试中…' : '测试连接'}
+            {testing
+              ? t('providers.dialog.testing')
+              : t('providers.dialog.testConnection')}
           </Button>
           <Button variant="ghost" onClick={onClose} disabled={saving || testing}>
-            取消
+            {t('providers.dialog.cancel')}
           </Button>
           <Button onClick={() => void handleSave()} disabled={saving || testing}>
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('providers.dialog.saving') : t('providers.dialog.save')}
           </Button>
         </>
       }
@@ -179,11 +198,11 @@ export default function ProviderEditDialog({
       <div className="flex flex-col gap-4">
         {mode === 'new' && (
           <Field
-            label="从预设快速填充"
-            hint="选择预设后会覆盖 ID、名称、接口地址、模型和鉴权方式。"
+            label={t('providers.dialog.preset.label')}
+            hint={t('providers.dialog.preset.hint')}
           >
             <Select value={selectedPresetId} onChange={(e) => applyPreset(e.target.value)}>
-              <option value="">不使用预设，手动填写</option>
+              <option value="">{t('providers.dialog.preset.none')}</option>
               {presets.map((preset) => (
                 <option key={preset.id} value={preset.id}>
                   {preset.label} · {preset.defaultModel}
@@ -196,7 +215,11 @@ export default function ProviderEditDialog({
           </Field>
         )}
 
-        <Field label="ID" hint="保存后的唯一标识，不能重复。" error={errors.id}>
+        <Field
+          label={t('providers.dialog.id.label')}
+          hint={t('providers.dialog.id.hint')}
+          error={errors.id}
+        >
           <Input
             value={form.id}
             onChange={(e) => updateField('id', e.target.value)}
@@ -205,7 +228,7 @@ export default function ProviderEditDialog({
           />
         </Field>
 
-        <Field label="显示名称" error={errors.label}>
+        <Field label={t('providers.dialog.labelField.label')} error={errors.label}>
           <Input
             value={form.label}
             onChange={(e) => updateField('label', e.target.value)}
@@ -213,19 +236,19 @@ export default function ProviderEditDialog({
           />
         </Field>
 
-        <Field label="协议">
+        <Field label={t('providers.dialog.protocol.label')}>
           <Select
             value={form.protocol}
             onChange={(e) => updateField('protocol', e.target.value as ProviderProtocol)}
           >
-            <option value="anthropic">Anthropic（原生或兼容端点）</option>
+            <option value="anthropic">{t('providers.dialog.protocol.anthropic')}</option>
             <option value="openai" disabled>
-              OpenAI（后续接入）
+              {t('providers.dialog.protocol.openai')}
             </option>
           </Select>
         </Field>
 
-        <Field label="接口地址" error={errors.baseURL}>
+        <Field label={t('providers.dialog.baseURL.label')} error={errors.baseURL}>
           <Input
             value={form.baseURL}
             onChange={(e) => updateField('baseURL', e.target.value)}
@@ -233,7 +256,7 @@ export default function ProviderEditDialog({
           />
         </Field>
 
-        <Field label="模型" error={errors.model}>
+        <Field label={t('providers.dialog.model.label')} error={errors.model}>
           <Input
             value={form.model}
             onChange={(e) => updateField('model', e.target.value)}
@@ -242,19 +265,19 @@ export default function ProviderEditDialog({
         </Field>
 
         <Field
-          label="鉴权方式"
-          hint="Anthropic 官方通常使用 api_key，第三方兼容端点通常使用 auth_token。"
+          label={t('providers.dialog.auth.label')}
+          hint={t('providers.dialog.auth.hint')}
         >
           <Select
             value={form.authMode}
             onChange={(e) => updateField('authMode', e.target.value as AuthMode)}
           >
-            <option value="auth_token">auth_token（第三方兼容端点）</option>
-            <option value="api_key">api_key（Anthropic 官方）</option>
+            <option value="auth_token">{t('providers.dialog.auth.authToken')}</option>
+            <option value="api_key">{t('providers.dialog.auth.apiKey')}</option>
           </Select>
         </Field>
 
-        <Field label="API Key / Token" error={errors.credential}>
+        <Field label={t('providers.dialog.credential.label')} error={errors.credential}>
           <Input
             type="password"
             value={form.credential}
@@ -265,8 +288,11 @@ export default function ProviderEditDialog({
         </Field>
 
         <Field
-          label="自动压缩阈值（可选）"
-          hint={`累计 token 达到该值时 SDK 会自动触发 compact。留空走模型自适应默认：1M 窗口约 850k，其它约 160k。允许范围 ${AUTO_COMPACT_MIN.toLocaleString()} - ${AUTO_COMPACT_MAX.toLocaleString()}。`}
+          label={t('providers.dialog.autoCompact.label')}
+          hint={t('providers.dialog.autoCompact.hint', {
+            min: AUTO_COMPACT_MIN.toLocaleString(),
+            max: AUTO_COMPACT_MAX.toLocaleString(),
+          })}
           error={errors.autoCompactWindow}
         >
           <Input
@@ -285,7 +311,7 @@ export default function ProviderEditDialog({
               const value = Number(raw);
               updateField('autoCompactWindow', Number.isFinite(value) ? value : undefined);
             }}
-            placeholder="留空 = 使用模型自适应默认"
+            placeholder={t('providers.dialog.autoCompact.placeholder')}
           />
         </Field>
 
@@ -296,6 +322,7 @@ export default function ProviderEditDialog({
 }
 
 function TestResultBanner({ result }: { result: TestConnectionResult }) {
+  const { t } = useTranslation('settings');
   const tone = result.ok
     ? 'border-border bg-app text-fg'
     : 'border-danger/30 bg-danger/5 text-danger';
@@ -303,14 +330,16 @@ function TestResultBanner({ result }: { result: TestConnectionResult }) {
   return (
     <div className={`rounded-xl border px-3 py-3 text-xs ${tone}`}>
       <div className="flex items-center gap-2 font-mono">
-        <span>{result.ok ? '成功' : '失败'}</span>
+        <span>{result.ok ? t('providers.dialog.test.ok') : t('providers.dialog.test.fail')}</span>
         <span className="break-all">{result.message}</span>
       </div>
 
       {result.requestText && (
         <div className="mt-3 flex justify-end">
           <div className="max-w-[85%] rounded-[18px] rounded-br-md bg-fg px-3 py-2 text-[12px] text-app">
-            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-app/70">发送消息</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-app/70">
+              {t('providers.dialog.test.sentLabel')}
+            </div>
             <div className="leading-6">{result.requestText}</div>
           </div>
         </div>
@@ -319,7 +348,9 @@ function TestResultBanner({ result }: { result: TestConnectionResult }) {
       {result.responseText && (
         <div className="mt-2 flex justify-start">
           <div className="max-w-[85%] rounded-[18px] rounded-bl-md border border-border/80 bg-surface px-3 py-2 text-[12px] text-fg">
-            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-fg-subtle">模型回复</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+              {t('providers.dialog.test.replyLabel')}
+            </div>
             <div className="whitespace-pre-wrap leading-6">{result.responseText}</div>
           </div>
         </div>

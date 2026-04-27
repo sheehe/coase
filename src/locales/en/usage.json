@@ -1,0 +1,37 @@
+{
+  "kicker": "Usage",
+  "title": "Usage",
+  "description": "Token input / output and runtime aggregated by today, this month, and all-time across Coase sessions. Data comes from local",
+  "descriptionTail": "; only finished or interrupted sessions are counted.",
+  "backToChat": "Back to chat",
+  "loadError": "Failed to load sessions: {{message}}",
+  "loading": "Loading sessions…",
+  "buckets": {
+    "today": "Today",
+    "month": "This month",
+    "total": "All time"
+  },
+  "extraRunning": "{{count}} more session(s) still running",
+  "tokensSuffix": "tokens",
+  "sessionsCount": "{{count}} sessions",
+  "input": "Input",
+  "output": "Output",
+  "cache": "Cache",
+  "breakdown": {
+    "byProvider": "By provider",
+    "byModel": "By model",
+    "times": "{{count}}×"
+  },
+  "topSessions": {
+    "title": "Token spend per session",
+    "subtitle": "Top 10 sessions by token spend. Continued sessions are summed into the same row.",
+    "empty": "No session usage to report yet.",
+    "untitled": "(untitled)",
+    "unknownModel": "unknown model",
+    "tokensSuffix": "tokens",
+    "inputShort": "in",
+    "outputShort": "out",
+    "cacheShort": "cache"
+  },
+  "providerUnnamed": "(unnamed)"
+}

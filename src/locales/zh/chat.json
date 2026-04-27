@@ -1,0 +1,391 @@
+{
+  "sidebar": {
+    "newSession": "新会话",
+    "workspaceLabel": "工作区：{{name}}",
+    "workspaceFallback": "工作区",
+    "refreshWorkspace": "刷新工作区文件",
+    "refresh": "刷新",
+    "openInExplorer": "在资源管理器中打开",
+    "chooseWorkspace": "选择工作区目录",
+    "noSessionHint": "还没开启会话。在右侧输入研究主题开始，工作区文件会自动出现在这里。",
+    "loadingTree": "加载文件树…",
+    "emptyTreeHint": "当前会话还没有工作区文件。Coase 生成结果后会在这里出现。",
+    "history": "会话历史",
+    "loading": "加载中…",
+    "noSessions": "还没有会话，从右侧开始。",
+    "groupToday": "今天",
+    "groupYesterday": "昨天",
+    "groupEarlier": "更早",
+    "switchTo": "切换到会话 {{title}}",
+    "deleteSession": "删除会话",
+    "currentNotDeletable": "当前会话不可删除",
+    "refreshHistory": "刷新会话历史",
+    "menuUsage": "用量",
+    "menuSettings": "设置",
+    "filePreview": "文件预览",
+    "previewClose": "关闭",
+    "previewOpenOriginal": "打开原文件",
+    "deleteConfirmRunning": "会话\"{{title}}\"正在运行中，删除会先停止它再清理数据，确定继续吗？",
+    "deleteConfirm": "确定删除会话\"{{title}}\"吗？",
+    "deleteFailed": "删除失败：{{message}}"
+  },
+  "stage": {
+    "tokenInputTitle": "历轮 input token 累计（计费口径，非当前上下文占用）——每轮 input 包含当时的完整历史，累加会跨轮重复，用来估算真实 token 消耗总量",
+    "tokenOutputTitle": "历轮 output token 累计（assistant 生成的全部 token）",
+    "tokenInputLabel": "Input",
+    "tokenOutputLabel": "Output",
+    "retryLabel": "LLM 调用失败，重试 {{attempt}}/{{maxAttempts}}",
+    "retryNextIn": "下次 {{seconds}}s",
+    "retryRetrying": "正在重发",
+    "runFailed": "运行出错",
+    "runCancelled": "已取消",
+    "runAwaitingGuidance": "已暂停，等待你的纠偏建议",
+    "subagentDefaultDesc": "子代理工作中",
+    "subagentLabel": "子代理 · {{description}}",
+    "answeringWithSnippet": "正在回答：{{snippet}}…",
+    "answering": "正在回答…",
+    "thinkingWithSnippet": "思考中 · {{snippet}}…",
+    "thinking": "思考中…",
+    "toolFinishedWaiting": "刚完成 {{tool}} · 等待 LLM 下一步…",
+    "toolDetail": "已调用 {{count}} 次工具",
+    "waitingResponse": "等待 LLM 响应…",
+    "silenceDetail": "已静默 {{seconds}}s",
+    "silenceWithTool": "{{toolDetail}} · 已静默 {{seconds}}s",
+    "waitingUserInput": "等待用户输入",
+    "turnDone": "本轮已完成",
+    "idleHint": "空闲中 · 随时开始新研究",
+    "tool": {
+      "calling": "正在调用 {{name}}",
+      "callingBash": "正在调用 Bash",
+      "callingGrep": "正在调用 Grep",
+      "callingGlob": "正在调用 Glob",
+      "callingWebFetch": "正在调用 WebFetch",
+      "callingWebSearch": "正在调用 WebSearch",
+      "schedulingSubagent": "正在调度子代理",
+      "subagentLabelDual": "子代理 {{type}} · {{desc}}",
+      "subagentLabelType": "子代理 {{type}}",
+      "subagentLabelDesc": "子代理 · {{desc}}",
+      "todoUpdate": "更新任务清单"
+    },
+    "skipStatus": {
+      "sessionStartedBanner": "研究已启动，自动运行中"
+    }
+  },
+  "composer": {
+    "attachments": {
+      "datasetFolderTitle": "添加数据集文件夹",
+      "datasetFolderDesc": "告诉 agent 数据集目录在哪，让它自行读取和检索。",
+      "dataFileTitle": "添加数据文件",
+      "dataFileDesc": "附加单个或多个数据文件，例如 CSV、Excel、Stata、Parquet。",
+      "paperFileTitle": "添加参考论文",
+      "paperFileDesc": "附加 PDF、TeX、Bib 或文稿，让 agent 自行阅读并引用。",
+      "otherFileTitle": "添加其他文件",
+      "otherFileDesc": "附加补充材料、说明文档、代码、附录或任意其他本地文件。",
+      "panelTitle": "添加本地文件",
+      "buttonTitle": "添加本地文件",
+      "picking": "选择中…",
+      "local": "本地",
+      "kindDatasetFolder": "数据集文件夹",
+      "kindDataFile": "数据文件",
+      "kindPaperFile": "参考论文",
+      "kindOtherFile": "其他文件",
+      "removeAttachment": "移除附件"
+    },
+    "footerHint": {
+      "guidance": "输入指导意见后按 Enter，Coase 会在当前研究基础上继续。",
+      "completed": "结果已生成；你仍可继续给出修改建议。",
+      "idle": "按 Enter 开始一项新研究",
+      "waiting": "Enter 发送 · Shift+Enter 换行",
+      "running": "自动研究正在运行，可通过右侧暂停按钮打断"
+    },
+    "guidanceCount": "已记录 {{count}} 条指导",
+    "skillPickerTitle": "技能",
+    "workflowPickerTitle": "选择工作流",
+    "workflowPickerHint": "也可以直接在输入框里用 / 触发",
+    "workflowButtonTitle": "选择工作流",
+    "removeCommand": "移除 {{title}}",
+    "newResearchTitle": "开始新研究",
+    "stopRun": "终止本次研究",
+    "guidancePauseTitle": "当前自动运行已暂停",
+    "guidancePauseDesc": "直接输入你的纠偏建议，Coase 会在既有研究记忆上继续。",
+    "contextWindow": {
+      "title": "上下文窗口",
+      "ratio": "背景信息窗口：{{percent}}",
+      "usage": "已用 {{used}} 标记，共 {{total}}",
+      "autoNote": "Coase 会自动管理背景信息窗口"
+    }
+  },
+  "empty": {
+    "tagline": "多智能体经济学实证研究助手",
+    "subTagline": "从研究设计到实证分析 · 全流程陪跑",
+    "noKeyTitle": "还没有配置任何模型 API Key",
+    "noKeyDesc": "没有 Key 无法运行研究。点这里到 设置 → 模型与技能 添加一个 provider 并填入密钥。",
+    "workspaceHintBefore": "工作目录会自动分配到",
+    "workspaceHintAfter": "，无需手动设置；想自定义到指定目录可在顶栏「文件 → 选择工作区目录」中切换。",
+    "intro1Prefix": "输入",
+    "intro1Suffix": "打开命令选择器，从四个工作流中挑一个开始：",
+    "intro2": "想直接自由提问也行，Coase 会按任务自主调度方法技能与子代理。",
+    "intro3Prefix": "对抗评审需要先在",
+    "intro3Token": "设置 → 评审模型组",
+    "intro3Suffix": "勾选 ≥ 1 个独立 provider 作为第二视角。",
+    "shortcutHint": "Enter 发送 · Shift+Enter 换行"
+  },
+  "chrome": {
+    "menus": {
+      "file": "文件",
+      "edit": "编辑",
+      "view": "视图",
+      "window": "窗口",
+      "help": "帮助"
+    },
+    "file": {
+      "newSession": "新建会话",
+      "chooseWorkspace": "选择工作区目录",
+      "openWorkspace": "打开当前工作区",
+      "exit": "退出"
+    },
+    "edit": {
+      "undo": "撤销",
+      "redo": "重做",
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "selectAll": "全选"
+    },
+    "view": {
+      "hideSidebar": "隐藏侧边栏",
+      "showSidebar": "显示侧边栏",
+      "reload": "重新加载",
+      "devtools": "开发者工具"
+    },
+    "window": {
+      "minimize": "最小化",
+      "toggleMaximize": "最大化或还原",
+      "close": "关闭窗口"
+    },
+    "help": {
+      "website": "访问官网",
+      "about": "关于 Coase"
+    },
+    "about": {
+      "title": "关于 Coase",
+      "close": "关闭",
+      "p1": "Coase 是面向实证研究与论文生产的桌面研究工作台。",
+      "p2": "当前版本聚焦 Claude Agent SDK 原生会话、工作区目录、文件树与研究工作流界面。"
+    }
+  },
+  "transcript": {
+    "turnDone": "回合完成",
+    "turnFailed": "回合失败",
+    "turnSummary": "{{label}} · {{detail}}",
+    "you": "你",
+    "guidance": "指导",
+    "subagentRecent": "最近：{{tool}}",
+    "subagentInvocations": "{{count}} 调用",
+    "subagentCurrentTool": "当前工具：{{tool}}",
+    "subagentPhase": {
+      "started": "Start",
+      "progress": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "stopped": "Stopped"
+    },
+    "assistantTitle": "Coase",
+    "streaming": "正在生成…",
+    "thinkingDefault": "thinking",
+    "errorOutput": "Error",
+    "successOutput": "Output",
+    "llmFail": {
+      "apiError": "LLM API 调用失败",
+      "streamError": "LLM 流中断",
+      "willRetry": "将自动重试",
+      "gaveUp": "已放弃重试",
+      "errorHeader": "错误信息",
+      "stderrHeader": "stderr 尾"
+    },
+    "retry": {
+      "label": "重试 {{attempt}}/{{maxAttempts}}",
+      "delay": "{{seconds}}s 后自动重发 · {{reason}}"
+    },
+    "skipStatus": {
+      "sessionStartedBanner": "研究已启动，自动运行中"
+    },
+    "sessionFinished": {
+      "interrupt": "研究已暂停，等待你的指导",
+      "cancel": "研究已终止",
+      "error": "研究因错误中止",
+      "completed": "研究已完成当前自动运行"
+    },
+    "provider": {
+      "envFallback": "环境变量回退",
+      "unnamed": "未命名",
+      "useLine": "使用 {{label}} · {{model}}",
+      "useLineWithUrl": "使用 {{label}} · {{model}} · {{url}}"
+    },
+    "attachmentSummary": {
+      "prefix": "附加资料",
+      "kindDatasetFolder": "数据集文件夹",
+      "kindDataFile": "数据文件",
+      "kindPaperFile": "参考论文",
+      "kindOther": "附加文件"
+    }
+  },
+  "placeholder": {
+    "awaitingGuidance": "输入你的纠偏建议，Enter 继续当前研究",
+    "completedFollowup": "可继续补充修改意见，Enter 让 Coase 在当前结果上继续迭代",
+    "idle": "输入研究主题 / 问题开始新研究，Enter 发送，Shift+Enter 换行",
+    "waiting": "当前回合已结束，可继续补充约束或问题",
+    "running": "agent 正在自动推进研究，可通过右侧暂停按钮打断"
+  },
+  "providerBadgeFallback": "未命名",
+  "errors": {
+    "noSdkSessionId": "该历史会话没有可恢复的 Claude 原生会话 ID"
+  },
+  "slash": {
+    "sourceLabel": {
+      "workflow": "工作流",
+      "builtin": "内置",
+      "user": "个人"
+    },
+    "descriptions": {
+      "fullResearch": "从零到结果的完整流程",
+      "ideaToResults": "已有 idea，设计到结果",
+      "runExperiment": "已锁 baseline，执行与诊断",
+      "review": "对 idea / 研究方案做对抗评审",
+      "plannerWorkflow": "规划型 workflow：从研究目标到 baseline 设计与阶段文档沉淀。",
+      "executorWorkflow": "执行型 workflow：从方案落地到结果、表图和执行评估。",
+      "latexCompileRepair": "辅助 skill：定位和修复 LaTeX 编译错误。"
+    },
+    "context": {
+      "header": "以下命令/技能是用户通过命令选择器显式选中的，不是普通文本。请优先按这些工作流/技能执行：",
+      "perItemHeader": "逐项执行要求：",
+      "userAdded": "用户补充请求：",
+      "noFreeText": "用户没有补充自由文本，请直接按上述命令对应的工作流开始执行。"
+    },
+    "defaultGuidance": "用户显式选择了技能 {{trigger}}。优先调用并遵循这个技能，除非你能明确说明它与当前任务不匹配。"
+  },
+  "tour": {
+    "next": "下一步",
+    "prev": "上一步",
+    "done": "开始使用",
+    "steps": {
+      "hero": {
+        "title": "你的研究工作台",
+        "description": "直接输入研究问题，或用 <code>/full-research</code>、<code>/idea-to-results</code> 等斜杠命令让 agent 从选题、数据、回归到写作一气呵成。"
+      },
+      "attachments": {
+        "title": "挂载本地数据与文献",
+        "description": "数据集（<code>.csv</code> / <code>.dta</code> / <code>.xlsx</code>）会被自动识别结构；论文 PDF 会作为背景文献让 agent 引用。"
+      },
+      "provider": {
+        "title": "切换 Provider 和模型",
+        "description": "首次使用请先到「设置 → 模型与技能」填 API Key，否则无法调用 agent。"
+      },
+      "send": {
+        "title": "Enter 发送，Shift+Enter 换行",
+        "description": "Agent 跑起来后这里会变成红色停止按钮——随时可以打断，已生成的内容不会丢。"
+      }
+    }
+  },
+  "runtime": {
+    "detecting": "正在检测研究环境…",
+    "installTitle": "首次启动：安装研究环境",
+    "installDesc": "Coase 内置了一套独立的 R + Python 计量研究环境（fixest / plm / statsmodels / linearmodels 等），与你电脑上已有的 R 或 Python 完全隔离。",
+    "bullets": {
+      "downloadSize": "安装过程会从 conda-forge 下载并解包，约 1.5–3 GB，需要联网",
+      "isolation": "装好后所有 agent 子进程会自动使用这套 R / Python，不再依赖系统 PATH",
+      "rootDir": "目录：",
+      "duration": "第一次可能要 5–15 分钟，下次启动只做 fs 检测，瞬间过"
+    },
+    "startInstall": "开始安装",
+    "installingTitle": "正在安装研究环境",
+    "installingFallback": "pixi install 进行中…",
+    "logsEmpty": "（尚无输出，pixi 正在解析依赖…）",
+    "installNote": "这个过程只在首次启动发生一次。你可以最小化窗口去做别的事——装完会自动进入主界面。",
+    "errorTitle": "安装失败",
+    "errorFallback": "研究环境未能就绪。",
+    "logsExpand": "最近 {{count}} 行 pixi 输出",
+    "retryInstall": "重试安装"
+  },
+  "artifactPreview": {
+    "title": "产物预览",
+    "sourceFile": "源文件",
+    "openOriginal": "打开原文件"
+  },
+  "sessionDetail": {
+    "title": "会话详情",
+    "tabs": {
+      "meta": "元数据",
+      "log": "对话记录",
+      "artifacts": "产物与里程碑"
+    },
+    "actions": {
+      "resume": "继续研究",
+      "resuming": "继续中…",
+      "close": "关闭"
+    },
+    "meta": {
+      "startedAt": "开始时间",
+      "endedAt": "结束时间",
+      "duration": "时长",
+      "userMessages": "用户消息数",
+      "agentTurns": "代理轮次",
+      "provider": "服务提供方",
+      "providerFallback": "环境变量",
+      "model": "模型",
+      "baseURL": "接口地址",
+      "totalCost": "累计成本",
+      "totalTokens": "累计 Token",
+      "sdkSessionId": "Claude 会话 ID",
+      "result": "结果",
+      "dash": "—"
+    },
+    "log": {
+      "empty": "该会话未持久化对话记录（旧会话或系统异常）"
+    },
+    "artifacts": {
+      "milestones": "里程碑",
+      "artifactsLabel": "产物",
+      "noMilestones": "当前没有可回放的里程碑",
+      "noArtifacts": "当前没有可回放的推断产物"
+    },
+    "footerHint": {
+      "resumable": "点击\"继续研究\"后，将回到当前聊天页，并基于 Claude 原生会话继续。",
+      "readOnly": "该历史会话缺少可恢复的 Claude 原生会话 ID，目前仅支持只读回放。"
+    },
+    "result": {
+      "interrupt": "已暂停，可继续研究",
+      "cancel": "已终止",
+      "success": "成功",
+      "failed": "失败",
+      "failedWithDetail": "失败 · {{message}}"
+    }
+  },
+  "insights": {
+    "notStarted": "尚未开始研究",
+    "runStarted": "研究已启动",
+    "stages": {
+      "planner": "研究规划已展开",
+      "datafetcher": "数据准备已展开",
+      "analyst": "分析阶段已展开",
+      "writer": "写作阶段已展开",
+      "reviewer": "审校阶段已展开"
+    },
+    "milestones": {
+      "interrupted": "自动运行已暂停，等待用户指导",
+      "failed": "研究运行已终止",
+      "completed": "自动运行已完成一轮研究输出"
+    },
+    "artifactTitles": {
+      "plan": "研究规划摘要",
+      "rScript": "R 脚本",
+      "resultsText": "分析结果摘要",
+      "draftSection": "论文草稿片段",
+      "reviewNote": "审校意见",
+      "table": "表格产物",
+      "figure": "图形产物",
+      "generatedFile": "生成文件",
+      "finalPaper": "论文稿件输出"
+    }
+  }
+}

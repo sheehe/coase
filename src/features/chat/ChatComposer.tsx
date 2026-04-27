@@ -1,5 +1,7 @@
 // 底部输入区：把研究输入、附件、模型和上下文提示收敛成单一主操作台。
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import type { AttachmentKind } from '../../../shared/ipc';
 import type { ProviderRecord } from '../../../shared/providers';
@@ -24,32 +26,32 @@ import {
   type SlashCommandDef,
 } from './slash-commands';
 
-const ATTACHMENT_ACTIONS: Array<{
-  kind: AttachmentKind;
-  title: string;
-  description: string;
-}> = [
-  {
-    kind: 'dataset_folder',
-    title: '添加数据集文件夹',
-    description: '告诉 agent 数据集目录在哪，让它自行读取和检索。',
-  },
-  {
-    kind: 'data_file',
-    title: '添加数据文件',
-    description: '附加单个或多个数据文件，例如 CSV、Excel、Stata、Parquet。',
-  },
-  {
-    kind: 'paper_file',
-    title: '添加参考论文',
-    description: '附加 PDF、TeX、Bib 或文稿，让 agent 自行阅读并引用。',
-  },
-  {
-    kind: 'other_file',
-    title: '添加其他文件',
-    description: '附加补充材料、说明文档、代码、附录或任意其他本地文件。',
-  },
-];
+function buildAttachmentActions(
+  t: TFunction<'chat'>,
+): Array<{ kind: AttachmentKind; title: string; description: string }> {
+  return [
+    {
+      kind: 'dataset_folder',
+      title: t('composer.attachments.datasetFolderTitle'),
+      description: t('composer.attachments.datasetFolderDesc'),
+    },
+    {
+      kind: 'data_file',
+      title: t('composer.attachments.dataFileTitle'),
+      description: t('composer.attachments.dataFileDesc'),
+    },
+    {
+      kind: 'paper_file',
+      title: t('composer.attachments.paperFileTitle'),
+      description: t('composer.attachments.paperFileDesc'),
+    },
+    {
+      kind: 'other_file',
+      title: t('composer.attachments.otherFileTitle'),
+      description: t('composer.attachments.otherFileDesc'),
+    },
+  ];
+}
 
 function formatCompactTokens(value: number) {
   if (value >= 1000) {
@@ -68,20 +70,22 @@ function resolveUsedTokens(
   return contextUsage?.totalTokens ?? totalTokens;
 }
 
-function attachmentKindLabel(kind: AttachmentKind) {
+function attachmentKindLabel(kind: AttachmentKind, t: TFunction<'chat'>) {
   switch (kind) {
     case 'dataset_folder':
-      return '数据集文件夹';
+      return t('composer.attachments.kindDatasetFolder');
     case 'data_file':
-      return '数据文件';
+      return t('composer.attachments.kindDataFile');
     case 'paper_file':
-      return '参考论文';
+      return t('composer.attachments.kindPaperFile');
     default:
-      return '其他文件';
+      return t('composer.attachments.kindOtherFile');
   }
 }
 
 export default function ChatComposer() {
+  const { t } = useTranslation('chat');
+  const ATTACHMENT_ACTIONS = useMemo(() => buildAttachmentActions(t), [t]);
   const {
     input,
     setInput,
@@ -248,14 +252,14 @@ export default function ChatComposer() {
 
   const footerHint =
     runStatus === 'awaiting_user_guidance'
-      ? '输入指导意见后按 Enter，Coase 会在当前研究基础上继续。'
+      ? t('composer.footerHint.guidance')
       : runStatus === 'completed'
-        ? '结果已生成；你仍可继续给出修改建议。'
+        ? t('composer.footerHint.completed')
         : chatState === 'idle'
-          ? '按 Enter 开始一项新研究'
+          ? t('composer.footerHint.idle')
           : chatState === 'waiting'
-            ? 'Enter 发送 · Shift+Enter 换行'
-            : '自动研究正在运行，可通过右侧暂停按钮打断';
+            ? t('composer.footerHint.waiting')
+            : t('composer.footerHint.running');
 
   const actualContextWindowTokens = contextUsage?.maxTokens ?? contextUsage?.rawMaxTokens;
   const fallbackContextWindowTokens = Math.max(resolveUsedTokens(totalTokens, contextUsage), 1);
@@ -379,7 +383,7 @@ export default function ChatComposer() {
             className="absolute bottom-[calc(100%+10px)] left-0 right-0 z-40 overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
           >
             <div className="flex items-center gap-2 border-b border-border/80 px-4 py-2 text-[13px] text-fg">
-              <span className="font-medium">技能</span>
+              <span className="font-medium">{t('composer.skillPickerTitle')}</span>
             </div>
             <div className="slash-command-scroll max-h-[320px] overflow-y-auto py-0.5">
               {visibleSlashCommands.map((command, index) => (
@@ -423,7 +427,7 @@ export default function ChatComposer() {
           {sessionId !== null && chatState !== 'running' && (
             <button
               type="button"
-              title="开始新研究"
+              title={t('composer.newResearchTitle')}
               onClick={() => void onNewSession()}
               className="absolute right-4 top-4 rounded-full p-1.5 text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
             >
@@ -435,8 +439,8 @@ export default function ChatComposer() {
             <div className="mx-4 mt-4 flex items-start gap-2 rounded-2xl border border-border bg-app px-3 py-2 text-[12px] text-fg-muted">
               <AlertCircle size={13} className="mt-0.5 shrink-0 text-fg-subtle" />
               <div>
-                <div className="font-medium text-fg">当前自动运行已暂停</div>
-                <div className="mt-0.5">直接输入你的纠偏建议，Coase 会在既有研究记忆上继续。</div>
+                <div className="font-medium text-fg">{t('composer.guidancePauseTitle')}</div>
+                <div className="mt-0.5">{t('composer.guidancePauseDesc')}</div>
               </div>
             </div>
           )}
@@ -470,7 +474,7 @@ export default function ChatComposer() {
                   </span>
                   <button
                     type="button"
-                    aria-label={`移除 ${command.title}`}
+                    aria-label={t('composer.removeCommand', { title: command.title })}
                     onClick={() => removeSelectedCommand(command.id)}
                     className="shrink-0 text-fg-subtle transition hover:text-fg"
                   >
@@ -489,11 +493,13 @@ export default function ChatComposer() {
                   className="inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-app px-3 py-1 text-[11px] text-fg-muted"
                   title={attachment.path}
                 >
-                  <span className="shrink-0 text-fg-subtle">{attachmentKindLabel(attachment.kind)}</span>
+                  <span className="shrink-0 text-fg-subtle">
+                    {attachmentKindLabel(attachment.kind, t)}
+                  </span>
                   <span className="truncate text-fg">{attachment.name}</span>
                   <button
                     type="button"
-                    aria-label="移除附件"
+                    aria-label={t('composer.attachments.removeAttachment')}
                     onClick={() => removeAttachment(attachment.id)}
                     className="shrink-0 text-fg-subtle transition hover:text-fg"
                   >
@@ -511,7 +517,7 @@ export default function ChatComposer() {
                 type="button"
                 data-coach-attachments
                 onClick={() => setAttachmentPanelOpen((open) => !open)}
-                title="添加本地文件"
+                title={t('composer.attachments.buttonTitle')}
                 className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04] ${
                   attachmentPanelOpen ? 'bg-black/[0.04] text-fg dark:bg-white/[0.04]' : ''
                 }`}
@@ -525,7 +531,7 @@ export default function ChatComposer() {
                   className="absolute bottom-[calc(100%+10px)] left-0 z-30 w-[420px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
                 >
                   <div className="border-b border-border/80 px-4 py-2 text-[13px] text-fg">
-                    <span className="font-medium">添加本地文件</span>
+                    <span className="font-medium">{t('composer.attachments.panelTitle')}</span>
                   </div>
 
                   <div className="py-1">
@@ -552,9 +558,13 @@ export default function ChatComposer() {
                             </div>
                           </div>
                           {pickingKind === action.kind ? (
-                            <div className="shrink-0 text-[11px] text-fg-muted">选择中…</div>
+                            <div className="shrink-0 text-[11px] text-fg-muted">
+                              {t('composer.attachments.picking')}
+                            </div>
                           ) : (
-                            <div className="shrink-0 text-[12px] text-fg-muted">本地</div>
+                            <div className="shrink-0 text-[12px] text-fg-muted">
+                              {t('composer.attachments.local')}
+                            </div>
                           )}
                         </div>
                       </button>
@@ -572,8 +582,8 @@ export default function ChatComposer() {
                   ref={workflowButtonRef}
                   type="button"
                   onClick={() => setWorkflowPanelOpen((open) => !open)}
-                  title="选择工作流"
-                  aria-label="选择工作流"
+                  title={t('composer.workflowButtonTitle')}
+                  aria-label={t('composer.workflowButtonTitle')}
                   className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04] ${
                     workflowPanelOpen || selectedCommands.length > 0
                       ? 'bg-black/[0.04] text-fg dark:bg-white/[0.04]'
@@ -589,9 +599,9 @@ export default function ChatComposer() {
                     className="absolute bottom-[calc(100%+10px)] left-0 z-30 w-[460px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-[0_16px_40px_rgba(0,0,0,0.08)]"
                   >
                     <div className="border-b border-border/80 px-4 py-2 text-[13px] text-fg">
-                      <span className="font-medium">选择工作流</span>
+                      <span className="font-medium">{t('composer.workflowPickerTitle')}</span>
                       <span className="ml-2 text-[11px] text-fg-subtle">
-                        也可以直接在输入框里用 / 触发
+                        {t('composer.workflowPickerHint')}
                       </span>
                     </div>
 
@@ -667,7 +677,7 @@ export default function ChatComposer() {
 
             <div className="group relative ml-auto">
               <div
-                title="上下文窗口"
+                title={t('composer.contextWindow.title')}
                 className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface"
               >
                 <div
@@ -680,11 +690,18 @@ export default function ChatComposer() {
               </div>
 
               <div className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-20 hidden w-[250px] -translate-x-1/2 rounded-2xl border border-border bg-surface p-3 text-left shadow-sm group-hover:block">
-                <div className="text-[12px] font-medium text-fg">背景信息窗口：{usedPercentText}</div>
-                <div className="mt-2 text-[12px] text-fg">
-                  已用 {usedTokensText} 标记，共 {contextWindowText}
+                <div className="text-[12px] font-medium text-fg">
+                  {t('composer.contextWindow.ratio', { percent: usedPercentText })}
                 </div>
-                <div className="mt-2 text-[11px] text-fg-subtle">Coase 会自动管理背景信息窗口</div>
+                <div className="mt-2 text-[12px] text-fg">
+                  {t('composer.contextWindow.usage', {
+                    used: usedTokensText,
+                    total: contextWindowText,
+                  })}
+                </div>
+                <div className="mt-2 text-[11px] text-fg-subtle">
+                  {t('composer.contextWindow.autoNote')}
+                </div>
                 {topCategories.length > 0 && (
                   <div className="mt-3 space-y-1">
                     {topCategories.map((category) => (
@@ -706,7 +723,7 @@ export default function ChatComposer() {
                 type="button"
                 data-coach-send
                 onClick={() => void onCancel()}
-                title="终止本次研究"
+                title={t('composer.stopRun')}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-danger/30 text-danger transition hover:bg-danger/5"
               >
                 <Square size={13} />
@@ -728,7 +745,7 @@ export default function ChatComposer() {
         <div className="mt-2 text-center text-[11px] text-fg-subtle">{footerHint}</div>
         {guidanceHistory.length > 0 && (
           <div className="mt-1 text-center text-[11px] text-fg-subtle">
-            已记录 {guidanceHistory.length} 条指导
+            {t('composer.guidanceCount', { count: guidanceHistory.length })}
           </div>
         )}
       </div>

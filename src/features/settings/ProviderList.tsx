@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
@@ -20,29 +22,30 @@ export default function ProviderList({
   onSetActive,
   onAdd,
 }: Props) {
-  const activeLabel = providers.find((p) => p.id === activeId)?.label ?? '未设置';
+  const { t } = useTranslation('settings');
+  const activeLabel = providers.find((p) => p.id === activeId)?.label ?? t('providers.noneActive');
 
   return (
     <Card className="overflow-hidden">
       <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">模型提供方</div>
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
+            {t('providers.title')}
+          </div>
           <div className="mt-1 text-[13px] leading-6 text-fg-muted">
             {providers.length === 0
-              ? '还没有模型提供方。新增一个，或者继续使用环境变量。'
-              : `${providers.length} 个模型提供方，当前启用：${activeLabel}`}
+              ? t('providers.subtitleEmpty')
+              : t('providers.subtitleWithCount', { count: providers.length, label: activeLabel })}
           </div>
         </div>
 
         <Button size="sm" onClick={onAdd} className="shrink-0 rounded-full px-3.5">
-          新增
+          {t('providers.add')}
         </Button>
       </CardBody>
 
       {providers.length === 0 ? (
-        <div className="px-5 py-12 text-sm text-fg-subtle">
-          还没有模型提供方。新增一个，或者继续使用环境变量。
-        </div>
+        <div className="px-5 py-12 text-sm text-fg-subtle">{t('providers.emptyHint')}</div>
       ) : (
         <ul className="divide-y divide-border">
           {providers.map((provider, index) => (
@@ -77,6 +80,7 @@ function ProviderRow({
   onDelete: () => void;
   onSetActive: () => void;
 }) {
+  const { t } = useTranslation('settings');
   return (
     <li className="px-5 py-4">
       <div className="flex items-start gap-4">
@@ -89,7 +93,7 @@ function ProviderRow({
               ? 'border-success bg-success'
               : 'border-border-strong bg-transparent hover:border-fg-muted',
           ].join(' ')}
-          aria-label={isActive ? '当前已启用' : '设为已启用'}
+          aria-label={isActive ? t('providers.currentActive') : t('providers.setActive')}
           aria-pressed={isActive}
         />
 
@@ -100,7 +104,7 @@ function ProviderRow({
             </span>
             <span className="truncate text-[14px] font-medium text-fg">{provider.label}</span>
             <Badge tone="neutral">{provider.protocol}</Badge>
-            {isActive && <Badge tone="emerald">已启用</Badge>}
+            {isActive && <Badge tone="emerald">{t('providers.active')}</Badge>}
           </div>
 
           <div className="ml-8 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
@@ -111,10 +115,10 @@ function ProviderRow({
 
         <div className="flex shrink-0 items-center gap-2">
           <Button size="sm" variant="ghost" onClick={onEdit} className="rounded-full px-3">
-            编辑
+            {t('providers.edit')}
           </Button>
           <Button size="sm" variant="destructive" onClick={onDelete} className="rounded-full px-3">
-            删除
+            {t('providers.delete')}
           </Button>
         </div>
       </div>

@@ -82,7 +82,13 @@ export interface SessionTokenRow {
   totalTokens: number;
 }
 
-export function aggregateUsage(sessions: SessionLogEntry[]) {
+export interface AggregateUsageOptions {
+  /** Provider 没有 label / id 时的兜底显示文案。默认走中文 "(未命名)"，UI 层应注入本地化文案。 */
+  unnamedLabel?: string;
+}
+
+export function aggregateUsage(sessions: SessionLogEntry[], opts: AggregateUsageOptions = {}) {
+  const unnamedLabel = opts.unnamedLabel ?? '(未命名)';
   const now = Date.now();
   const today0 = dayStart(now);
   const month0 = monthStart(now);
@@ -103,7 +109,7 @@ export function aggregateUsage(sessions: SessionLogEntry[]) {
     if (entry.startedAt >= today0) todayBucket = fold(todayBucket, entry);
 
     const providerKey = entry.providerId ?? entry.providerLabel ?? '(unknown)';
-    const providerLabel = entry.providerLabel ?? entry.providerId ?? '(未命名)';
+    const providerLabel = entry.providerLabel ?? entry.providerId ?? unnamedLabel;
     const priorProvider = perProvider.get(providerKey);
     perProvider.set(providerKey, {
       key: providerKey,

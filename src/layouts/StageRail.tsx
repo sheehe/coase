@@ -2,12 +2,15 @@
 // 同时保留本会话的 token & 运行时长简要指标。取代早期的 Idea/Execute/Writer/Reviewer
 // 阶段栏——那个粒度太粗，静默时间过长，看不出 agent 活着还是卡了。
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { useChat } from '../features/chat/ChatContext';
 import type { LiveTurnUsage } from '../features/chat/sessions-store';
 import type { TranscriptEntry } from '../features/chat/TranscriptMessage';
 
 export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'hero' }) {
+  const { t } = useTranslation('chat');
   const { transcript, chatState, runStatus, liveTurnUsage } = useChat();
   const metrics = summarizeTranscript(transcript, chatState === 'running', liveTurnUsage);
 
@@ -19,7 +22,7 @@ export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'he
     return () => window.clearInterval(id);
   }, [chatState]);
 
-  const activity = summarizeLiveActivity(transcript, chatState, runStatus);
+  const activity = summarizeLiveActivity(transcript, chatState, runStatus, t);
 
   const rail = (
     <div
@@ -34,11 +37,11 @@ export default function StageRail({ variant = 'page' }: { variant?: 'page' | 'he
 
       {variant === 'page' && (
         <div className="ml-auto flex shrink-0 items-center gap-4 text-[11px] font-mono text-fg-muted">
-          <span title="历轮 input token 累计（计费口径，非当前上下文占用）——每轮 input 包含当时的完整历史，累加会跨轮重复，用来估算真实 token 消耗总量">
-            Input {formatNumber(metrics.inputTokens)}
+          <span title={t('stage.tokenInputTitle')}>
+            {t('stage.tokenInputLabel')} {formatNumber(metrics.inputTokens)}
           </span>
-          <span title="历轮 output token 累计（assistant 生成的全部 token）">
-            Output {formatNumber(metrics.outputTokens)}
+          <span title={t('stage.tokenOutputTitle')}>
+            {t('stage.tokenOutputLabel')} {formatNumber(metrics.outputTokens)}
           </span>
           <span>{metrics.durationMs == null ? '—' : formatDuration(metrics.durationMs)}</span>
         </div>
@@ -132,6 +135,7 @@ function summarizeLiveActivity(
   transcript: TranscriptEntry[],
   chatState: ChatStateLite,
   runStatus: RunStatusLite,
+  t: TFunction<'chat'>,
 ): LiveActivity {
   const now = Date.now();
 
@@ -203,7 +207,7 @@ function summarizeLiveActivity(
         ts: entry.ts,
       };
     }
-    if (!lastStatus && entry.kind === 'status' && !shouldSkipStatusForPill(entry.text)) {
+    if (!lastStatus && entry.kind === 'status' && !shouldSkipStatusForPill(entry.text, t)) {
       lastStatus = entry.text;
     }
     if (!lastAssistantTs && entry.kind === 'assistant') {
@@ -229,22 +233,26 @@ function summarizeLiveActivity(
   if (pendingRetry && !sawSuccessAfterRetry && chatState !== 'idle') {
     const elapsedMs = now - pendingRetry.ts;
     const remainSec = Math.max(0, Math.round((pendingRetry.nextDelayMs - elapsedMs) / 1000));
-    const detail = remainSec > 0 ? `下次 ${remainSec}s` : '正在重发';
+    const detail =
+      remainSec > 0 ? t('stage.retryNextIn', { seconds: remainSec }) : t('stage.retryRetrying');
     return {
       state: 'working',
-      label: `LLM 调用失败，重试 ${pendingRetry.attempt}/${pendingRetry.maxAttempts}`,
+      label: t('stage.retryLabel', {
+        attempt: pendingRetry.attempt,
+        maxAttempts: pendingRetry.maxAttempts,
+      }),
       detail,
     };
   }
 
   if (runStatus === 'failed') {
-    return { state: 'error', label: '运行出错' };
+    return { state: 'error', label: t('stage.runFailed') };
   }
   if (runStatus === 'cancelled') {
-    return { state: 'idle', label: '已取消' };
+    return { state: 'idle', label: t('stage.runCancelled') };
   }
   if (runStatus === 'awaiting_user_guidance') {
-    return { state: 'waiting', label: '已暂停，等待你的纠偏建议' };
+    return { state: 'waiting', label: t('stage.runAwaitingGuidance') };
   }
 
   // running tool 最直观：显示工具名 + 参数摘要 + 已跑 Xs
@@ -252,7 +260,7 @@ function summarizeLiveActivity(
     const elapsed = Math.max(0, Math.round((now - activeToolUse.ts) / 1000));
     return {
       state: 'working',
-      label: describeToolUse(activeToolUse.name, activeToolUse.input),
+      label: describeToolUse(activeToolUse.name, activeToolUse.input, t),
       detail: elapsed > 0 ? `${elapsed}s` : undefined,
     };
   }
@@ -263,24 +271,26 @@ function summarizeLiveActivity(
     (latestSubagent.phase === 'started' || latestSubagent.phase === 'progress')
   ) {
     const elapsed = Math.max(0, Math.round((now - latestSubagent.ts) / 1000));
-    const desc = latestSubagent.description ?? latestSubagent.lastToolName ?? '子代理工作中';
+    const desc =
+      latestSubagent.description ?? latestSubagent.lastToolName ?? t('stage.subagentDefaultDesc');
     return {
       state: 'working',
-      label: `子代理 · ${truncate(desc, 40)}`,
+      label: t('stage.subagentLabel', { description: truncate(desc, 40) }),
       detail: elapsed > 0 ? `${elapsed}s` : undefined,
     };
   }
 
   if (chatState === 'running') {
-    const toolDetail = toolUseCount > 0 ? `已调用 ${toolUseCount} 次工具` : undefined;
+    const toolDetail =
+      toolUseCount > 0 ? t('stage.toolDetail', { count: toolUseCount }) : undefined;
 
     // 最近有 assistant 流式输出（模型正在增量回答，比 thinking 更"出声"）
     if (lastAssistantTs && now - lastAssistantTs < 4000) {
       return {
         state: 'working',
         label: lastAssistantSnippet
-          ? `正在回答：${lastAssistantSnippet}…`
-          : '正在回答…',
+          ? t('stage.answeringWithSnippet', { snippet: lastAssistantSnippet })
+          : t('stage.answering'),
       };
     }
     // 最近有 thinking 事件（extended thinking 模型会持续吐思考块）。窗口从 8s 放
@@ -288,7 +298,9 @@ function summarizeLiveActivity(
     if (lastThinkingTs && now - lastThinkingTs < 15000) {
       return {
         state: 'working',
-        label: lastThinkingSnippet ? `思考中 · ${lastThinkingSnippet}…` : '思考中…',
+        label: lastThinkingSnippet
+          ? t('stage.thinkingWithSnippet', { snippet: lastThinkingSnippet })
+          : t('stage.thinking'),
       };
     }
     // tool 刚跑完、下一个 LLM 响应还没到的空窗（最多 12s）——显示"刚完成 X · 等待
@@ -300,7 +312,7 @@ function summarizeLiveActivity(
     ) {
       return {
         state: 'working',
-        label: `刚完成 ${lastCompletedToolName} · 等待 LLM 下一步…`,
+        label: t('stage.toolFinishedWaiting', { tool: lastCompletedToolName }),
         detail: toolDetail,
       };
     }
@@ -321,12 +333,12 @@ function summarizeLiveActivity(
       lastAnyEventTs > 0 ? Math.max(0, Math.round((now - lastAnyEventTs) / 1000)) : 0;
     return {
       state: 'working',
-      label: '等待 LLM 响应…',
+      label: t('stage.waitingResponse'),
       detail:
         silenceSec > 2
           ? toolDetail
-            ? `${toolDetail} · 已静默 ${silenceSec}s`
-            : `已静默 ${silenceSec}s`
+            ? t('stage.silenceWithTool', { toolDetail, seconds: silenceSec })
+            : t('stage.silenceDetail', { seconds: silenceSec })
           : toolDetail,
     };
   }
@@ -334,34 +346,46 @@ function summarizeLiveActivity(
   if (chatState === 'waiting') {
     return {
       state: 'waiting',
-      label: lastStatus ? truncate(lastStatus, 60) : '等待用户输入',
+      label: lastStatus ? truncate(lastStatus, 60) : t('stage.waitingUserInput'),
     };
   }
 
   if (runStatus === 'completed') {
     return {
       state: 'done',
-      label: lastStatus ? truncate(lastStatus, 60) : '本轮已完成',
+      label: lastStatus ? truncate(lastStatus, 60) : t('stage.turnDone'),
     };
   }
 
-  return { state: 'idle', label: '空闲中 · 随时开始新研究' };
+  return { state: 'idle', label: t('stage.idleHint') };
 }
 
 // 启动噪声 / 非"当前在做什么"的 status 要在顶栏里吃掉，否则会被当 fallback 顶几分钟。
 // 与 TranscriptMessage.shouldHideStatus 同源，扩了几条已知的一次性公告。
-function shouldSkipStatusForPill(text: string): boolean {
-  const t = text.trim();
-  if (/^本次研究可按需调用\s+\d+\s+个子代理$/.test(t)) return true;
-  if (/^技能插件加载出现\s+\d+\s+个错误/.test(t)) return true;
-  if (/^已从记忆中召回\s+\d+\s+条相关内容$/.test(t)) return true;
+//
+// session_started 横幅由 sessions-store 写入，跟当前 i18n 语言走，但用户切语言或
+// 历史会话中横幅文字仍可能是另一种语言。这里同时识别中英两种字面量，避免漏过。
+const SESSION_STARTED_BANNER_ZH = '研究已启动，自动运行中';
+const SESSION_STARTED_BANNER_EN = 'Research started, running automatically';
+
+function shouldSkipStatusForPill(text: string, t: TFunction<'chat'>): boolean {
+  const trimmed = text.trim();
+  if (/^本次研究可按需调用\s+\d+\s+个子代理$/.test(trimmed)) return true;
+  if (/^技能插件加载出现\s+\d+\s+个错误/.test(trimmed)) return true;
+  if (/^已从记忆中召回\s+\d+\s+条相关内容$/.test(trimmed)) return true;
   // session_started 的初始横幅一旦有真活动就不该再作为 fallback，否则会在整个会话
   // 里盖住"实际在干啥"。transcript 里仍然保留做分割线。
-  if (t === '研究已启动，自动运行中') return true;
+  if (
+    trimmed === SESSION_STARTED_BANNER_ZH ||
+    trimmed === SESSION_STARTED_BANNER_EN ||
+    trimmed === t('transcript.skipStatus.sessionStartedBanner')
+  ) {
+    return true;
+  }
   return false;
 }
 
-function describeToolUse(name: string, rawInput: unknown): string {
+function describeToolUse(name: string, rawInput: unknown, t: TFunction<'chat'>): string {
   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<
     string,
     unknown
@@ -377,43 +401,44 @@ function describeToolUse(name: string, rawInput: unknown): string {
     case 'Edit':
     case 'NotebookEdit': {
       const path = pickStr('file_path') ?? pickStr('notebook_path');
-      return path ? `${name} · ${shortenPath(path)}` : `正在调用 ${name}`;
+      return path ? `${name} · ${shortenPath(path)}` : t('stage.tool.calling', { name });
     }
     case 'Bash': {
       const cmd = pickStr('command');
-      return cmd ? `Bash · ${truncate(cmd, 48)}` : '正在调用 Bash';
+      return cmd ? `Bash · ${truncate(cmd, 48)}` : t('stage.tool.callingBash');
     }
     case 'Grep': {
       const pattern = pickStr('pattern');
       const path = pickStr('path');
       if (pattern && path) return `Grep · ${truncate(pattern, 28)} @ ${shortenPath(path)}`;
-      return pattern ? `Grep · ${truncate(pattern, 40)}` : '正在调用 Grep';
+      return pattern ? `Grep · ${truncate(pattern, 40)}` : t('stage.tool.callingGrep');
     }
     case 'Glob': {
       const pattern = pickStr('pattern');
-      return pattern ? `Glob · ${truncate(pattern, 40)}` : '正在调用 Glob';
+      return pattern ? `Glob · ${truncate(pattern, 40)}` : t('stage.tool.callingGlob');
     }
     case 'Agent':
     case 'Task': {
       const sub = pickStr('subagent_type');
       const desc = pickStr('description');
-      if (sub && desc) return `子代理 ${sub} · ${truncate(desc, 36)}`;
-      if (sub) return `子代理 ${sub}`;
-      if (desc) return `子代理 · ${truncate(desc, 40)}`;
-      return '正在调度子代理';
+      if (sub && desc)
+        return t('stage.tool.subagentLabelDual', { type: sub, desc: truncate(desc, 36) });
+      if (sub) return t('stage.tool.subagentLabelType', { type: sub });
+      if (desc) return t('stage.tool.subagentLabelDesc', { desc: truncate(desc, 40) });
+      return t('stage.tool.schedulingSubagent');
     }
     case 'WebFetch': {
       const url = pickStr('url');
-      return url ? `WebFetch · ${truncate(url, 48)}` : '正在调用 WebFetch';
+      return url ? `WebFetch · ${truncate(url, 48)}` : t('stage.tool.callingWebFetch');
     }
     case 'WebSearch': {
       const query = pickStr('query');
-      return query ? `WebSearch · ${truncate(query, 48)}` : '正在调用 WebSearch';
+      return query ? `WebSearch · ${truncate(query, 48)}` : t('stage.tool.callingWebSearch');
     }
     case 'TodoWrite':
-      return '更新任务清单';
+      return t('stage.tool.todoUpdate');
     default:
-      return `正在调用 ${name}`;
+      return t('stage.tool.calling', { name });
   }
 }
 

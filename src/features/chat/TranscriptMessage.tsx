@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import MarkdownContent from '../../components/MarkdownContent';
 import {
@@ -108,7 +110,10 @@ const COLLAPSIBLE_ICON_CLASS = 'text-fg-subtle/90';
 const COLLAPSIBLE_CHEVRON_CLASS = 'text-fg-subtle/80';
 
 export default function TranscriptMessage({ entry }: { entry: TranscriptEntry }) {
-  const time = new Date(entry.ts).toLocaleTimeString('zh-CN', { hour12: false });
+  const { t, i18n } = useTranslation('chat');
+  // 时间字面量随 UI 语言走。zh 用 24h zh-CN，en 用 24h en-US 也是 HH:MM:SS。
+  const locale = i18n.language === 'en' ? 'en-US' : 'zh-CN';
+  const time = new Date(entry.ts).toLocaleTimeString(locale, { hour12: false });
   const [expanded, setExpanded] = useState(false);
 
   switch (entry.kind) {
@@ -117,18 +122,22 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       return <DividerLabel text={entry.text} />;
     case 'provider':
       return null;
-    case 'turn_result':
+    case 'turn_result': {
+      const turnLabel = entry.ok ? t('transcript.turnDone') : t('transcript.turnFailed');
       return (
         <DividerLabel
-          text={`回合${entry.ok ? '完成' : '失败'} · ${entry.detail}`}
+          text={t('transcript.turnSummary', { label: turnLabel, detail: entry.detail })}
           danger={!entry.ok}
         />
       );
+    }
     case 'user':
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">你 · {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">
+              {t('transcript.you')} · {time}
+            </div>
             <div className="rounded-2xl rounded-tr-md border border-border bg-surface px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -139,7 +148,9 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       return (
         <div className="flex self-end">
           <div className="max-w-[80%]">
-            <div className="mb-1 text-right text-[11px] text-fg-subtle">指导 · {time}</div>
+            <div className="mb-1 text-right text-[11px] text-fg-subtle">
+              {t('transcript.guidance')} · {time}
+            </div>
             <div className="rounded-2xl rounded-tr-md border border-border-strong bg-app px-4 py-3 text-[14px] whitespace-pre-wrap text-fg">
               {entry.text}
             </div>
@@ -147,12 +158,15 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
         </div>
       );
     case 'subagent': {
-      const label = getSubagentPhaseLabel(entry.phase);
+      const label = getSubagentPhaseLabel(entry.phase, t);
       const metaParts: string[] = [];
-      if (typeof entry.toolUses === 'number') metaParts.push(`${entry.toolUses} 调用`);
+      if (typeof entry.toolUses === 'number')
+        metaParts.push(t('transcript.subagentInvocations', { count: entry.toolUses }));
       if (typeof entry.durationMs === 'number') metaParts.push(formatDuration(entry.durationMs));
       if (typeof entry.totalTokens === 'number') metaParts.push(formatTokens(entry.totalTokens));
-      const headline = entry.lastToolName ? `最近：${entry.lastToolName}` : entry.text;
+      const headline = entry.lastToolName
+        ? t('transcript.subagentRecent', { tool: entry.lastToolName })
+        : entry.text;
       return (
         <div className="-mt-3">
           <button
@@ -182,7 +196,9 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
               )}
               <div>{entry.text}</div>
               {entry.lastToolName && (
-                <div className="text-fg-subtle">当前工具：{entry.lastToolName}</div>
+                <div className="text-fg-subtle">
+                  {t('transcript.subagentCurrentTool', { tool: entry.lastToolName })}
+                </div>
               )}
             </div>
           )}
@@ -199,8 +215,10 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center gap-2 text-[11px] text-fg-subtle">
-              <span>Coase · {time}</span>
-              {entry.streaming && <span className="text-accent">正在生成…</span>}
+              <span>
+                {t('transcript.assistantTitle')} · {time}
+              </span>
+              {entry.streaming && <span className="text-accent">{t('transcript.streaming')}</span>}
             </div>
             <MarkdownContent
               content={entry.text}
@@ -242,7 +260,9 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       );
     }
     case 'tool_result': {
-      const label = entry.isError ? 'Error' : 'Output';
+      const label = entry.isError
+        ? t('transcript.errorOutput')
+        : t('transcript.successOutput');
       return (
         <div className="-mt-3">
           <button
@@ -281,12 +301,17 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
       // 结构化的失败详情 pill：默认折起只显示一行摘要，展开看 provider/model/
       // subtype/stderr。颜色走 fg-muted（正常），和其他 pill 一致，不用红色以免
       // 和指数退避"稍后自动重试"的语境冲突——真正终止的失败会另外有 error 卡片。
-      const phaseLabel = entry.phase === 'api_error' ? 'LLM API 调用失败' : 'LLM 流中断';
+      const phaseLabel =
+        entry.phase === 'api_error'
+          ? t('transcript.llmFail.apiError')
+          : t('transcript.llmFail.streamError');
       const subtitleParts: string[] = [];
       if (entry.providerLabel) subtitleParts.push(entry.providerLabel);
       if (entry.model) subtitleParts.push(entry.model);
       if (entry.subtype) subtitleParts.push(entry.subtype);
-      subtitleParts.push(entry.willRetry ? '将自动重试' : '已放弃重试');
+      subtitleParts.push(
+        entry.willRetry ? t('transcript.llmFail.willRetry') : t('transcript.llmFail.gaveUp'),
+      );
       return (
         <div className="-mt-3">
           <button
@@ -306,12 +331,16 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           {expanded && (
             <div className="mt-1 space-y-2 rounded-2xl border border-border/60 bg-surface px-2 py-2 text-[10.5px] leading-5 text-fg-muted">
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">错误信息</div>
+                <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">
+                  {t('transcript.llmFail.errorHeader')}
+                </div>
                 <pre className="mt-0.5 overflow-x-auto whitespace-pre-wrap">{entry.errorMessage}</pre>
               </div>
               {entry.stderrTail && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">stderr 尾</div>
+                  <div className="text-[10px] uppercase tracking-wide text-fg-subtle/90">
+                    {t('transcript.llmFail.stderrHeader')}
+                  </div>
                   <pre className="mt-0.5 overflow-x-auto whitespace-pre-wrap text-fg-subtle">
                     {entry.stderrTail}
                   </pre>
@@ -329,10 +358,16 @@ export default function TranscriptMessage({ entry }: { entry: TranscriptEntry })
           <span className={COLLAPSIBLE_PILL_CLASS}>
             <CoaseMark size={10} className={COLLAPSIBLE_ICON_CLASS} />
             <span className="font-medium text-fg-muted">
-              重试 {entry.attempt}/{entry.maxAttempts}
+              {t('transcript.retry.label', {
+                attempt: entry.attempt,
+                maxAttempts: entry.maxAttempts,
+              })}
             </span>
             <span className="text-[10px] text-fg-subtle/80">
-              {delaySeconds}s 后自动重发 · {entry.reason.slice(0, 60)}
+              {t('transcript.retry.delay', {
+                seconds: delaySeconds,
+                reason: entry.reason.slice(0, 60),
+              })}
             </span>
           </span>
         </div>
@@ -356,18 +391,18 @@ function DividerLabel({ text, danger = false }: { text: string; danger?: boolean
   );
 }
 
-function getSubagentPhaseLabel(phase: SubagentPhase) {
+function getSubagentPhaseLabel(phase: SubagentPhase, t: TFunction<'chat'>) {
   switch (phase) {
     case 'started':
-      return 'Start';
+      return t('transcript.subagentPhase.started');
     case 'progress':
-      return 'Running';
+      return t('transcript.subagentPhase.progress');
     case 'completed':
-      return 'Done';
+      return t('transcript.subagentPhase.completed');
     case 'failed':
-      return 'Failed';
+      return t('transcript.subagentPhase.failed');
     default:
-      return 'Stopped';
+      return t('transcript.subagentPhase.stopped');
   }
 }
 
@@ -386,8 +421,9 @@ function LiveTimer({ elapsedSeconds, baseTs }: { elapsedSeconds: number; baseTs:
 }
 
 function ThinkingPill({ text }: { text: string }) {
+  const { t } = useTranslation('chat');
   const [expanded, setExpanded] = useState(false);
-  const preview = text.trim().split(/\r?\n/)[0]?.slice(0, 60) ?? 'thinking';
+  const preview = text.trim().split(/\r?\n/)[0]?.slice(0, 60) ?? t('transcript.thinkingDefault');
   return (
     <div className="-mt-3">
       <button

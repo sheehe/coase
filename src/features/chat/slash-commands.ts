@@ -1,4 +1,9 @@
+import i18n from '../../lib/i18n';
 import type { SkillInfo } from '../../../shared/skills';
+
+function tt(key: string, options?: Record<string, unknown>): string {
+  return i18n.t(key, { ns: 'chat', ...(options ?? {}) }) as string;
+}
 
 export type SlashCommandKind = 'workflow' | 'skill';
 
@@ -26,15 +31,19 @@ export interface SelectedSlashCommand {
   guidance: string;
 }
 
-const WORKFLOW_ALIASES: SlashCommandDef[] = [
+// Workflow aliases 定义：title / aliases / guidance 用裸字符串保留——guidance 是
+// 注入给 LLM 的 runtime prompt（中文写得更精确，多模型都能理解，没必要翻）。
+// description / sourceLabel 走 i18n，因为是用户在 slash 选择器里看到的可见文本。
+function buildWorkflowAliases(): SlashCommandDef[] {
+  return [
   {
     id: 'full-research',
     trigger: '/full-research',
     title: 'Full Research Pipeline',
-    description: '从零到结果的完整流程',
+    description: tt('slash.descriptions.fullResearch'),
     kind: 'workflow',
     source: 'alias',
-    sourceLabel: '工作流',
+    sourceLabel: tt('slash.sourceLabel.workflow'),
     aliases: ['完整研究', '从零开始', '找方向', 'full pipeline', '全流程'],
     targetSkills: ['full_research_workflow'],
     guidance: [
@@ -48,10 +57,10 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'idea-to-results',
     trigger: '/idea-to-results',
     title: 'Idea to Results',
-    description: '已有 idea，设计到结果',
+    description: tt('slash.descriptions.ideaToResults'),
     kind: 'workflow',
     source: 'alias',
-    sourceLabel: '工作流',
+    sourceLabel: tt('slash.sourceLabel.workflow'),
     aliases: ['从idea到结果', '有想法跑实验', 'idea-discovery', '选题已定'],
     targetSkills: ['planner_workflow', 'executor_workflow'],
     guidance: [
@@ -64,10 +73,10 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'run-experiment',
     trigger: '/run-experiment',
     title: 'Run Experiment',
-    description: '已锁 baseline，执行与诊断',
+    description: tt('slash.descriptions.runExperiment'),
     kind: 'workflow',
     source: 'alias',
-    sourceLabel: '工作流',
+    sourceLabel: tt('slash.sourceLabel.workflow'),
     aliases: ['跑实验', '跑主回归', '执行', 'experiment-bridge', '实验桥接'],
     targetSkills: ['executor_workflow'],
     guidance: [
@@ -80,10 +89,10 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
     id: 'review',
     trigger: '/review',
     title: 'Proposal Review',
-    description: '对 idea / 研究方案做对抗评审',
+    description: tt('slash.descriptions.review'),
     kind: 'workflow',
     source: 'alias',
-    sourceLabel: '工作流',
+    sourceLabel: tt('slash.sourceLabel.workflow'),
     aliases: ['审阅', '方案评审', 'idea评审', '对抗审阅', 'paper-review', 'review'],
     targetSkills: ['paper-reviewer'],
     guidance: [
@@ -92,14 +101,16 @@ const WORKFLOW_ALIASES: SlashCommandDef[] = [
       '聚合所有 referee report，按"共识项 / 重大分歧 / 单一模型独有"三档排序，转成可执行 todo 清单。只输出意见，不代用户改方案或改稿。最终判定使用 APPROVE / REVISE 两态。',
     ].join('\n\n'),
   },
-];
+  ];
+}
 
-const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
+function buildSkillOverrides(): Map<string, Partial<SlashCommandDef>> {
+  return new Map<string, Partial<SlashCommandDef>>([
   [
     'planner_workflow',
     {
       title: 'Planner Workflow',
-      description: '规划型 workflow：从研究目标到 baseline 设计与阶段文档沉淀。',
+      description: tt('slash.descriptions.plannerWorkflow'),
       kind: 'workflow',
       aliases: ['planner', '规划工作流'],
       targetSkills: ['planner_workflow'],
@@ -110,7 +121,7 @@ const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
     'executor_workflow',
     {
       title: 'Executor Workflow',
-      description: '执行型 workflow：从方案落地到结果、表图和执行评估。',
+      description: tt('slash.descriptions.executorWorkflow'),
       kind: 'workflow',
       aliases: ['executor', '执行工作流'],
       targetSkills: ['executor_workflow'],
@@ -122,16 +133,22 @@ const SKILL_OVERRIDES = new Map<string, Partial<SlashCommandDef>>([
     'latex_compile_repair',
     {
       title: 'LaTeX Compile Repair',
-      description: '辅助 skill：定位和修复 LaTeX 编译错误。',
+      description: tt('slash.descriptions.latexCompileRepair'),
       kind: 'skill',
       aliases: ['latex 修复', '编译修复'],
       targetSkills: ['latex_compile_repair'],
       guidance: '仅在 LaTeX 编译失败或引用缺失时调用 latex_compile_repair。',
     },
   ],
-]);
+  ]);
+}
 
-const WORKFLOW_ALIAS_IDS = new Set(WORKFLOW_ALIASES.map((command) => command.id));
+const WORKFLOW_ALIAS_IDS = new Set([
+  'full-research',
+  'idea-to-results',
+  'run-experiment',
+  'review',
+]);
 const HIDDEN_SKILL_IDS = new Set([
   'planner_workflow',
   'executor_workflow',
@@ -165,11 +182,12 @@ const HIDDEN_SKILL_IDS = new Set([
 
 export function buildSlashCommands(skills: SkillInfo[]): SlashCommandDef[] {
   const merged = new Map<string, SlashCommandDef>();
+  const skillOverrides = buildSkillOverrides();
 
   for (const skill of skills) {
     const id = normalizeSkillId(skill.name);
     if (HIDDEN_SKILL_IDS.has(id)) continue;
-    const override = SKILL_OVERRIDES.get(id);
+    const override = skillOverrides.get(id);
     const trigger = `/${id}`;
 
     merged.set(id, {
@@ -181,19 +199,17 @@ export function buildSlashCommands(skills: SkillInfo[]): SlashCommandDef[] {
       source: override?.source ?? 'skill',
       sourceLabel:
         skill.source === 'coase-user'
-          ? '个人'
+          ? tt('slash.sourceLabel.user')
           : (override?.kind ?? inferKind(id)) === 'workflow'
-            ? '工作流'
-            : '内置',
+            ? tt('slash.sourceLabel.workflow')
+            : tt('slash.sourceLabel.builtin'),
       aliases: override?.aliases ?? [],
       targetSkills: override?.targetSkills ?? [id],
-      guidance:
-        override?.guidance ??
-        `用户显式选择了技能 ${trigger}。优先调用并遵循这个技能，除非你能明确说明它与当前任务不匹配。`,
+      guidance: override?.guidance ?? tt('slash.defaultGuidance', { trigger }),
     });
   }
 
-  for (const command of WORKFLOW_ALIASES) {
+  for (const command of buildWorkflowAliases()) {
     merged.set(command.id, command);
   }
 
@@ -234,20 +250,20 @@ export function injectSlashCommandContext(
   if (commands.length === 0) return text;
 
   const lines = [
-    '以下命令/技能是用户通过命令选择器显式选中的，不是普通文本。请优先按这些工作流/技能执行：',
+    tt('slash.context.header'),
     ...commands.map(
       (command) =>
         `- ${command.trigger} (${command.kind}) -> ${command.targetSkills.join(', ') || 'no explicit skill'}`,
     ),
     '',
-    '逐项执行要求：',
+    tt('slash.context.perItemHeader'),
     ...commands.map((command) => `- ${command.trigger}: ${command.guidance}`),
   ];
 
   if (text.trim()) {
-    lines.push('', '用户补充请求：', text.trim());
+    lines.push('', tt('slash.context.userAdded'), text.trim());
   } else {
-    lines.push('', '用户没有补充自由文本，请直接按上述命令对应的工作流开始执行。');
+    lines.push('', tt('slash.context.noFreeText'));
   }
 
   return lines.join('\n');

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
@@ -14,41 +15,47 @@ type OptionDef<T extends string> = {
   description: string;
 };
 
-const PURPOSE_OPTIONS: OptionDef<ResearchPurpose>[] = [
-  {
-    value: 'causal',
-    label: '因果识别',
-    description: '明确的 X → Y 因果效应；要求 DID / IV / RDD / PSM 等识别策略。',
-  },
-  {
-    value: 'associative',
-    label: '关联性探索',
-    description:
-      '变量间的相关关系；可用 OLS / Logit / Probit 等回归模型 + 固定效应或聚类控制，结果明确声明为关联性。',
-  },
-];
-
-const WEB_SEARCH_OPTIONS: OptionDef<'on' | 'off'>[] = [
-  {
-    value: 'on',
-    label: '开启（推荐）',
-    description: 'Agent 可按需联网检索参考文献、综述与作者主页等文献资料。',
-  },
-  {
-    value: 'off',
-    label: '关闭',
-    description:
-      '不再联网检索参考文献，literature-review 仅使用已下载文献与本地资源。数据源定位、政策 / API 文档等非文献场景不受此开关影响。',
-  },
-];
-
 export default function ResearchPrefsSection() {
+  const { t } = useTranslation('settings');
   const [prefs, setPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [savedPrefs, setSavedPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+
+  // 选项必须在组件内 t() 完之后才能拿到当前语种文案；切语言时随 t 引用变化。
+  const purposeOptions = useMemo<OptionDef<ResearchPurpose>[]>(
+    () => [
+      {
+        value: 'causal',
+        label: t('research.purpose.options.causal.label'),
+        description: t('research.purpose.options.causal.description'),
+      },
+      {
+        value: 'associative',
+        label: t('research.purpose.options.associative.label'),
+        description: t('research.purpose.options.associative.description'),
+      },
+    ],
+    [t],
+  );
+
+  const webSearchOptions = useMemo<OptionDef<'on' | 'off'>[]>(
+    () => [
+      {
+        value: 'on',
+        label: t('research.webSearch.options.on.label'),
+        description: t('research.webSearch.options.on.description'),
+      },
+      {
+        value: 'off',
+        label: t('research.webSearch.options.off.label'),
+        description: t('research.webSearch.options.off.description'),
+      },
+    ],
+    [t],
+  );
 
   const reload = useCallback(async () => {
     try {
@@ -79,13 +86,13 @@ export default function ResearchPrefsSection() {
       setSavedPrefs(saved);
       setPrefs(saved);
       setError(null);
-      setFlash('已保存。下次新建会话时会自动带入这些偏好。');
+      setFlash(t('research.savedFlash'));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
-  }, [prefs]);
+  }, [prefs, t]);
 
   const handleReset = useCallback(() => {
     setPrefs(savedPrefs);
@@ -97,9 +104,11 @@ export default function ResearchPrefsSection() {
       <Card className="overflow-hidden">
         <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">研究偏好</div>
+            <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
+              {t('research.title')}
+            </div>
             <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-              这里的偏好会被注入系统提示词，从下一个新会话起生效；运行中的会话不会被动切换口径。
+              {t('research.description')}
             </div>
           </div>
 
@@ -112,7 +121,7 @@ export default function ResearchPrefsSection() {
                 disabled={busy}
                 className="rounded-full px-3.5"
               >
-                撤销
+                {t('research.undo')}
               </Button>
             )}
             <Button
@@ -121,7 +130,7 @@ export default function ResearchPrefsSection() {
               disabled={busy || !isDirty}
               className="rounded-full px-3.5"
             >
-              {busy ? '保存中…' : '保存'}
+              {busy ? t('research.saving') : t('research.save')}
             </Button>
           </div>
         </CardBody>
@@ -129,7 +138,7 @@ export default function ResearchPrefsSection() {
 
       {error && (
         <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          读取或保存偏好失败：{error}
+          {t('research.loadError', { message: error })}
         </section>
       )}
 
@@ -141,22 +150,22 @@ export default function ResearchPrefsSection() {
 
       {loading ? (
         <section className="rounded-2xl border border-border bg-surface px-5 py-12 text-center text-sm text-fg-subtle">
-          加载偏好…
+          {t('research.loading')}
         </section>
       ) : (
         <>
           <PrefSection
-            title="研究目的"
-            caption="决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。"
-            options={PURPOSE_OPTIONS}
+            title={t('research.purpose.title')}
+            caption={t('research.purpose.caption')}
+            options={purposeOptions}
             value={prefs.researchPurpose}
             onChange={(value) => setPrefs({ ...prefs, researchPurpose: value })}
             disabled={busy}
           />
           <PrefSection
-            title="联网搜索文献"
-            caption="控制 agent 是否可以联网检索参考文献。仅约束文献类检索，数据源定位等其它联网用途不受影响。"
-            options={WEB_SEARCH_OPTIONS}
+            title={t('research.webSearch.title')}
+            caption={t('research.webSearch.caption')}
+            options={webSearchOptions}
             value={prefs.webSearchEnabled ? 'on' : 'off'}
             onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}
             disabled={busy}

@@ -18,5 +18,174 @@
         "en": "English"
       }
     }
+  },
+  "research": {
+    "title": "研究偏好",
+    "description": "这里的偏好会被注入系统提示词，从下一个新会话起生效；运行中的会话不会被动切换口径。",
+    "save": "保存",
+    "saving": "保存中…",
+    "undo": "撤销",
+    "loadError": "读取或保存偏好失败：{{message}}",
+    "loading": "加载偏好…",
+    "savedFlash": "已保存。下次新建会话时会自动带入这些偏好。",
+    "purpose": {
+      "title": "研究目的",
+      "caption": "决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。",
+      "options": {
+        "causal": {
+          "label": "因果识别",
+          "description": "明确的 X → Y 因果效应；要求 DID / IV / RDD / PSM 等识别策略。"
+        },
+        "associative": {
+          "label": "关联性探索",
+          "description": "变量间的相关关系；可用 OLS / Logit / Probit 等回归模型 + 固定效应或聚类控制，结果明确声明为关联性。"
+        }
+      }
+    },
+    "webSearch": {
+      "title": "联网搜索文献",
+      "caption": "控制 agent 是否可以联网检索参考文献。仅约束文献类检索，数据源定位等其它联网用途不受影响。",
+      "options": {
+        "on": {
+          "label": "开启（推荐）",
+          "description": "Agent 可按需联网检索参考文献、综述与作者主页等文献资料。"
+        },
+        "off": {
+          "label": "关闭",
+          "description": "不再联网检索参考文献，literature-review 仅使用已下载文献与本地资源。数据源定位、政策 / API 文档等非文献场景不受此开关影响。"
+        }
+      }
+    }
+  },
+  "providers": {
+    "title": "模型提供方",
+    "subtitleEmpty": "还没有模型提供方。新增一个，或者继续使用环境变量。",
+    "subtitleWithCount": "{{count}} 个模型提供方，当前启用：{{label}}",
+    "noneActive": "未设置",
+    "add": "新增",
+    "emptyHint": "还没有模型提供方。新增一个，或者继续使用环境变量。",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除模型提供方\"{{label}}\"吗？",
+    "active": "已启用",
+    "currentActive": "当前已启用",
+    "setActive": "设为已启用",
+    "loadError": "读取设置失败：{{message}}",
+    "dialog": {
+      "newTitle": "新增模型提供方",
+      "editTitle": "编辑模型提供方 · {{label}}",
+      "testConnection": "测试连接",
+      "testing": "测试中…",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中…",
+      "preset": {
+        "label": "从预设快速填充",
+        "hint": "选择预设后会覆盖 ID、名称、接口地址、模型和鉴权方式。",
+        "none": "不使用预设，手动填写"
+      },
+      "id": {
+        "label": "ID",
+        "hint": "保存后的唯一标识，不能重复。",
+        "errorEmpty": "ID 不能为空",
+        "errorFormat": "ID 只能包含字母、数字、- 和 _"
+      },
+      "labelField": {
+        "label": "显示名称",
+        "errorEmpty": "名称不能为空"
+      },
+      "protocol": {
+        "label": "协议",
+        "anthropic": "Anthropic（原生或兼容端点）",
+        "openai": "OpenAI（后续接入）"
+      },
+      "baseURL": {
+        "label": "接口地址",
+        "errorEmpty": "接口地址不能为空",
+        "errorFormat": "接口地址必须以 http(s):// 开头"
+      },
+      "model": {
+        "label": "模型",
+        "errorEmpty": "模型不能为空"
+      },
+      "auth": {
+        "label": "鉴权方式",
+        "hint": "Anthropic 官方通常使用 api_key，第三方兼容端点通常使用 auth_token。",
+        "authToken": "auth_token（第三方兼容端点）",
+        "apiKey": "api_key（Anthropic 官方）"
+      },
+      "credential": {
+        "label": "API Key / Token",
+        "errorEmpty": "API Key / Token 不能为空"
+      },
+      "autoCompact": {
+        "label": "自动压缩阈值（可选）",
+        "hint": "累计 token 达到该值时 SDK 会自动触发 compact。留空走模型自适应默认：1M 窗口约 850k，其它约 160k。允许范围 {{min}} - {{max}}。",
+        "errorRange": "自动压缩阈值需在 {{min}} - {{max}} 之间",
+        "placeholder": "留空 = 使用模型自适应默认"
+      },
+      "test": {
+        "ok": "成功",
+        "fail": "失败",
+        "callError": "调用失败：{{message}}",
+        "sentLabel": "发送消息",
+        "replyLabel": "模型回复"
+      }
+    }
+  },
+  "criticPanel": {
+    "title": "评审模型组",
+    "description": "主模型之外的独立第二视角。勾 1 个为单 critic 评语，勾 ≥ 2 个聚合展示共识与分歧。仅支持 anthropic 协议 provider。",
+    "save": "保存",
+    "saving": "保存中…",
+    "undo": "撤销",
+    "noProviders": "还没有 anthropic 协议的 provider。先到上方\"模型提供方\"卡片里添加几个不同 provider（例如 Claude 官方 + 第三方兼容端点 + 自有 proxy），再回来配置评审模型组。",
+    "warningNoneSelected": "尚未选择任何评审模型。至少勾选 1 个独立 provider 作为对抗视角。",
+    "savedSingle": "已启用 1 个评审模型（单 critic 评语模式），运行 /full-research 或 /review 时会被自动调度。再加 1 个 provider 可进入对抗共识模式。",
+    "savedMulti": "已启用 {{count}} 个评审模型（对抗共识模式），运行 /full-research 或 /review 时会并行调度、聚合共识与分歧。"
+  },
+  "skills": {
+    "title": "技能",
+    "description": "这里显示用户自己安装的技能。导入 `SKILL.md` 文件或技能文件夹即可安装新技能。",
+    "openDir": "打开目录",
+    "openDirTitle": "在文件管理器中打开用户技能目录",
+    "import": "导入技能",
+    "importing": "导入中…",
+    "refresh": "刷新",
+    "loadError": "加载失败：{{message}}",
+    "loading": "正在加载技能…",
+    "userTitle": "用户",
+    "emptyHint": "还没有安装用户技能。点击\"导入技能\"来安装，或把 `SKILL.md` 放入用户技能目录。",
+    "delete": "删除"
+  },
+  "updates": {
+    "title": "应用更新",
+    "currentVersion": "当前版本 {{version}}",
+    "messages": {
+      "initial": "正在读取更新状态",
+      "idle": "未开始检查更新",
+      "availableVersion": "可用版本",
+      "downloadProgress": "下载进度",
+      "manualLink": "前往 GitHub Releases 手动下载最新版"
+    },
+    "actions": {
+      "check": "检查更新",
+      "checking": "检查中…",
+      "download": "下载更新",
+      "downloading": "下载中…",
+      "install": "重启并安装",
+      "installing": "准备重启…"
+    },
+    "status": {
+      "disabled": "未启用",
+      "idle": "就绪",
+      "checking": "检查中",
+      "available": "可更新",
+      "not-available": "最新",
+      "downloading": "下载中",
+      "downloaded": "可安装",
+      "error": "错误"
+    },
+    "loadError": "读取设置失败：{{message}}"
   }
 }

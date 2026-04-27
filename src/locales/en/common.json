@@ -4,7 +4,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "close": "Close"
   },
   "nav": {
     "chat": "Chat",

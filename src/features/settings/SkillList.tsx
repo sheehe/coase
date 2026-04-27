@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import type { SkillInfo } from '../../../shared/skills';
 
 export default function SkillList() {
+  const { t } = useTranslation('settings');
   const [skills, setSkills] = useState<SkillInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,10 +66,10 @@ export default function SkillList() {
     <Card className="overflow-hidden">
       <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">技能</div>
-          <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-            这里显示用户自己安装的技能。导入 `SKILL.md` 文件或技能文件夹即可安装新技能。
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
+            {t('skills.title')}
           </div>
+          <div className="mt-1 text-[13px] leading-6 text-fg-muted">{t('skills.description')}</div>
         </div>
 
         <div className="flex shrink-0 gap-2">
@@ -76,9 +78,9 @@ export default function SkillList() {
             size="sm"
             onClick={handleOpenDir}
             className="rounded-full px-3.5"
-            title="在文件管理器中打开用户技能目录"
+            title={t('skills.openDirTitle')}
           >
-            打开目录
+            {t('skills.openDir')}
           </Button>
           <Button
             variant="secondary"
@@ -87,7 +89,7 @@ export default function SkillList() {
             disabled={busy}
             className="rounded-full px-3.5"
           >
-            {busy ? '导入中…' : '导入技能'}
+            {busy ? t('skills.importing') : t('skills.import')}
           </Button>
           <Button
             variant="ghost"
@@ -95,24 +97,27 @@ export default function SkillList() {
             onClick={() => void reload()}
             className="rounded-full px-3.5"
           >
-            刷新
+            {t('skills.refresh')}
           </Button>
         </div>
       </CardBody>
 
       {error && (
         <div className="border-b border-danger/20 bg-danger/5 px-5 py-3 text-sm text-danger">
-          加载失败：{error}
+          {t('skills.loadError', { message: error })}
         </div>
       )}
 
-      {!skills && !error && <div className="px-5 py-10 text-sm text-fg-subtle">正在加载技能…</div>}
+      {!skills && !error && (
+        <div className="px-5 py-10 text-sm text-fg-subtle">{t('skills.loading')}</div>
+      )}
 
       {skills && (
         <SkillGroup
-          title="用户"
+          title={t('skills.userTitle')}
           entries={user}
-          emptyHint="还没有安装用户技能。点击“导入技能”来安装，或把 `SKILL.md` 放入用户技能目录。"
+          emptyHint={t('skills.emptyHint')}
+          deleteLabel={t('skills.delete')}
           onDelete={handleDelete}
           busy={busy}
         />
@@ -125,12 +130,14 @@ function SkillGroup({
   title,
   entries,
   emptyHint,
+  deleteLabel,
   onDelete,
   busy,
 }: {
   title: string;
   entries: SkillInfo[];
   emptyHint: string;
+  deleteLabel: string;
   onDelete?: (name: string) => Promise<void>;
   busy?: boolean;
 }) {
@@ -169,7 +176,7 @@ function SkillGroup({
                     onClick={() => void onDelete(skill.name)}
                     className="shrink-0 rounded-full px-3"
                   >
-                    删除
+                    {deleteLabel}
                   </Button>
                 )}
               </div>

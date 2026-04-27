@@ -1,5 +1,10 @@
 // 运行洞察：从 transcript 推导软里程碑与产物视图，供当前 run 与历史回放复用。
+import i18n from '../../lib/i18n';
 import type { TranscriptEntry } from './TranscriptMessage';
+
+function tt(key: string, options?: Record<string, unknown>): string {
+  return i18n.t(key, { ns: 'chat', ...(options ?? {}) }) as string;
+}
 
 export type InsightStage = 'planner' | 'datafetcher' | 'analyst' | 'writer' | 'reviewer';
 
@@ -40,13 +45,9 @@ export interface RunInsights {
   currentMilestone: string;
 }
 
-const STAGE_LABELS: Record<InsightStage, string> = {
-  planner: '研究规划已展开',
-  datafetcher: '数据准备已展开',
-  analyst: '分析阶段已展开',
-  writer: '写作阶段已展开',
-  reviewer: '审校阶段已展开',
-};
+function stageLabel(stage: InsightStage): string {
+  return tt(`insights.stages.${stage}`);
+}
 
 const STAGE_RULES: { stage: InsightStage; keywords: string[] }[] = [
   { stage: 'reviewer', keywords: ['reviewer', '审校', '审稿', 'review'] },
@@ -61,7 +62,7 @@ export function deriveRunInsights(transcript: TranscriptEntry[]): RunInsights {
     return {
       milestones: [],
       artifacts: [],
-      currentMilestone: '尚未开始研究',
+      currentMilestone: tt('insights.notStarted'),
     };
   }
 
@@ -70,7 +71,7 @@ export function deriveRunInsights(transcript: TranscriptEntry[]): RunInsights {
       id: `run-start-${transcript[0]?.ts ?? 0}`,
       ts: transcript[0]?.ts ?? Date.now(),
       kind: 'run_started',
-      label: '研究已启动',
+      label: tt('insights.runStarted'),
     },
   ];
   const artifacts: ArtifactRecord[] = [];
@@ -87,34 +88,47 @@ export function deriveRunInsights(transcript: TranscriptEntry[]): RunInsights {
         id: `stage-${stage}-${entry.ts}`,
         ts: entry.ts,
         kind: 'stage_reached',
-        label: STAGE_LABELS[stage],
+        label: stageLabel(stage),
         stage,
       });
     }
 
     if (entry.kind === 'status') {
-      if (entry.text.includes('等待你的指导') || entry.text.includes('暂停')) {
+      // 关键词同时识别中英文 banner，避免切语言后老 transcript 推导失效。
+      const txt = entry.text;
+      const lower = txt.toLowerCase();
+      if (
+        txt.includes('等待你的指导') ||
+        txt.includes('暂停') ||
+        lower.includes('paused') ||
+        lower.includes('waiting for')
+      ) {
         milestones.push({
           id: `interrupt-${entry.ts}`,
           ts: entry.ts,
           kind: 'interrupted',
-          label: '自动运行已暂停，等待用户指导',
+          label: tt('insights.milestones.interrupted'),
           stage,
         });
-      } else if (entry.text.includes('终止') || entry.text.includes('错误中止')) {
+      } else if (
+        txt.includes('终止') ||
+        txt.includes('错误中止') ||
+        lower.includes('terminated') ||
+        lower.includes('aborted')
+      ) {
         milestones.push({
           id: `failed-${entry.ts}`,
           ts: entry.ts,
           kind: 'failed',
-          label: '研究运行已终止',
+          label: tt('insights.milestones.failed'),
           stage,
         });
-      } else if (entry.text.includes('完成')) {
+      } else if (txt.includes('完成') || lower.includes('finished')) {
         milestones.push({
           id: `completed-${entry.ts}`,
           ts: entry.ts,
           kind: 'completed',
-          label: '自动运行已完成一轮研究输出',
+          label: tt('insights.milestones.completed'),
           stage,
         });
       }
@@ -135,7 +149,7 @@ export function deriveRunInsights(transcript: TranscriptEntry[]): RunInsights {
     }
   }
 
-  const currentMilestone = milestones[milestones.length - 1]?.label ?? '尚未开始研究';
+  const currentMilestone = milestones[milestones.length - 1]?.label ?? tt('insights.notStarted');
   return { milestones, artifacts, currentMilestone };
 }
 
@@ -191,23 +205,23 @@ function mapAssistantArtifactKind(
 function artifactTitleForKind(kind: ArtifactRecord['kind']) {
   switch (kind) {
     case 'plan':
-      return '研究规划摘要';
+      return tt('insights.artifactTitles.plan');
     case 'r_script':
-      return 'R 脚本';
+      return tt('insights.artifactTitles.rScript');
     case 'results_text':
-      return '分析结果摘要';
+      return tt('insights.artifactTitles.resultsText');
     case 'draft_section':
-      return '论文草稿片段';
+      return tt('insights.artifactTitles.draftSection');
     case 'review_note':
-      return '审校意见';
+      return tt('insights.artifactTitles.reviewNote');
     case 'table':
-      return '表格产物';
+      return tt('insights.artifactTitles.table');
     case 'figure':
-      return '图形产物';
+      return tt('insights.artifactTitles.figure');
     case 'generated_file':
-      return '生成文件';
+      return tt('insights.artifactTitles.generatedFile');
     case 'final_paper':
-      return '论文稿件输出';
+      return tt('insights.artifactTitles.finalPaper');
   }
 }
 

@@ -18,5 +18,174 @@
         "en": "English"
       }
     }
+  },
+  "research": {
+    "title": "Research preferences",
+    "description": "These preferences are injected into the system prompt and take effect on the next new session; running sessions are not switched mid-flight.",
+    "save": "Save",
+    "saving": "Saving…",
+    "undo": "Undo",
+    "loadError": "Failed to load or save preferences: {{message}}",
+    "loading": "Loading preferences…",
+    "savedFlash": "Saved. New sessions will pick up these preferences automatically.",
+    "purpose": {
+      "title": "Research goal",
+      "caption": "Determines whether the Planner must use a causal identification strategy and how the Reviewer scores the work.",
+      "options": {
+        "causal": {
+          "label": "Causal identification",
+          "description": "Explicit X → Y causal effect; requires identification strategies such as DID / IV / RDD / PSM."
+        },
+        "associative": {
+          "label": "Associational exploration",
+          "description": "Correlations between variables; OLS / Logit / Probit with fixed effects or clustered controls are acceptable, with results clearly stated as associational."
+        }
+      }
+    },
+    "webSearch": {
+      "title": "Web literature search",
+      "caption": "Controls whether the agent may search the web for references. Only literature search is restricted; data-source location and other web uses are unaffected.",
+      "options": {
+        "on": {
+          "label": "Enabled (recommended)",
+          "description": "The agent may search the web on demand for references, reviews, author pages, and similar literature material."
+        },
+        "off": {
+          "label": "Disabled",
+          "description": "Literature web search is off; literature-review uses only downloaded references and local resources. Non-literature uses such as data-source location and policy / API documentation are unaffected."
+        }
+      }
+    }
+  },
+  "providers": {
+    "title": "Model providers",
+    "subtitleEmpty": "No model providers yet. Add one, or keep using environment variables.",
+    "subtitleWithCount": "{{count}} model providers, currently active: {{label}}",
+    "noneActive": "Not set",
+    "add": "Add",
+    "emptyHint": "No model providers yet. Add one, or keep using environment variables.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete model provider \"{{label}}\"?",
+    "active": "Active",
+    "currentActive": "Currently active",
+    "setActive": "Set as active",
+    "loadError": "Failed to read settings: {{message}}",
+    "dialog": {
+      "newTitle": "New model provider",
+      "editTitle": "Edit model provider · {{label}}",
+      "testConnection": "Test connection",
+      "testing": "Testing…",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "preset": {
+        "label": "Quick-fill from preset",
+        "hint": "Selecting a preset will overwrite the ID, name, endpoint, model, and auth mode.",
+        "none": "No preset, fill manually"
+      },
+      "id": {
+        "label": "ID",
+        "hint": "Unique identifier after saving; must not collide.",
+        "errorEmpty": "ID cannot be empty",
+        "errorFormat": "ID may only contain letters, digits, - and _"
+      },
+      "labelField": {
+        "label": "Display name",
+        "errorEmpty": "Name cannot be empty"
+      },
+      "protocol": {
+        "label": "Protocol",
+        "anthropic": "Anthropic (native or compatible endpoint)",
+        "openai": "OpenAI (coming later)"
+      },
+      "baseURL": {
+        "label": "Endpoint",
+        "errorEmpty": "Endpoint cannot be empty",
+        "errorFormat": "Endpoint must start with http(s)://"
+      },
+      "model": {
+        "label": "Model",
+        "errorEmpty": "Model cannot be empty"
+      },
+      "auth": {
+        "label": "Auth mode",
+        "hint": "Anthropic official typically uses api_key; third-party compatible endpoints typically use auth_token.",
+        "authToken": "auth_token (third-party compatible endpoint)",
+        "apiKey": "api_key (Anthropic official)"
+      },
+      "credential": {
+        "label": "API Key / Token",
+        "errorEmpty": "API Key / Token cannot be empty"
+      },
+      "autoCompact": {
+        "label": "Auto-compact threshold (optional)",
+        "hint": "When cumulative tokens hit this value, the SDK auto-triggers compact. Leave blank to use a model-adaptive default: ~850k for 1M-window models, ~160k otherwise. Allowed range {{min}} - {{max}}.",
+        "errorRange": "Auto-compact threshold must be between {{min}} and {{max}}",
+        "placeholder": "Blank = model-adaptive default"
+      },
+      "test": {
+        "ok": "Success",
+        "fail": "Failed",
+        "callError": "Call failed: {{message}}",
+        "sentLabel": "Sent",
+        "replyLabel": "Model reply"
+      }
+    }
+  },
+  "criticPanel": {
+    "title": "Review panel",
+    "description": "An independent second perspective beyond the main model. Pick 1 for single-critic remarks, ≥ 2 to aggregate consensus and disagreement. Only anthropic-protocol providers are supported.",
+    "save": "Save",
+    "saving": "Saving…",
+    "undo": "Undo",
+    "noProviders": "No anthropic-protocol providers yet. Add a few different providers in the \"Model providers\" card above (e.g. Claude official + third-party compatible endpoint + your own proxy), then come back to configure the review panel.",
+    "warningNoneSelected": "No review model selected. Pick at least 1 independent provider for an adversarial perspective.",
+    "savedSingle": "1 review model enabled (single-critic mode); /full-research and /review will dispatch it automatically. Add another provider to enter adversarial-consensus mode.",
+    "savedMulti": "{{count}} review models enabled (adversarial-consensus mode); /full-research and /review will dispatch them in parallel and aggregate consensus and disagreement."
+  },
+  "skills": {
+    "title": "Skills",
+    "description": "Skills installed by you. Import a `SKILL.md` file or a skill folder to install a new one.",
+    "openDir": "Open folder",
+    "openDirTitle": "Open the user skills folder in the file manager",
+    "import": "Import skill",
+    "importing": "Importing…",
+    "refresh": "Refresh",
+    "loadError": "Load failed: {{message}}",
+    "loading": "Loading skills…",
+    "userTitle": "User",
+    "emptyHint": "No user skills installed yet. Click \"Import skill\" to install one, or drop a `SKILL.md` into the user skills folder.",
+    "delete": "Delete"
+  },
+  "updates": {
+    "title": "App updates",
+    "currentVersion": "Current version {{version}}",
+    "messages": {
+      "initial": "Reading update status…",
+      "idle": "No update check yet",
+      "availableVersion": "Available version",
+      "downloadProgress": "Download progress",
+      "manualLink": "Open GitHub Releases to download the latest version manually"
+    },
+    "actions": {
+      "check": "Check for updates",
+      "checking": "Checking…",
+      "download": "Download update",
+      "downloading": "Downloading…",
+      "install": "Restart and install",
+      "installing": "Preparing restart…"
+    },
+    "status": {
+      "disabled": "Disabled",
+      "idle": "Idle",
+      "checking": "Checking",
+      "available": "Update available",
+      "not-available": "Up to date",
+      "downloading": "Downloading",
+      "downloaded": "Ready to install",
+      "error": "Error"
+    },
+    "loadError": "Failed to read settings: {{message}}"
   }
 }

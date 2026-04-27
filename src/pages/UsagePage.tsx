@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { ChevronLeft } from '../components/Icons';
@@ -30,8 +31,8 @@ function formatDuration(ms: number): string {
   return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
 }
 
-function formatDateTime(ts: number): string {
-  return new Date(ts).toLocaleString('zh-CN', {
+function formatDateTime(ts: number, locale: string): string {
+  return new Date(ts).toLocaleString(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -41,6 +42,8 @@ function formatDateTime(ts: number): string {
 }
 
 export default function UsagePage() {
+  const { t, i18n } = useTranslation('usage');
+  const locale = i18n.language === 'en' ? 'en-US' : 'zh-CN';
   const [sessions, setSessions] = useState<SessionLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,18 +65,25 @@ export default function UsagePage() {
     void load();
   }, [load]);
 
-  const usage = useMemo(() => aggregateUsage(sessions), [sessions]);
+  const usage = useMemo(
+    () => aggregateUsage(sessions, { unnamedLabel: t('providerUnnamed') }),
+    [sessions, t],
+  );
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-5 px-8 py-8">
       <section className="flex items-start justify-between gap-6 border-b border-border pb-5">
         <div className="min-w-0">
-          <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">Usage</div>
-          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">用量</h1>
+          <div className="text-[12px] uppercase tracking-[0.2em] text-fg-subtle">
+            {t('kicker')}
+          </div>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-fg">
+            {t('title')}
+          </h1>
           <p className="mt-2 max-w-[760px] text-[14px] leading-6 text-fg-muted">
-            按今天、本月、累计聚合 Coase 会话的 token 输入 / 输出量与运行时长。数据来自本地
+            {t('description')}
             <span className="mx-1 font-mono text-fg-subtle">sessions.jsonl</span>
-            ，仅统计已完成或中断的会话。
+            {t('descriptionTail')}
           </p>
         </div>
 
@@ -83,56 +93,60 @@ export default function UsagePage() {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-fg-muted transition hover:border-border-strong hover:bg-black/[0.03] hover:text-fg dark:hover:bg-white/[0.04]"
           >
             <ChevronLeft size={13} />
-            <span>返回对话</span>
+            <span>{t('backToChat')}</span>
           </Link>
         </div>
       </section>
 
       {error && (
         <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          会话历史读取失败：{error}
+          {t('loadError', { message: error })}
         </section>
       )}
 
       {loading ? (
         <div className="rounded-2xl border border-border bg-surface px-6 py-12 text-center text-sm text-fg-subtle">
-          正在读取会话历史…
+          {t('loading')}
         </div>
       ) : (
         <>
           <section className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <SummaryPanel title="今天" bucket={usage.today} />
-            <SummaryPanel title="本月" bucket={usage.month} />
+            <SummaryPanel title={t('buckets.today')} bucket={usage.today} />
+            <SummaryPanel title={t('buckets.month')} bucket={usage.month} />
             <SummaryPanel
-              title="累计"
+              title={t('buckets.total')}
               bucket={usage.total}
-              aside={usage.runningCount > 0 ? `另有 ${usage.runningCount} 个会话运行中` : undefined}
+              aside={
+                usage.runningCount > 0
+                  ? t('extraRunning', { count: usage.runningCount })
+                  : undefined
+              }
             />
           </section>
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
-            <BreakdownPanel title="按模型提供方" rows={usage.topProviders} />
-            <BreakdownPanel title="按模型" rows={usage.topModels} />
+            <BreakdownPanel title={t('breakdown.byProvider')} rows={usage.topProviders} />
+            <BreakdownPanel title={t('breakdown.byModel')} rows={usage.topModels} />
           </section>
 
           <Card className="overflow-hidden">
             <CardBody className="border-b border-border px-5 py-4">
               <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">
-                每次会话 token 消耗
+                {t('topSessions.title')}
               </div>
               <div className="mt-1 text-[13px] leading-6 text-fg-muted">
-                列出 token 消耗最高的前 10 条会话。续跑会累加到同一条记录。
+                {t('topSessions.subtitle')}
               </div>
             </CardBody>
 
             {usage.topSessions.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-fg-subtle">
-                还没有可统计的会话用量。
+                {t('topSessions.empty')}
               </div>
             ) : (
               <ul className="divide-y divide-border">
                 {usage.topSessions.map((row, index) => (
-                  <SessionRow key={row.entry.sessionId} row={row} index={index} />
+                  <SessionRow key={row.entry.sessionId} row={row} index={index} locale={locale} />
                 ))}
               </ul>
             )}
@@ -152,6 +166,7 @@ function SummaryPanel({
   bucket: Bucket;
   aside?: string;
 }) {
+  const { t } = useTranslation('usage');
   return (
     <Card className="rounded-[24px]">
       <CardBody className="space-y-4 px-5 py-5">
@@ -168,19 +183,24 @@ function SummaryPanel({
           <span className="text-[34px] font-semibold tracking-[-0.04em] text-fg">
             {formatTokens(bucket.totalTokens)}
           </span>
-          <span className="text-[13px] text-fg-muted">tokens · {bucket.count} 次会话</span>
+          <span className="text-[13px] text-fg-muted">
+            {t('tokensSuffix')} · {t('sessionsCount', { count: bucket.count })}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-fg-muted">
           <span>
-            输入 <span className="font-medium text-fg">{formatTokens(bucket.inputTokens)}</span>
+            {t('input')}{' '}
+            <span className="font-medium text-fg">{formatTokens(bucket.inputTokens)}</span>
           </span>
           <span>
-            输出 <span className="font-medium text-fg">{formatTokens(bucket.outputTokens)}</span>
+            {t('output')}{' '}
+            <span className="font-medium text-fg">{formatTokens(bucket.outputTokens)}</span>
           </span>
           {bucket.cacheTokens > 0 && (
             <span>
-              缓存 <span className="font-medium text-fg">{formatTokens(bucket.cacheTokens)}</span>
+              {t('cache')}{' '}
+              <span className="font-medium text-fg">{formatTokens(bucket.cacheTokens)}</span>
             </span>
           )}
           <span>·</span>
@@ -198,6 +218,7 @@ function BreakdownPanel({
   title: string;
   rows: Breakdown<string>[];
 }) {
+  const { t } = useTranslation('usage');
   if (rows.length === 0) return null;
 
   const maxTokens = Math.max(...rows.map((row) => row.bucket.totalTokens), 1);
@@ -222,11 +243,17 @@ function BreakdownPanel({
                     <span className="truncate text-[14px] text-fg">{row.label}</span>
                   </div>
                   <div className="ml-8 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
-                    <span>{row.bucket.count} 次</span>
-                    <span>输入 {formatTokens(row.bucket.inputTokens)}</span>
-                    <span>输出 {formatTokens(row.bucket.outputTokens)}</span>
+                    <span>{t('breakdown.times', { count: row.bucket.count })}</span>
+                    <span>
+                      {t('input')} {formatTokens(row.bucket.inputTokens)}
+                    </span>
+                    <span>
+                      {t('output')} {formatTokens(row.bucket.outputTokens)}
+                    </span>
                     {row.bucket.cacheTokens > 0 && (
-                      <span>缓存 {formatTokens(row.bucket.cacheTokens)}</span>
+                      <span>
+                        {t('cache')} {formatTokens(row.bucket.cacheTokens)}
+                      </span>
                     )}
                     <span>{formatDuration(row.bucket.durationMs)}</span>
                   </div>
@@ -236,7 +263,7 @@ function BreakdownPanel({
                   <div className="text-[14px] font-medium text-fg">
                     {formatTokens(row.bucket.totalTokens)}
                   </div>
-                  <div className="mt-0.5 text-[11px] text-fg-subtle">tokens</div>
+                  <div className="mt-0.5 text-[11px] text-fg-subtle">{t('tokensSuffix')}</div>
                 </div>
               </div>
 
@@ -251,7 +278,16 @@ function BreakdownPanel({
   );
 }
 
-function SessionRow({ row, index }: { row: SessionTokenRow; index: number }) {
+function SessionRow({
+  row,
+  index,
+  locale,
+}: {
+  row: SessionTokenRow;
+  index: number;
+  locale: string;
+}) {
+  const { t } = useTranslation('usage');
   const { entry } = row;
   return (
     <li className="grid grid-cols-[40px_minmax(0,1fr)_170px] items-start gap-4 px-5 py-4">
@@ -261,20 +297,28 @@ function SessionRow({ row, index }: { row: SessionTokenRow; index: number }) {
 
       <div className="min-w-0">
         <div className="truncate text-[14px] leading-6 text-fg">
-          {entry.firstPrompt || '(无标题)'}
+          {entry.firstPrompt || t('topSessions.untitled')}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
-          <span>{formatDateTime(entry.startedAt)}</span>
-          <span>{entry.model || '未知模型'}</span>
+          <span>{formatDateTime(entry.startedAt, locale)}</span>
+          <span>{entry.model || t('topSessions.unknownModel')}</span>
           {entry.providerLabel && <span>{entry.providerLabel}</span>}
         </div>
       </div>
 
       <div className="text-right">
-        <div className="text-[14px] font-medium text-fg">{formatTokens(row.totalTokens)} tokens</div>
+        <div className="text-[14px] font-medium text-fg">
+          {formatTokens(row.totalTokens)} {t('topSessions.tokensSuffix')}
+        </div>
         <div className="mt-1 text-[12px] text-fg-muted">
-          入 {formatTokens(row.inputTokens)} · 出 {formatTokens(row.outputTokens)}
-          {row.cacheTokens > 0 && <> · 缓存 {formatTokens(row.cacheTokens)}</>}
+          {t('topSessions.inputShort')} {formatTokens(row.inputTokens)} ·{' '}
+          {t('topSessions.outputShort')} {formatTokens(row.outputTokens)}
+          {row.cacheTokens > 0 && (
+            <>
+              {' '}
+              · {t('topSessions.cacheShort')} {formatTokens(row.cacheTokens)}
+            </>
+          )}
         </div>
         <div className="text-[12px] text-fg-muted">{formatDuration(entry.totalDurationMs ?? 0)}</div>
       </div>

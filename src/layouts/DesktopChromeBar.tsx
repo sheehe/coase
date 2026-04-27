@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import Dialog from '../components/ui/Dialog';
@@ -22,14 +23,6 @@ type MenuItem = {
   separator?: boolean;
 };
 
-const MENU_ITEMS: Array<{ id: MenuId; label: string }> = [
-  { id: 'file', label: '文件' },
-  { id: 'edit', label: '编辑' },
-  { id: 'view', label: '视图' },
-  { id: 'window', label: '窗口' },
-  { id: 'help', label: '帮助' },
-];
-
 export default function DesktopChromeBar({
   sidebarVisible,
   onToggleSidebar,
@@ -37,11 +30,23 @@ export default function DesktopChromeBar({
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
 }) {
+  const { t } = useTranslation('chat');
   const navigate = useNavigate();
   const { onNewSession, chooseWorkspaceRoot, workspaceRoot } = useChat();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const MENU_ITEMS = useMemo<Array<{ id: MenuId; label: string }>>(
+    () => [
+      { id: 'file', label: t('chrome.menus.file') },
+      { id: 'edit', label: t('chrome.menus.edit') },
+      { id: 'view', label: t('chrome.menus.view') },
+      { id: 'window', label: t('chrome.menus.window') },
+      { id: 'help', label: t('chrome.menus.help') },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -67,20 +72,20 @@ export default function DesktopChromeBar({
     () => ({
       file: [
         {
-          label: '新建会话',
+          label: t('chrome.file.newSession'),
           onClick: async () => {
             await onNewSession();
             navigate('/chat');
           },
         },
         {
-          label: '选择工作区目录',
+          label: t('chrome.file.chooseWorkspace'),
           onClick: async () => {
             await chooseWorkspaceRoot();
           },
         },
         {
-          label: '打开当前工作区',
+          label: t('chrome.file.openWorkspace'),
           disabled: !workspaceRoot,
           onClick: async () => {
             if (!workspaceRoot) return;
@@ -89,7 +94,7 @@ export default function DesktopChromeBar({
         },
         { separator: true, label: '' },
         {
-          label: '退出',
+          label: t('chrome.file.exit'),
           danger: true,
           onClick: async () => {
             await window.coase.window.close();
@@ -97,26 +102,26 @@ export default function DesktopChromeBar({
         },
       ],
       edit: [
-        { label: '撤销', onClick: () => void document.execCommand('undo') },
-        { label: '重做', onClick: () => void document.execCommand('redo') },
+        { label: t('chrome.edit.undo'), onClick: () => void document.execCommand('undo') },
+        { label: t('chrome.edit.redo'), onClick: () => void document.execCommand('redo') },
         { separator: true, label: '' },
-        { label: '剪切', onClick: () => void document.execCommand('cut') },
-        { label: '复制', onClick: () => void document.execCommand('copy') },
-        { label: '粘贴', onClick: () => void document.execCommand('paste') },
+        { label: t('chrome.edit.cut'), onClick: () => void document.execCommand('cut') },
+        { label: t('chrome.edit.copy'), onClick: () => void document.execCommand('copy') },
+        { label: t('chrome.edit.paste'), onClick: () => void document.execCommand('paste') },
         { separator: true, label: '' },
-        { label: '全选', onClick: () => void document.execCommand('selectAll') },
+        { label: t('chrome.edit.selectAll'), onClick: () => void document.execCommand('selectAll') },
       ],
       view: [
         {
-          label: sidebarVisible ? '隐藏侧边栏' : '显示侧边栏',
+          label: sidebarVisible ? t('chrome.view.hideSidebar') : t('chrome.view.showSidebar'),
           onClick: onToggleSidebar,
         },
         {
-          label: '重新加载',
+          label: t('chrome.view.reload'),
           onClick: () => window.location.reload(),
         },
         {
-          label: '开发者工具',
+          label: t('chrome.view.devtools'),
           onClick: async () => {
             await window.coase.window.toggleDevTools();
           },
@@ -124,19 +129,19 @@ export default function DesktopChromeBar({
       ],
       window: [
         {
-          label: '最小化',
+          label: t('chrome.window.minimize'),
           onClick: async () => {
             await window.coase.window.minimize();
           },
         },
         {
-          label: '最大化或还原',
+          label: t('chrome.window.toggleMaximize'),
           onClick: async () => {
             await window.coase.window.toggleMaximize();
           },
         },
         {
-          label: '关闭窗口',
+          label: t('chrome.window.close'),
           onClick: async () => {
             await window.coase.window.close();
           },
@@ -144,19 +149,19 @@ export default function DesktopChromeBar({
       ],
       help: [
         {
-          label: '访问官网',
+          label: t('chrome.help.website'),
           onClick: () => {
             window.open('https://sheehe.github.io/coase/', '_blank', 'noopener');
           },
         },
         { separator: true, label: '' },
         {
-          label: '关于 Coase',
+          label: t('chrome.help.about'),
           onClick: () => setAboutOpen(true),
         },
       ],
     }),
-    [chooseWorkspaceRoot, navigate, onNewSession, onToggleSidebar, sidebarVisible, workspaceRoot],
+    [chooseWorkspaceRoot, navigate, onNewSession, onToggleSidebar, sidebarVisible, t, workspaceRoot],
   );
 
   const handleMenuAction = async (item: MenuItem) => {
@@ -241,23 +246,22 @@ export default function DesktopChromeBar({
       <Dialog
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
-        title="关于 Coase"
+        title={t('chrome.about.title')}
         footer={
           <button
             type="button"
             onClick={() => setAboutOpen(false)}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm text-accent-fg"
           >
-            关闭
+            {t('chrome.about.close')}
           </button>
         }
       >
         <div className="space-y-3 text-sm text-fg-muted">
-          <p className="text-fg">Coase 是面向实证研究与论文生产的桌面研究工作台。</p>
-          <p>当前版本聚焦 Claude Agent SDK 原生会话、工作区目录、文件树与研究工作流界面。</p>
+          <p className="text-fg">{t('chrome.about.p1')}</p>
+          <p>{t('chrome.about.p2')}</p>
         </div>
       </Dialog>
     </>
   );
 }
-

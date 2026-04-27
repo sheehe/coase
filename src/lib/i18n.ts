@@ -1,10 +1,14 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import enChat from '../locales/en/chat.json';
 import enCommon from '../locales/en/common.json';
 import enSettings from '../locales/en/settings.json';
+import enUsage from '../locales/en/usage.json';
+import zhChat from '../locales/zh/chat.json';
 import zhCommon from '../locales/zh/common.json';
 import zhSettings from '../locales/zh/settings.json';
+import zhUsage from '../locales/zh/usage.json';
 
 // 资源用 import 静态打包，不走 i18next-http-backend——Electron 渲染端跑
 // file://，没有 HTTP 服务器响应 /locales/zh/common.json，硬要走后端式加载
@@ -14,10 +18,14 @@ const resources = {
   zh: {
     common: zhCommon,
     settings: zhSettings,
+    chat: zhChat,
+    usage: zhUsage,
   },
   en: {
     common: enCommon,
     settings: enSettings,
+    chat: enChat,
+    usage: enUsage,
   },
 } as const;
 
@@ -37,7 +45,7 @@ export function initI18n(language: 'zh' | 'en'): Promise<void> {
       resources,
       lng: language,
       fallbackLng: 'zh',
-      ns: ['common', 'settings'],
+      ns: ['common', 'settings', 'chat', 'usage'],
       defaultNS: 'common',
       interpolation: {
         escapeValue: false, // React 自带 XSS 防护

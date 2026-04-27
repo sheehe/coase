@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * 原生 <dialog> 包装。
@@ -18,6 +19,7 @@ export default function Dialog({
   footer?: ReactNode;
   widthClass?: string;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function Dialog({
           <h2 className="text-sm font-semibold text-fg">{title}</h2>
           <button
             type="button"
-            aria-label="关闭"
+            aria-label={t('actions.close')}
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-[26px] leading-none text-fg-subtle transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]"
           >

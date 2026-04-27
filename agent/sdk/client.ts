@@ -1,12 +1,8 @@
 import {
   query,
-  type AgentDefinition,
-  type HookCallbackMatcher,
   type Options,
-  type PostToolUseFailureHookInput,
   type Query,
   type Settings,
-  type SubagentStopHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
 import { app } from 'electron';
 import { join } from 'node:path';
@@ -17,6 +13,7 @@ import { resolveActiveProvider, type ResolvedProvider } from '../providers/resol
 import { loadResearchPrefs, renderResearchPrefsForPrompt } from '../research/prefs-store';
 import { buildRuntimeEnv } from '../runtime';
 import { resolveCoasePluginPaths } from '../skills/plugin-paths';
+import { getCoaseAgents, getCoaseHooks } from './agent-definitions';
 import { buildCriticPanelMcpServer } from './critic-panel-mcp';
 import { getCoaseSystemPromptBase } from './system-prompts';
 
@@ -43,129 +40,6 @@ const CLAUDE_AGENT_SDK_DIR = join(
   'claude-agent-sdk',
 );
 const CLAUDE_CODE_CLI_PATH = join(CLAUDE_AGENT_SDK_DIR, 'cli.js');
-
-const COASE_AGENTS: Record<string, AgentDefinition> = {
-  research_planner: {
-    description:
-      '负责研究问题澄清、文献定位、方法选择、识别策略设计与研究路线收敛。',
-    prompt:
-      '你是 Coase 的研究规划子代理。优先使用 literature-review 与各类方法技能，完成问题澄清、文献定位、方法筛选、识别假设梳理和研究路线收敛。不要把阶段名误当作 skill 名。',
-    skills: [
-      'literature-review',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-    ],
-    model: 'inherit',
-    maxTurns: 32,
-  },
-  data_prep: {
-    description:
-      '负责数据源定位、抓取、清洗、合并、变量构造与分析样本准备。',
-    prompt:
-      '你是 Coase 的数据准备子代理。优先使用 data-fetcher 与 data-cleaning 技能，完成数据来源选择、抓取、合并、清洗、样本构造与质量检查。不要把阶段名误当作 skill 名。',
-    skills: ['data-fetcher', 'data-cleaning'],
-    model: 'inherit',
-    maxTurns: 32,
-  },
-  empirical_analyst: {
-    description:
-      '负责主回归、稳健性、机制、异质性、统计诊断、表格与图形输出。',
-    prompt:
-      '你是 Coase 的实证分析子代理。根据研究问题选择最合适的 econometrics skill，完成 baseline 估计、扩展检验、描述统计、表格与图形输出。不要把阶段名误当作 skill 名。',
-    skills: [
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-      'table',
-      'figure',
-    ],
-    model: 'inherit',
-    maxTurns: 48,
-  },
-  quality_reviewer: {
-    description:
-      '负责从设计、执行和证据一致性角度做对抗式质量复核。',
-    prompt:
-      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范、表图规范和文献定位能力，对当前研究产出（idea/planner/executor/verdict 四个目录）进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名，不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
-    skills: [
-      'literature-review',
-      'stats',
-      'table',
-      'figure',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'data-cleaning',
-    ],
-    model: 'inherit',
-    maxTurns: 32,
-  },
-};
-
-const COASE_HOOKS: Partial<Record<string, HookCallbackMatcher[]>> = {
-  PostToolUseFailure: [
-    {
-      hooks: [
-        async (input) => {
-          const failure = input as PostToolUseFailureHookInput;
-          return {
-            continue: true,
-            hookSpecificOutput: {
-              hookEventName: 'PostToolUseFailure',
-              additionalContext: `工具 ${failure.tool_name} 刚刚失败。先理解失败原因，再决定是否重试；不要机械重复同一失败调用。必要时切换工具、缩小范围或调整方案。`,
-            },
-          };
-        },
-      ],
-    },
-  ],
-  SubagentStart: [
-    {
-      hooks: [
-        async (input) => ({
-          continue: true,
-          hookSpecificOutput: {
-            hookEventName: 'SubagentStart',
-            additionalContext: `你正在启动子代理 ${input.agent_type}。请让它聚焦局部问题，返回可整合的结论、关键证据与文件路径，不要让它偏离主研究目标。`,
-          },
-        }),
-      ],
-    },
-  ],
-  SubagentStop: [
-    {
-      hooks: [
-        async (input) => {
-          const subagent = input as SubagentStopHookInput;
-          return {
-            continue: true,
-            systemMessage: subagent.last_assistant_message?.trim()
-              ? `子代理 ${subagent.agent_type} 已结束。其最后摘要为：${subagent.last_assistant_message.trim()}`
-              : `子代理 ${subagent.agent_type} 已结束，请将其产出整合回主研究主线。`,
-          };
-        },
-      ],
-    },
-  ],
-};
 
 // 根据 model 决定 SDK 自动压缩阈值（token 数）。
 //
@@ -283,11 +157,11 @@ export async function createChatQuery({
     mcpServers: {
       'coase-critic-panel': buildCriticPanelMcpServer(),
     },
-    hooks: COASE_HOOKS,
+    hooks: getCoaseHooks(language),
     includeHookEvents: true,
     agentProgressSummaries: true,
     promptSuggestions: true,
-    agents: COASE_AGENTS,
+    agents: getCoaseAgents(language),
     model: provider.model,
     executable: process.execPath as 'node',
     pathToClaudeCodeExecutable: CLAUDE_CODE_CLI_PATH,

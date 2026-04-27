@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { ProviderPreset, ProviderRecord, ProvidersFile } from '../../../shared/providers';
 import CriticPanelCard from './CriticPanelCard';
@@ -7,6 +8,7 @@ import ProviderList from './ProviderList';
 import SkillList from './SkillList';
 
 export default function ModelsAndSkillsSection() {
+  const { t } = useTranslation('settings');
   const [file, setFile] = useState<ProvidersFile | null>(null);
   const [presets, setPresets] = useState<ProviderPreset[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -46,12 +48,12 @@ export default function ModelsAndSkillsSection() {
     async (id: string) => {
       const target = file?.providers.find((p) => p.id === id);
       if (!target) return;
-      const ok = window.confirm(`确定要删除模型提供方“${target.label}”吗？`);
+      const ok = window.confirm(t('providers.deleteConfirm', { label: target.label }));
       if (!ok) return;
       await window.coase.providers.delete(id);
       await reload();
     },
-    [file, reload],
+    [file, reload, t],
   );
 
   const handleSetActive = useCallback(
@@ -74,7 +76,7 @@ export default function ModelsAndSkillsSection() {
     <div className="flex flex-col gap-5">
       {loadError && (
         <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          读取设置失败：{loadError}
+          {t('providers.loadError', { message: loadError })}
         </section>
       )}
 
