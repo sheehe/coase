@@ -3,7 +3,7 @@
 //   下段"会话历史"：折叠列表，只显示标题/时间/删除，不再内嵌文件树。
 // 这样无论是否展开历史会话，用户都能始终看到当前产出文件；切换历史会话会
 // 把上段内容也跟着切过去。
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import type { WorkspaceFilePreview, WorkspaceTreeNode } from '../../shared/ipc';
@@ -68,34 +68,66 @@ export default function SessionSidebar() {
     void loadSessions();
   }, [loadSessions, summaryRefreshKey]);
 
-  const loadCurrentWorkspaceTree = useCallback(async () => {
-    if (!sessionId) {
-      setCurrentTree([]);
-      setCurrentTreeRoot(null);
-      return;
-    }
-    setLoadingTree(true);
-    try {
-      const [tree, root] = await Promise.all([
-        window.coase.workspaces.listTree(sessionId),
-        window.coase.workspaces.getRoot(sessionId),
-      ]);
-      setCurrentTree(tree);
-      setCurrentTreeRoot(root);
-    } catch (error) {
-      console.warn('load workspace tree failed', { sessionId, error });
-      setCurrentTree([]);
-      setCurrentTreeRoot(null);
-    } finally {
-      setLoadingTree(false);
-    }
-  }, [sessionId]);
+  // 用 ref 加一道并发锁：手动刷新按钮、轮询、依赖变化都可能同时触发，
+  // 让它们排队等当前那次完成，避免无谓的并发 IPC 和 setState 抖动。
+  const treeFetchInFlight = useRef(false);
+  const loadCurrentWorkspaceTree = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!sessionId) {
+        setCurrentTree([]);
+        setCurrentTreeRoot(null);
+        return;
+      }
+      if (treeFetchInFlight.current) return;
+      treeFetchInFlight.current = true;
+      // silent 用于轮询：避免每 2s 闪一次"加载文件树…"。
+      if (!opts?.silent) setLoadingTree(true);
+      try {
+        const [tree, root] = await Promise.all([
+          window.coase.workspaces.listTree(sessionId),
+          window.coase.workspaces.getRoot(sessionId),
+        ]);
+        setCurrentTree(tree);
+        setCurrentTreeRoot(root);
+      } catch (error) {
+        console.warn('load workspace tree failed', { sessionId, error });
+        if (!opts?.silent) {
+          setCurrentTree([]);
+          setCurrentTreeRoot(null);
+        }
+      } finally {
+        treeFetchInFlight.current = false;
+        if (!opts?.silent) setLoadingTree(false);
+      }
+    },
+    [sessionId],
+  );
 
   // 会话切换 / 流程结束时重新拉工作区；summaryRefreshKey 变化也触发（这说明有
   // 新的 turn_result / 产物落地），这样新生成的文件能即时出现在树里。
   useEffect(() => {
     void loadCurrentWorkspaceTree();
   }, [loadCurrentWorkspaceTree, summaryRefreshKey]);
+
+  // 会话跑动期间（running / waiting）轻量轮询：summaryRefreshKey 只在
+  // session_started / session_finished 时 bump，跑到一半 agent 写出来的文件
+  // 看不到。每 2s 静默拉一次，让新产物自己冒出来；闲置或窗口隐藏时停掉。
+  useEffect(() => {
+    if (!sessionId) return;
+    if (chatState !== 'running' && chatState !== 'waiting') return;
+
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void loadCurrentWorkspaceTree({ silent: true });
+    };
+    const id = setInterval(tick, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [sessionId, chatState, loadCurrentWorkspaceTree]);
 
   const groups = useMemo(() => groupSessions(sessions), [sessions]);
 
