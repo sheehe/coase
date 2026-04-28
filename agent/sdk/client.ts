@@ -12,7 +12,7 @@ import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
 import { loadResearchPrefs, renderResearchPrefsForPrompt } from '../research/prefs-store';
 import { buildRuntimeEnv } from '../runtime';
-import { resolveCoasePluginPaths } from '../skills/plugin-paths';
+import { resolveCoaseSdkPluginPaths } from '../skills/plugin-paths';
 import { getCoaseAgents, getCoaseHooks } from './agent-definitions';
 import { buildCriticPanelMcpServer } from './critic-panel-mcp';
 import { getCoaseSystemPromptBase } from './system-prompts';
@@ -82,9 +82,9 @@ export async function createChatQuery({
   onStderr,
 }: ChatQueryParams): Promise<ChatQueryBundle> {
   const provider = await resolveActiveProvider();
-  const pluginPaths = await resolveCoasePluginPaths();
   const researchPrefs = await loadResearchPrefs();
   const language = resolveAppLanguage(await loadAppPrefs());
+  const pluginPaths = await resolveCoaseSdkPluginPaths(language);
   const systemPromptAppend = [
     getCoaseSystemPromptBase(language),
     '',
