@@ -26,7 +26,7 @@ export default function ProviderList({
   const activeLabel = providers.find((p) => p.id === activeId)?.label ?? t('providers.noneActive');
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-coach-api-key="">
       <CardBody className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
           <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">

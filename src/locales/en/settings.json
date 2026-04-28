@@ -45,9 +45,10 @@
     "webSearch": {
       "title": "Web literature search",
       "caption": "Controls whether the agent may search the web for references. Only literature search is restricted; data-source location and other web uses are unaffected.",
+      "hint": "Heads-up: when enabled, every turn injects literature search results — token usage increases significantly. Enable only when you actually need fresh references.",
       "options": {
         "on": {
-          "label": "Enabled (recommended)",
+          "label": "Enabled",
           "description": "The agent may search the web on demand for references, reviews, author pages, and similar literature material."
         },
         "off": {

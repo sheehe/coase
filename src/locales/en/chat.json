@@ -268,18 +268,28 @@
     "next": "Next",
     "prev": "Back",
     "done": "Get started",
+    "skip": "Skip tour",
+    "stepIndicator": "Step {{current}} / {{total}}",
     "steps": {
       "hero": {
         "title": "Your research workbench",
-        "description": "Type a research question directly, or use slash commands like <code>/full-research</code> or <code>/idea-to-results</code> to let the agent take it from topic to data to regression to writing in one pass."
+        "description": "Welcome. We'll walk you through API setup, picking a workflow, the web-search switch, attaching data, and sending — five quick steps."
+      },
+      "apiKey": {
+        "title": "First, configure an API key",
+        "description": "Click <strong>Add</strong> in the Model providers card and paste your key. Without one the agent can't run, so this is step zero."
+      },
+      "workflow": {
+        "title": "Pick a workflow that fits your scenario",
+        "description": "There are four workflows: <code>/full-research</code> (end-to-end), <code>/idea-to-results</code> (you have an idea), <code>/run-experiment</code> (baseline locked), <code>/review</code> (adversarial review). Open this menu or type <code>/</code> to choose."
+      },
+      "webSearch": {
+        "title": "Decide on web literature search",
+        "description": "When enabled, every turn injects literature search results — token usage increases significantly. Enable only when you actually need fresh references."
       },
       "attachments": {
         "title": "Attach local data and papers",
         "description": "Datasets (<code>.csv</code> / <code>.dta</code> / <code>.xlsx</code>) get auto-detected for structure; PDFs are picked up as background literature for the agent to cite."
-      },
-      "provider": {
-        "title": "Switch provider and model",
-        "description": "On first use, head to Settings → Models & Skills and fill in an API key — without it the agent can't run."
       },
       "send": {
         "title": "Enter to send, Shift+Enter for newline",

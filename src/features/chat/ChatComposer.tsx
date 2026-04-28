@@ -581,6 +581,7 @@ export default function ChatComposer() {
                 <button
                   ref={workflowButtonRef}
                   type="button"
+                  data-coach-workflow=""
                   onClick={() => setWorkflowPanelOpen((open) => !open)}
                   title={t('composer.workflowButtonTitle')}
                   aria-label={t('composer.workflowButtonTitle')}

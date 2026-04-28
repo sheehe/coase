@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 28" fill="none">
-  <g fill="currentColor">
-    <circle cx="14" cy="14" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <circle cx="14" cy="14" r="3"/>
-    <circle cx="22.5" cy="7" r="1.4"/>
-    <circle cx="6" cy="20" r="1.1"/>
+  <g transform="translate(2 2) scale(1.0)" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M8.5 9.5c1.1-1.4 2.3-2 3.5-2 1.6 0 3 .9 4 2.5"/>
+    <path d="M15.5 14.5c-1.1 1.4-2.3 2-3.5 2-1.6 0-3-.9-4-2.5"/>
+    <path d="M10.2 8.2 8 11l2.2 2.8"/>
+    <path d="M13.8 15.8 16 13l-2.2-2.8"/>
   </g>
   <text x="34" y="19" font-family="-apple-system, 'SF Pro Display', Inter, sans-serif" font-size="14" font-weight="600" letter-spacing="-0.02em" fill="currentColor">Coase AI</text>
 </svg>

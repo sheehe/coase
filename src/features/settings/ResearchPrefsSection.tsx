@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AlertCircle } from '../../components/Icons';
 import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import {
@@ -162,14 +163,17 @@ export default function ResearchPrefsSection() {
             onChange={(value) => setPrefs({ ...prefs, researchPurpose: value })}
             disabled={busy}
           />
-          <PrefSection
-            title={t('research.webSearch.title')}
-            caption={t('research.webSearch.caption')}
-            options={webSearchOptions}
-            value={prefs.webSearchEnabled ? 'on' : 'off'}
-            onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}
-            disabled={busy}
-          />
+          <div data-coach-web-search="">
+            <PrefSection
+              title={t('research.webSearch.title')}
+              caption={t('research.webSearch.caption')}
+              hint={t('research.webSearch.hint')}
+              options={webSearchOptions}
+              value={prefs.webSearchEnabled ? 'on' : 'off'}
+              onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}
+              disabled={busy}
+            />
+          </div>
         </>
       )}
     </div>
@@ -179,6 +183,7 @@ export default function ResearchPrefsSection() {
 interface PrefSectionProps<T extends string> {
   title: string;
   caption: string;
+  hint?: string;
   options: OptionDef<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -188,6 +193,7 @@ interface PrefSectionProps<T extends string> {
 function PrefSection<T extends string>({
   title,
   caption,
+  hint,
   options,
   value,
   onChange,
@@ -196,7 +202,18 @@ function PrefSection<T extends string>({
   return (
     <Card className="overflow-hidden">
       <CardBody className="border-b border-border px-5 py-4">
-        <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">{title}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[19px] font-semibold tracking-[-0.02em] text-fg">{title}</div>
+          {hint && (
+            <span
+              className="inline-flex h-4 w-4 cursor-help items-center justify-center text-fg-subtle hover:text-fg-muted"
+              title={hint}
+              aria-label={hint}
+            >
+              <AlertCircle size={13} />
+            </span>
+          )}
+        </div>
         <div className="mt-1 max-w-[780px] text-[13px] leading-6 text-fg-muted">{caption}</div>
       </CardBody>
 

@@ -268,18 +268,28 @@
     "next": "下一步",
     "prev": "上一步",
     "done": "开始使用",
+    "skip": "跳过引导",
+    "stepIndicator": "第 {{current}} / {{total}} 步",
     "steps": {
       "hero": {
         "title": "你的研究工作台",
-        "description": "直接输入研究问题，或用 <code>/full-research</code>、<code>/idea-to-results</code> 等斜杠命令让 agent 从选题、数据、回归到写作一气呵成。"
+        "description": "欢迎。接下来用 5 步带你过一遍：配 API、选工作流、决定是否联网、挂数据、发送。"
+      },
+      "apiKey": {
+        "title": "第一步：先配一个 API Key",
+        "description": "在「模型提供方」卡片点 <strong>新增</strong> 填入 Key。没有 Key 无法调用 agent，这是开工前提。"
+      },
+      "workflow": {
+        "title": "选一个匹配你场景的工作流",
+        "description": "共四种工作流：<code>/full-research</code>（从零到结果）、<code>/idea-to-results</code>（已有 idea）、<code>/run-experiment</code>（已锁 baseline）、<code>/review</code>（对抗评审）。点开此菜单或在输入框敲 <code>/</code> 即可选择。"
+      },
+      "webSearch": {
+        "title": "决定是否开启联网搜索文献",
+        "description": "开启后每轮会注入文献检索结果，<strong>token 消耗会显著增加</strong>。确实需要查新文献时再开。"
       },
       "attachments": {
         "title": "挂载本地数据与文献",
         "description": "数据集（<code>.csv</code> / <code>.dta</code> / <code>.xlsx</code>）会被自动识别结构；论文 PDF 会作为背景文献让 agent 引用。"
-      },
-      "provider": {
-        "title": "切换 Provider 和模型",
-        "description": "首次使用请先到「设置 → 模型与技能」填 API Key，否则无法调用 agent。"
       },
       "send": {
         "title": "Enter 发送，Shift+Enter 换行",
