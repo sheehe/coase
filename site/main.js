@@ -2,16 +2,22 @@
   "use strict";
 
   // ───────────────────────── i18n ─────────────────────────
-  const SUPPORTED = ["zh"];
+  const SUPPORTED = ["zh", "en"];
   const STORAGE_KEY = "coase_lang";
 
   function detectInitial() {
-    // 🔒 默认中文，忽略浏览器语言设置
-    return "zh";
+    // 优先用户上次手动选择 → 浏览器语言（zh-* 命中走 zh）→ 默认 EN
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && SUPPORTED.includes(saved)) return saved;
+    } catch (_) {}
+    const nav = (navigator.language || navigator.userLanguage || "").toLowerCase();
+    if (nav.startsWith("zh")) return "zh";
+    return "en";
   }
 
   function apply(lang) {
-    if (!SUPPORTED.includes(lang)) lang = "zh";
+    if (!SUPPORTED.includes(lang)) lang = "en";
     const dict = window.I18N && window.I18N[lang];
     if (!dict) return;
 

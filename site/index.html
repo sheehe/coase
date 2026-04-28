@@ -32,11 +32,10 @@
         </nav>
 
         <div class="flex items-center gap-3">
-          <!-- 🔒 语言切换隐藏 - 恢复英文时取消隐藏 -->
-          <!-- <div class="lang-pill">
-            <button data-lang-btn="en" class="active">EN</button>
-            <button data-lang-btn="zh">中</button>
-          </div> -->
+          <div class="lang-pill" role="group" aria-label="Language">
+            <button type="button" data-lang-btn="en">EN</button>
+            <button type="button" data-lang-btn="zh">中文</button>
+          </div>
           <a href="#download" class="btn-primary hidden sm:inline-flex" style="padding: 8px 16px; font-size: 13px;">
             <span data-i18n="nav.cta">Download</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
