@@ -148,10 +148,11 @@ export default function UpdateCard() {
             </p>
           )}
 
-          {snapshot.status === 'disabled' && (
+          {(snapshot.status === 'disabled' ||
+            (snapshot.status === 'error' && snapshot.updateInfoUrl)) && (
             <p>
               <a
-                href="https://github.com/sheehe/coase/releases/latest"
+                href={snapshot.updateInfoUrl ?? 'https://github.com/sheehe/coase/releases/latest'}
                 target="_blank"
                 rel="noreferrer"
                 className="text-accent underline-offset-2 hover:underline"

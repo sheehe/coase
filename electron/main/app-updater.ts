@@ -96,11 +96,7 @@ class CoaseAppUpdater {
     });
 
     this.updater.on('error', (error) => {
-      this.updateState({
-        ...this.baseState(),
-        status: 'error',
-        message: error?.message ?? String(error),
-      });
+      this.applyError(error);
     });
 
     this.configured = true;
@@ -117,13 +113,21 @@ class CoaseAppUpdater {
 
   async check(): Promise<AppUpdateSnapshot> {
     this.ensureConfigured();
-    await this.updater.checkForUpdates();
+    try {
+      await this.updater.checkForUpdates();
+    } catch (error) {
+      this.applyError(error);
+    }
     return this.state;
   }
 
   async download(): Promise<AppUpdateSnapshot> {
     this.ensureConfigured();
-    await this.updater.downloadUpdate();
+    try {
+      await this.updater.downloadUpdate();
+    } catch (error) {
+      this.applyError(error);
+    }
     return this.state;
   }
 
@@ -134,13 +138,7 @@ class CoaseAppUpdater {
 
   maybeCheckOnStartup(): void {
     if (!this.configured) return;
-    void this.check().catch((error) => {
-      this.updateState({
-        ...this.baseState(),
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
+    void this.check();
   }
 
   private ensureConfigured(): void {
@@ -185,6 +183,18 @@ class CoaseAppUpdater {
     };
   }
 
+  private applyError(error: unknown): void {
+    const { message, isNetwork } = interpretUpdateError(error);
+    this.updateState({
+      ...this.baseState(),
+      status: 'error',
+      message,
+      updateInfoUrl: isNetwork && this.repoInfo
+        ? `https://github.com/${this.repoInfo.owner}/${this.repoInfo.repo}/releases/latest`
+        : undefined,
+    });
+  }
+
   private updateState(next: AppUpdateSnapshot): void {
     this.state = next;
     for (const window of BrowserWindow.getAllWindows()) {
@@ -226,6 +236,40 @@ function releaseUrl(repo: GitHubRepoInfo, version: string): string {
 
 function isPortableBuild(): boolean {
   return Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
+}
+
+const NETWORK_ERROR_PATTERNS = [
+  'ERR_CONNECTION_CLOSED',
+  'ERR_CONNECTION_RESET',
+  'ERR_CONNECTION_REFUSED',
+  'ERR_CONNECTION_TIMED_OUT',
+  'ERR_INTERNET_DISCONNECTED',
+  'ERR_NAME_NOT_RESOLVED',
+  'ERR_NETWORK_CHANGED',
+  'ERR_PROXY_CONNECTION_FAILED',
+  'ERR_TIMED_OUT',
+  'ERR_SSL_PROTOCOL_ERROR',
+  'ERR_CERT_',
+  'ENOTFOUND',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENETUNREACH',
+  'EAI_AGAIN',
+  'getaddrinfo',
+  'net::',
+];
+
+function interpretUpdateError(error: unknown): { message: string; isNetwork: boolean } {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const isNetwork = NETWORK_ERROR_PATTERNS.some((pattern) => raw.includes(pattern));
+  if (isNetwork) {
+    return {
+      message: `网络无法访问 GitHub，请检查网络或代理后重试，或点击下方链接手动下载最新版。底层错误：${raw}`,
+      isNetwork: true,
+    };
+  }
+  return { message: raw || '检查更新时出现未知错误', isNetwork: false };
 }
 
 export const coaseAppUpdater = new CoaseAppUpdater();
