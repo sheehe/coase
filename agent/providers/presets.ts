@@ -67,7 +67,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: 'moonshot-k2-6-fast',
-    label: 'Moonshot (Kimi K2.6 · 关闭思考·便宜)',
+    label: 'Moonshot (Kimi K2.6) · 非思考模型',
     protocol: 'anthropic',
     baseURL: 'https://api.moonshot.cn/anthropic',
     defaultModel: 'kimi-k2.6',
