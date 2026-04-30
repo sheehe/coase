@@ -124,8 +124,12 @@
         "placeholder": "留空 = 使用模型自适应默认"
       },
       "disableThinking": {
-        "label": "禁用思考模式（降低成本）",
-        "hint": "每次请求都附带 thinking.type=disabled。Moonshot Kimi K2.5 / K2.6 等支持思考开关的模型生效后 token 消耗显著下降；不支持的模型会忽略此字段。"
+        "label": "思考模式",
+        "hint": "DeepSeek / Moonshot 等模型默认开启思考链，每次请求会先输出一段思维内容再给最终回答，token 消耗较大。选\"关闭思考\"后由本地代理在 /v1/messages 请求里强行注入 thinking.type=disabled，模型只输出最终回答，成本显著降低。",
+        "options": {
+          "default": "默认（跟随上游，通常开启思考）",
+          "disabled": "关闭思考（更便宜）"
+        }
       },
       "test": {
         "ok": "成功",

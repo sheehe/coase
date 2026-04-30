@@ -124,8 +124,12 @@
         "placeholder": "Blank = model-adaptive default"
       },
       "disableThinking": {
-        "label": "Disable thinking mode (lower cost)",
-        "hint": "Each request will include thinking.type=disabled. Models with a thinking switch (Moonshot Kimi K2.5 / K2.6, etc.) will see significantly reduced token usage; models without thinking support simply ignore this field."
+        "label": "Thinking mode",
+        "hint": "DeepSeek / Moonshot models enable a thinking chain by default, emitting a reasoning preamble before the final answer (high token cost). When set to \"Disabled\", a local loopback proxy injects thinking.type=disabled into every /v1/messages request — only the final answer is returned, lowering cost significantly.",
+        "options": {
+          "default": "Default (follow upstream — usually enabled)",
+          "disabled": "Disabled (cheaper)"
+        }
       },
       "test": {
         "ok": "Success",

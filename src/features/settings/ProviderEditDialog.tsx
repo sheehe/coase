@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -107,6 +107,23 @@ export default function ProviderEditDialog({
   function updateField<K extends keyof ProviderRecord>(key: K, value: ProviderRecord[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // 思考开关只对调研过的 deepseek / kimi 类端点暴露——这两家在 anthropic 兼容
+  // 端点上明确支持 thinking={type:'disabled'}。其它供应商先不做，避免改 body
+  // 后端点报错或行为漂移。判断走 baseURL 字符串匹配，足够覆盖 platform.deepseek.com
+  // 与 api.moonshot.cn 这两个域名（含 anthropic 子路径）。
+  const supportsThinkingToggle = useMemo(() => {
+    const url = (form.baseURL ?? '').toLowerCase();
+    return url.includes('deepseek.com') || url.includes('moonshot.cn');
+  }, [form.baseURL]);
+
+  // 切到不支持的 baseURL 后清掉之前可能勾上的 disableThinking，不让无效字段
+  // 跟着 record 落盘并误导以后维护者。
+  useEffect(() => {
+    if (!supportsThinkingToggle && form.disableThinking !== undefined) {
+      setForm((prev) => ({ ...prev, disableThinking: undefined }));
+    }
+  }, [supportsThinkingToggle, form.disableThinking]);
 
   function applyPreset(presetId: string) {
     setSelectedPresetId(presetId);
@@ -267,24 +284,29 @@ export default function ProviderEditDialog({
           />
         </Field>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-[13px] hover:border-border-strong">
-          <input
-            type="checkbox"
-            checked={form.disableThinking === true}
-            onChange={(e) =>
-              updateField('disableThinking', e.target.checked ? true : undefined)
-            }
-            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-fg">
-              {t('providers.dialog.disableThinking.label')}
-            </span>
-            <span className="text-[11.5px] leading-5 text-fg-subtle">
-              {t('providers.dialog.disableThinking.hint')}
-            </span>
-          </span>
-        </label>
+        {supportsThinkingToggle && (
+          <Field
+            label={t('providers.dialog.disableThinking.label')}
+            hint={t('providers.dialog.disableThinking.hint')}
+          >
+            <Select
+              value={form.disableThinking === true ? 'disabled' : 'default'}
+              onChange={(e) =>
+                updateField(
+                  'disableThinking',
+                  e.target.value === 'disabled' ? true : undefined,
+                )
+              }
+            >
+              <option value="default">
+                {t('providers.dialog.disableThinking.options.default')}
+              </option>
+              <option value="disabled">
+                {t('providers.dialog.disableThinking.options.disabled')}
+              </option>
+            </Select>
+          </Field>
+        )}
 
         <Field
           label={t('providers.dialog.auth.label')}

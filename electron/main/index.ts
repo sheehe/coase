@@ -14,6 +14,7 @@ import {
 } from 'electron';
 
 import { coaseAppUpdater } from './app-updater';
+import { startAnthropicProxy, stopAnthropicProxy } from '../../agent/proxy/anthropic-proxy';
 import { PromptQueue } from '../../agent/chat/prompt-queue';
 import {
   getPixiVersion,
@@ -1268,6 +1269,13 @@ app.whenReady().then(() => {
       }
     }
   });
+  // 启动本地 anthropic 反向代理（loopback only）。Provider 标了"禁用思考模式"
+  // 时 sdk/client.ts 会把 ANTHROPIC_BASE_URL 重定向到这里，由代理在 /v1/messages
+  // body 注入 thinking={type:'disabled'} 再转发到真实上游——绕开 SDK cli.js
+  // 对 thinking={type:'disabled'} 的拦截行为。
+  void startAnthropicProxy().catch((err) => {
+    console.warn('[anthropic-proxy] failed to start; disableThinking 将不可用:', err);
+  });
   createMainWindow();
   coaseAppUpdater.maybeCheckOnStartup();
 
@@ -1286,4 +1294,8 @@ app.on('before-quit', () => {
     session.abortController.abort();
   }
   activeSessions.clear();
+  // 异步关代理但不阻塞 quit；fire-and-forget。
+  void stopAnthropicProxy().catch(() => {
+    /* noop */
+  });
 });

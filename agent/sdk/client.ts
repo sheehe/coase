@@ -7,6 +7,7 @@ import {
 import { app } from 'electron';
 import { join } from 'node:path';
 
+import { getProxyPort, isProxyRunning, setRoute } from '../proxy/anthropic-proxy';
 import { loadAppPrefs, resolveAppLanguage } from '../app/prefs-store';
 import { PromptQueue } from '../chat/prompt-queue';
 import { resolveActiveProvider, type ResolvedProvider } from '../providers/resolve';
@@ -114,7 +115,25 @@ export async function createChatQuery({
     childEnv.ANTHROPIC_AUTH_TOKEN = provider.credential;
   }
 
-  if (provider.baseURL) {
+  // Provider 标了 disableThinking 时把 base URL 重定向到本地反向代理，由代理
+  // 在 /v1/messages body 里强行注入 thinking={type:'disabled'} 再转发——绕开
+  // SDK cli.js 对 thinking 字段的过滤。代理未启动 / 没有 providerId（env source）
+  // 时回退到原 baseURL，功能失效但 chat 仍然能用。
+  const proxyPort = getProxyPort();
+  const useProxy =
+    provider.disableThinking === true &&
+    isProxyRunning() &&
+    proxyPort > 0 &&
+    typeof provider.providerId === 'string' &&
+    provider.providerId.length > 0;
+
+  if (useProxy) {
+    setRoute(provider.providerId!, {
+      upstream: provider.baseURL || 'https://api.anthropic.com',
+      disableThinking: true,
+    });
+    childEnv.ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPort}/${provider.providerId}`;
+  } else if (provider.baseURL) {
     childEnv.ANTHROPIC_BASE_URL = provider.baseURL;
   }
 
@@ -134,13 +153,12 @@ export async function createChatQuery({
   // 把自动压缩阈值喂给 SDK 的 flag settings 层（优先级最高）。这样 cli.js 内部
   // 的 auto-compact 检查会走我们指定的 token 阈值，而不是 SDK 自己挑默认值。
   // 优先级：provider 设置页里填的数字 > 按 model 自适应的默认。
+  //
+  // 注意：disableThinking 不能通过 Settings.thinking={type:'disabled'} 实现——
+  // cli.js 拿到 type:'disabled' 后会**整体丢弃** thinking 字段（变成 undefined），
+  // 不会把它发到第三方端点。改成走 anthropic-proxy 在 HTTP body 里强行注入。
   const flagSettings: Settings = {
     autoCompactWindow: provider.autoCompactWindow ?? pickAutoCompactWindow(provider.model),
-    // 当 provider 标记 disableThinking 时透传 SDK：cli.js 会在每次请求里塞
-    // `thinking: { type: 'disabled' }`。Moonshot Kimi K2.5 / K2.6 在 anthropic
-    // 兼容端点会按 thinking.type=disabled 关闭思考链，调用成本大幅下降。
-    // 不设置时走 SDK 默认（adaptive：模型自决）。
-    ...(provider.disableThinking === true ? { thinking: { type: 'disabled' as const } } : {}),
   };
 
   const options: Options = {
