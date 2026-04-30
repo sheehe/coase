@@ -66,6 +66,16 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     hint: 'Kimi K2.6 走同一套 Anthropic 兼容端点。',
   },
   {
+    id: 'moonshot-k2-6-fast',
+    label: 'Moonshot (Kimi K2.6 · 关闭思考·便宜)',
+    protocol: 'anthropic',
+    baseURL: 'https://api.moonshot.cn/anthropic',
+    defaultModel: 'kimi-k2.6',
+    authMode: 'auth_token',
+    disableThinking: true,
+    hint: '同 K2.6 模型，但每次请求都禁用思考链（thinking.type=disabled），token 消耗与单次成本显著降低；适合预算敏感或不需要长链路推理的任务。',
+  },
+  {
     id: 'zai',
     label: 'Z.ai (智谱 GLM)',
     protocol: 'anthropic',

@@ -28,6 +28,11 @@ export interface ResolvedProvider {
    * 由 sdk/client.ts 回退到模型自适应默认。
    */
   autoCompactWindow?: number;
+  /**
+   * 是否禁用 extended thinking。见 ProviderRecord.disableThinking。source='env'
+   * 时永远为 undefined（env 入口不支持配置 thinking 行为）。
+   */
+  disableThinking?: boolean;
 }
 
 export class NoProviderConfiguredError extends Error {
@@ -89,6 +94,7 @@ export async function resolveActiveProvider(): Promise<ResolvedProvider> {
         providerId: active.id,
         providerLabel: active.label,
         autoCompactWindow: normalizeAutoCompactWindow(active.autoCompactWindow),
+        disableThinking: active.disableThinking === true ? true : undefined,
       };
     }
     // activeProviderId 指向已删除的记录：fall through 到 env

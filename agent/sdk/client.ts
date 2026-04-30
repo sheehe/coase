@@ -136,6 +136,11 @@ export async function createChatQuery({
   // 优先级：provider 设置页里填的数字 > 按 model 自适应的默认。
   const flagSettings: Settings = {
     autoCompactWindow: provider.autoCompactWindow ?? pickAutoCompactWindow(provider.model),
+    // 当 provider 标记 disableThinking 时透传 SDK：cli.js 会在每次请求里塞
+    // `thinking: { type: 'disabled' }`。Moonshot Kimi K2.5 / K2.6 在 anthropic
+    // 兼容端点会按 thinking.type=disabled 关闭思考链，调用成本大幅下降。
+    // 不设置时走 SDK 默认（adaptive：模型自决）。
+    ...(provider.disableThinking === true ? { thinking: { type: 'disabled' as const } } : {}),
   };
 
   const options: Options = {

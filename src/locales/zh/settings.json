@@ -123,6 +123,10 @@
         "errorRange": "自动压缩阈值需在 {{min}} - {{max}} 之间",
         "placeholder": "留空 = 使用模型自适应默认"
       },
+      "disableThinking": {
+        "label": "禁用思考模式（降低成本）",
+        "hint": "每次请求都附带 thinking.type=disabled。Moonshot Kimi K2.5 / K2.6 等支持思考开关的模型生效后 token 消耗显著下降；不支持的模型会忽略此字段。"
+      },
       "test": {
         "ok": "成功",
         "fail": "失败",

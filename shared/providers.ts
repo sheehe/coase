@@ -23,6 +23,14 @@ export interface ProviderRecord {
    * 默认（1M 窗口模型 ≈ 850k，其它 ≈ 160k）。
    */
   autoCompactWindow?: number;
+  /**
+   * 是否在每次请求里塞 `thinking: { type: 'disabled' }`，禁用 extended thinking。
+   * 当前主要用于 Moonshot Kimi K2.5 / K2.6 系列：这些模型默认开启思考链，禁用后
+   * 单次调用 token 消耗显著降低（成本敏感场景）。其它模型如 Anthropic Claude 4.x
+   * 设此值也会被 SDK 透传（行为见 Anthropic / 第三方文档）。
+   * 留空 = 跟随 SDK 默认（adaptive，模型自决）。
+   */
+  disableThinking?: boolean;
 }
 
 /** 给 UI 挑选用的模板。不含 credential。 */
@@ -34,6 +42,8 @@ export interface ProviderPreset {
   defaultModel: string;
   authMode: AuthMode;
   hint?: string;
+  /** preset 默认是否禁用 extended thinking。见 ProviderRecord.disableThinking。 */
+  disableThinking?: boolean;
 }
 
 /** providers.json 的顶层结构。 */

@@ -123,6 +123,10 @@
         "errorRange": "Auto-compact threshold must be between {{min}} and {{max}}",
         "placeholder": "Blank = model-adaptive default"
       },
+      "disableThinking": {
+        "label": "Disable thinking mode (lower cost)",
+        "hint": "Each request will include thinking.type=disabled. Models with a thinking switch (Moonshot Kimi K2.5 / K2.6, etc.) will see significantly reduced token usage; models without thinking support simply ignore this field."
+      },
       "test": {
         "ok": "Success",
         "fail": "Failed",

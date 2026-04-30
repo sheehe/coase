@@ -123,6 +123,9 @@ export default function ProviderEditDialog({
       baseURL: preset.baseURL,
       model: preset.defaultModel,
       authMode: preset.authMode,
+      // preset 显式声明的 thinking 行为覆盖之前的设置；preset 没声明（undefined）
+      // 时回到 SDK 默认（adaptive），把字段清掉以免历史值粘连。
+      disableThinking: preset.disableThinking === true ? true : undefined,
     }));
   }
 
@@ -263,6 +266,25 @@ export default function ProviderEditDialog({
             placeholder="MiniMax-M2.7"
           />
         </Field>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-[13px] hover:border-border-strong">
+          <input
+            type="checkbox"
+            checked={form.disableThinking === true}
+            onChange={(e) =>
+              updateField('disableThinking', e.target.checked ? true : undefined)
+            }
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium text-fg">
+              {t('providers.dialog.disableThinking.label')}
+            </span>
+            <span className="text-[11.5px] leading-5 text-fg-subtle">
+              {t('providers.dialog.disableThinking.hint')}
+            </span>
+          </span>
+        </label>
 
         <Field
           label={t('providers.dialog.auth.label')}
