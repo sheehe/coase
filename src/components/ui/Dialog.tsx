@@ -11,6 +11,7 @@ export default function Dialog({
   children,
   footer,
   widthClass = 'max-w-xl',
+  bodyKey,
 }: {
   open: boolean;
   onClose: () => void;
@@ -18,6 +19,10 @@ export default function Dialog({
   children: ReactNode;
   footer?: ReactNode;
   widthClass?: string;
+  // 用 bodyKey 强制 React 在 key 变化时重挂载滚动容器子树，
+  // 让 scrollTop 自动归零——比手动 ref + scrollTo 更稳，也避开了
+  // <dialog> 重开时浏览器残留滚动状态的兼容坑。
+  bodyKey?: string | number | null;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -63,7 +68,9 @@ export default function Dialog({
             ×
           </button>
         </header>
-        <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
+        <div key={bodyKey ?? undefined} className="max-h-[70vh] overflow-y-auto p-5">
+          {children}
+        </div>
         {footer && (
           <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
             {footer}

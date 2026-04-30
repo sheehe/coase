@@ -22,12 +22,10 @@
   "research": {
     "title": "研究偏好",
     "description": "这里的偏好会被注入系统提示词，从下一个新会话起生效；运行中的会话不会被动切换口径。",
-    "save": "保存",
-    "saving": "保存中…",
-    "undo": "撤销",
     "loadError": "读取或保存偏好失败：{{message}}",
     "loading": "加载偏好…",
-    "savedFlash": "已保存。下次新建会话时会自动带入这些偏好。",
+    "savedFlash": "✓ 已保存（下次新建会话生效）",
+    "saving": "保存中…",
     "purpose": {
       "title": "研究目的",
       "caption": "决定 Planner 是否必须采用因果识别策略，以及 Reviewer 的评分标准。",

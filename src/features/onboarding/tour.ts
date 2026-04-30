@@ -157,9 +157,14 @@ function runStep(step: StepDef, ctx: RunStepCtx): Promise<boolean> {
     const description = tt(`tour.steps.${step.i18nKey}.description`);
 
     let settled = false;
+    let dialogObserver: MutationObserver | null = null;
     const settle = (proceed: boolean) => {
       if (settled) return;
       settled = true;
+      if (dialogObserver) {
+        dialogObserver.disconnect();
+        dialogObserver = null;
+      }
       try {
         d.destroy();
       } catch {
@@ -168,6 +173,30 @@ function runStep(step: StepDef, ctx: RunStepCtx): Promise<boolean> {
       activeDriver = null;
       resolve(proceed);
     };
+
+    // 引导期间用户如果点了"新增 Key"等按钮、弹出原生 <dialog showModal()>，
+    // driver.js 的 overlay 会和 <dialog> 的 top layer 抢交互层级，导致 dialog
+    // 内按钮无响应（用户视角=卡死）。这里检测到任何 dialog[open] 出现就主动
+    // 退出引导，并标记 onboardingSeen——用户已经知道下一步该做啥了，引导
+    // 没必要再粘着。
+    const checkForNativeDialog = (): boolean => {
+      return document.querySelector('dialog[open]') !== null;
+    };
+    if (!checkForNativeDialog()) {
+      dialogObserver = new MutationObserver(() => {
+        if (settled) return;
+        if (checkForNativeDialog()) {
+          markOnboardingSeen();
+          settle(false);
+        }
+      });
+      dialogObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['open'],
+      });
+    }
 
     const d = driver({
       showProgress: false,

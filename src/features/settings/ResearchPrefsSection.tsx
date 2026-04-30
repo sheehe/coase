@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AlertCircle } from '../../components/Icons';
-import Button from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import {
   DEFAULT_RESEARCH_PREFS,
@@ -16,16 +15,25 @@ type OptionDef<T extends string> = {
   description: string;
 };
 
+const AUTO_SAVE_DEBOUNCE_MS = 250;
+const FLASH_VISIBLE_MS = 1500;
+
 export default function ResearchPrefsSection() {
   const { t } = useTranslation('settings');
   const [prefs, setPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
-  const [savedPrefs, setSavedPrefs] = useState<ResearchPrefs>(DEFAULT_RESEARCH_PREFS);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flashVisible, setFlashVisible] = useState(false);
 
-  // 选项必须在组件内 t() 完之后才能拿到当前语种文案；切语言时随 t 引用变化。
+  // 用 ref 存"是否完成首次加载"，让自动保存的 useEffect 不会在挂载时立刻把
+  // 默认值写盘（防止覆盖用户磁盘上的真实配置）。reload 完成后再翻 true。
+  const initialized = useRef(false);
+  // 防抖计时器；卸载或下一次变更前要清掉。
+  const debounceTimer = useRef<number | null>(null);
+  // 闪现"已保存"提示的计时器，单独管，避免和防抖混在一起。
+  const flashTimer = useRef<number | null>(null);
+
   const purposeOptions = useMemo<OptionDef<ResearchPurpose>[]>(
     () => [
       {
@@ -62,12 +70,14 @@ export default function ResearchPrefsSection() {
     try {
       const loaded = await window.coase.researchPrefs.get();
       setPrefs(loaded);
-      setSavedPrefs(loaded);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      // 等到本地 state 已经从磁盘填好后再放开自动保存——否则 prefs 的 setState
+      // 会触发一次"用默认值覆盖磁盘"的写入，等于 reset。
+      initialized.current = true;
     }
   }, []);
 
@@ -75,30 +85,62 @@ export default function ResearchPrefsSection() {
     void reload();
   }, [reload]);
 
-  const isDirty =
-    prefs.researchPurpose !== savedPrefs.researchPurpose ||
-    prefs.webSearchEnabled !== savedPrefs.webSearchEnabled;
+  const showFlash = useCallback(() => {
+    setFlashVisible(true);
+    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => {
+      setFlashVisible(false);
+      flashTimer.current = null;
+    }, FLASH_VISIBLE_MS);
+  }, []);
 
-  const handleSave = useCallback(async () => {
-    setBusy(true);
-    setFlash(null);
-    try {
-      const saved = await window.coase.researchPrefs.set(prefs);
-      setSavedPrefs(saved);
-      setPrefs(saved);
-      setError(null);
-      setFlash(t('research.savedFlash'));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [prefs, t]);
+  // prefs 变化即触发自动保存（防抖 250ms）。把异步操作放在 effect 里、不放在
+  // onChange 里，是为了让"快速连点"只产生一次写盘。
+  useEffect(() => {
+    if (!initialized.current) return;
+    if (debounceTimer.current !== null) window.clearTimeout(debounceTimer.current);
+    debounceTimer.current = window.setTimeout(() => {
+      debounceTimer.current = null;
+      setSaving(true);
+      void window.coase.researchPrefs
+        .set(prefs)
+        .then((saved) => {
+          // 服务端可能 normalize 字段（迁移老 schema 等），用返回值同步本地。
+          // 但只在和当前 state 不同时再 setState，避免再次触发本 effect 形成回路。
+          setPrefs((current) =>
+            current.researchPurpose === saved.researchPurpose &&
+            current.webSearchEnabled === saved.webSearchEnabled
+              ? current
+              : saved,
+          );
+          setError(null);
+          showFlash();
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : String(err));
+        })
+        .finally(() => {
+          setSaving(false);
+        });
+    }, AUTO_SAVE_DEBOUNCE_MS);
 
-  const handleReset = useCallback(() => {
-    setPrefs(savedPrefs);
-    setFlash(null);
-  }, [savedPrefs]);
+    return () => {
+      if (debounceTimer.current !== null) {
+        window.clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+    };
+  }, [prefs, showFlash]);
+
+  // 卸载时把 flash 计时器也清掉，防止 setState on unmounted。
+  useEffect(() => {
+    return () => {
+      if (flashTimer.current !== null) {
+        window.clearTimeout(flashTimer.current);
+        flashTimer.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -113,26 +155,12 @@ export default function ResearchPrefsSection() {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-2">
-            {isDirty && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                disabled={busy}
-                className="rounded-full px-3.5"
-              >
-                {t('research.undo')}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={() => void handleSave()}
-              disabled={busy || !isDirty}
-              className="rounded-full px-3.5"
-            >
-              {busy ? t('research.saving') : t('research.save')}
-            </Button>
+          <div className="flex shrink-0 items-center text-[12px] leading-5">
+            {saving ? (
+              <span className="text-fg-subtle">{t('research.saving')}</span>
+            ) : flashVisible ? (
+              <span className="text-success">{t('research.savedFlash')}</span>
+            ) : null}
           </div>
         </CardBody>
       </Card>
@@ -140,12 +168,6 @@ export default function ResearchPrefsSection() {
       {error && (
         <section className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           {t('research.loadError', { message: error })}
-        </section>
-      )}
-
-      {flash && !error && (
-        <section className="rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-fg-muted">
-          {flash}
         </section>
       )}
 
@@ -161,7 +183,6 @@ export default function ResearchPrefsSection() {
             options={purposeOptions}
             value={prefs.researchPurpose}
             onChange={(value) => setPrefs({ ...prefs, researchPurpose: value })}
-            disabled={busy}
           />
           <div data-coach-web-search="">
             <PrefSection
@@ -171,7 +192,6 @@ export default function ResearchPrefsSection() {
               options={webSearchOptions}
               value={prefs.webSearchEnabled ? 'on' : 'off'}
               onChange={(value) => setPrefs({ ...prefs, webSearchEnabled: value === 'on' })}
-              disabled={busy}
             />
           </div>
         </>
@@ -187,7 +207,6 @@ interface PrefSectionProps<T extends string> {
   options: OptionDef<T>[];
   value: T;
   onChange: (value: T) => void;
-  disabled?: boolean;
 }
 
 function PrefSection<T extends string>({
@@ -197,7 +216,6 @@ function PrefSection<T extends string>({
   options,
   value,
   onChange,
-  disabled,
 }: PrefSectionProps<T>) {
   return (
     <Card className="overflow-hidden">
@@ -225,9 +243,8 @@ function PrefSection<T extends string>({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              disabled={disabled}
               className={[
-                'flex flex-col items-start gap-1.5 rounded-xl border px-4 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
+                'flex flex-col items-start gap-1.5 rounded-xl border px-4 py-3.5 text-left transition',
                 active
                   ? 'border-transparent bg-fg text-app shadow-[0_0_0_1px_rgba(0,0,0,0.04)]'
                   : 'border-border bg-surface text-fg hover:border-border-strong hover:bg-black/[0.02] dark:hover:bg-white/[0.03]',

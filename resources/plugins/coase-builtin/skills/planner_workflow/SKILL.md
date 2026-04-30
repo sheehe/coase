@@ -11,6 +11,34 @@ description: 规划 workflow，对应 /idea-discovery。用于在运行任何主
 
 ---
 
+## 输出语言规范（中文输出强制）
+
+中文输出中**必须使用中文术语**，不得在中文叙述里直接夹塞英文单词冒充术语。常见对照：
+
+| 英文 | 中文（正文使用） |
+|------|----------------|
+| censoring | 删失（生存分析）/ 截断（panel 边界） |
+| confounding / confounder | 混杂 / 混杂因素 |
+| heterogeneity / heterogeneous treatment effect | 异质性 / 异质性处理效应 |
+| endogeneity | 内生性 |
+| selection bias | 选择性偏差 |
+| reverse causality | 反向因果 |
+| robustness check | 稳健性检验 |
+| placebo test | 安慰剂检验 |
+| pre-trend | 平行趋势（事前趋势） |
+| spillover | 溢出效应 |
+| treatment / control group | 处理组 / 对照组 |
+| baseline / outcome / covariate | 基准 / 结果变量 / 协变量 |
+| cluster / clustering | 聚类（标准误） |
+| fixed effect (FE) | 固定效应 |
+| identification strategy | 识别策略 |
+
+**保留**的英文缩写（行业惯例，不译）：DID、IV、RDD、PSM、OLS、Logit、Probit、AIC、BIC、p-value、N、R²、F-stat、SE、CI、ATT、ATE、LATE、MVP。
+
+模型 / 函数 / 包名（`fixest::feols`、`lmtest`、`R²`）保留原样。**仅** stage_*.md 的中文叙述里需遵守此规则；R 代码注释、表格表头按代码风格自由。
+
+---
+
 ## 研究目的适配
 
 在开始任何 Phase 前，先从上下文中读取 **research_purpose** 字段，它决定了方法学基调。
@@ -110,7 +138,7 @@ Phase 3 评分权重、Phase 4 质量关卡阈值、Phase 7 Baseline Memo 的要
 **步骤 2（必须）**：识别结构性维度并全量扫描
 - 识别疑似实体ID列（列名含 id/code/stkcd/firmid/企业 等，或字符型/高基数整数）
   → 获得**精确**实体数量（不能靠估算，这决定研究样本规模）
-- 识别疑似时间列（列名含 year/date/time/period/年/月 等，或取值在 1990-2040 的整数）
+- 识别疑似时间列（列名含 year/date/time/period/年/月 等）
   → 获得完整时间跨度和时间粒度（决定面板长度）
 
 **步骤 3（按需）**：对研究核心变量调用

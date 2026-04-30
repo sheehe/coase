@@ -23,7 +23,9 @@ export interface ResearchPrefs {
 
 export const DEFAULT_RESEARCH_PREFS: ResearchPrefs = {
   researchPurpose: 'causal',
-  webSearchEnabled: true,
+  // 默认关闭：联网搜索文献会大幅放大 token 消耗（一次完整 review 可能多几十万 token），
+  // 新用户不该被默认开启的高成本选项埋单；用户主动在"研究偏好"里打开才生效。
+  webSearchEnabled: false,
 };
 
 /** 磁盘持久化结构，带 version 便于以后演进。 */

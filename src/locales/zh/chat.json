@@ -22,6 +22,8 @@
     "refreshHistory": "刷新会话历史",
     "menuUsage": "用量",
     "menuSettings": "设置",
+    "updateAvailableBadge": "有新版本 {{version}}，点击前往设置 → 更新",
+    "updateDownloadedBadge": "新版本 {{version}} 已下载，点击重启安装",
     "filePreview": "文件预览",
     "previewClose": "关闭",
     "previewOpenOriginal": "打开原文件",

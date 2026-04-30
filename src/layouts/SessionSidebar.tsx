@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-import type { WorkspaceFilePreview, WorkspaceTreeNode } from '../../shared/ipc';
+import type { AppUpdateSnapshot, WorkspaceFilePreview, WorkspaceTreeNode } from '../../shared/ipc';
 import type { SessionLogEntry } from '../../shared/runs';
 import {
   BarChart2,
@@ -42,6 +42,7 @@ export default function SessionSidebar() {
   const [previewFile, setPreviewFile] = useState<WorkspaceFilePreview | null>(null);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [updateSnapshot, setUpdateSnapshot] = useState<AppUpdateSnapshot | null>(null);
   const {
     onNewSession,
     chatState,
@@ -69,6 +70,28 @@ export default function SessionSidebar() {
   useEffect(() => {
     void loadSessions();
   }, [loadSessions, summaryRefreshKey]);
+
+  // 全局更新状态订阅。SettingsPage 的 UpdateCard 也会订阅同一个 IPC 事件，但
+  // 那只在用户切到"更新" tab 才挂载——侧边栏这里再订一份，让红点提示能在
+  // 任何路径下出现，避免用户错过更新。两份订阅互不干扰。
+  useEffect(() => {
+    let mounted = true;
+    void window.coase.updates
+      .getState()
+      .then((next) => {
+        if (mounted) setUpdateSnapshot(next);
+      })
+      .catch(() => {
+        /* 拿不到状态就当没有更新，不打扰用户 */
+      });
+    const unsubscribe = window.coase.updates.onEvent((next) => {
+      if (mounted) setUpdateSnapshot(next);
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   // 用 ref 加一道并发锁：手动刷新按钮、轮询、依赖变化都可能同时触发，
   // 让它们排队等当前那次完成，避免无谓的并发 IPC 和 setState 抖动。
@@ -399,11 +422,9 @@ export default function SessionSidebar() {
             label={t('sidebar.menuUsage')}
             active={location.pathname === '/usage'}
           />
-          <SidebarMenuLink
-            to="/settings"
-            icon={<Settings size={14} />}
-            label={t('sidebar.menuSettings')}
-            active={location.pathname === '/settings'}
+          <SettingsMenuLinkWithUpdateBadge
+            updateSnapshot={updateSnapshot}
+            isOnSettingsPage={location.pathname === '/settings'}
           />
         </div>
       </aside>
@@ -413,6 +434,7 @@ export default function SessionSidebar() {
         onClose={() => setPreviewFile(null)}
         title={previewFile?.name ?? t('sidebar.filePreview')}
         widthClass="max-w-3xl"
+        bodyKey={previewFile?.filePath ?? null}
         footer={
           previewFile?.filePath ? (
             <>
@@ -516,15 +538,20 @@ function SidebarMenuLink({
   icon,
   label,
   active = false,
+  badge = false,
+  badgeTitle,
 }: {
   to: string;
   icon: ReactNode;
   label: string;
   active?: boolean;
+  badge?: boolean;
+  badgeTitle?: string;
 }) {
   return (
     <Link
       to={to}
+      title={badgeTitle}
       className={[
         'flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-fg-muted transition hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.04]',
         active ? 'bg-black/[0.04] text-fg dark:bg-white/[0.04]' : '',
@@ -532,7 +559,48 @@ function SidebarMenuLink({
     >
       {icon}
       <span>{label}</span>
+      {badge && (
+        <span
+          aria-label={badgeTitle}
+          className="ml-auto h-2 w-2 shrink-0 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(244,63,94,0.18)]"
+        />
+      )}
     </Link>
+  );
+}
+
+// 设置入口 + 更新红点。检测到 'available' / 'downloaded' 状态时点亮红点，
+// 链接顺势带上 ?tab=updates 把用户直接送到更新页；用户进了设置页就不再闪
+// （视为"看到了"），避免持续打扰。
+function SettingsMenuLinkWithUpdateBadge({
+  updateSnapshot,
+  isOnSettingsPage,
+}: {
+  updateSnapshot: AppUpdateSnapshot | null;
+  isOnSettingsPage: boolean;
+}) {
+  const { t } = useTranslation('chat');
+  const status = updateSnapshot?.status;
+  const hasUpdate = status === 'available' || status === 'downloaded';
+  const showBadge = hasUpdate && !isOnSettingsPage;
+  const targetVersion =
+    updateSnapshot?.downloadedVersion ?? updateSnapshot?.availableVersion ?? '';
+  const badgeTitle = !showBadge
+    ? undefined
+    : status === 'downloaded'
+      ? t('sidebar.updateDownloadedBadge', { version: targetVersion })
+      : t('sidebar.updateAvailableBadge', { version: targetVersion });
+  const to = hasUpdate ? '/settings?tab=updates' : '/settings';
+
+  return (
+    <SidebarMenuLink
+      to={to}
+      icon={<Settings size={14} />}
+      label={t('sidebar.menuSettings')}
+      active={isOnSettingsPage}
+      badge={showBadge}
+      badgeTitle={badgeTitle}
+    />
   );
 }
 

@@ -22,6 +22,8 @@
     "refreshHistory": "Refresh sessions",
     "menuUsage": "Usage",
     "menuSettings": "Settings",
+    "updateAvailableBadge": "New version {{version}} available — open Settings → Updates",
+    "updateDownloadedBadge": "Version {{version}} downloaded — click to restart and install",
     "filePreview": "File preview",
     "previewClose": "Close",
     "previewOpenOriginal": "Open original",

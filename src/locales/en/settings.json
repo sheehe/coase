@@ -22,12 +22,10 @@
   "research": {
     "title": "Research preferences",
     "description": "These preferences are injected into the system prompt and take effect on the next new session; running sessions are not switched mid-flight.",
-    "save": "Save",
-    "saving": "Saving…",
-    "undo": "Undo",
     "loadError": "Failed to load or save preferences: {{message}}",
     "loading": "Loading preferences…",
-    "savedFlash": "Saved. New sessions will pick up these preferences automatically.",
+    "savedFlash": "✓ Saved (applies to new sessions)",
+    "saving": "Saving…",
     "purpose": {
       "title": "Research goal",
       "caption": "Determines whether the Planner must use a causal identification strategy and how the Reviewer scores the work.",
