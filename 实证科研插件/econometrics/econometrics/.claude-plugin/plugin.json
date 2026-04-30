@@ -1,9 +1,0 @@
-{
-  "name": "econometrics",
-  "version": "0.4.0",
-  "description": "A comprehensive econometrics skill set for empirical study, covering data fetching & cleaning, estimation methods (OLS, panel, IV, DID, RDD, synthetic control, ML causal), diagnostics, and academic writing with code support for Python, R, and Stata.",
-  "author": {
-    "name": "William Zhou"
-  },
-  "keywords": ["econometrics", "regression", "causal-inference", "panel-data", "time-series", "empirical-study", "data-fetching", "data-cleaning", "synthetic-control", "machine-learning", "diagnostics", "table", "stats"]
-}
