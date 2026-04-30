@@ -13,6 +13,10 @@ import Dialog from '../components/ui/Dialog';
 import { CoaseMark } from '../components/Icons';
 import { useChat } from '../features/chat/ChatContext';
 
+// macOS 在 titleBarStyle:'hidden' 下交通灯按钮固定占据左上 ~78px，logo 必须让位
+// 否则会跟红绿灯重叠。Windows / Linux 的窗口控件在右上角，左侧不需要 padding。
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
 type MenuId = 'file' | 'edit' | 'view' | 'window' | 'help';
 
 type MenuItem = {
@@ -175,7 +179,13 @@ export default function DesktopChromeBar({
         className="w-full shrink-0 border-b border-border bg-app"
         style={{ WebkitAppRegion: 'drag' } as CSSProperties}
       >
-        <div ref={rootRef} className="flex h-10 w-full items-center pl-3 pr-[140px]">
+        <div
+          ref={rootRef}
+          className={[
+            'flex h-10 w-full items-center pr-[140px]',
+            IS_MAC ? 'pl-[78px]' : 'pl-3',
+          ].join(' ')}
+        >
           <div className="flex shrink-0 items-center gap-2">
             <span
               className="flex h-5.5 w-5.5 items-center justify-center rounded-full border border-border-strong bg-surface text-fg"
