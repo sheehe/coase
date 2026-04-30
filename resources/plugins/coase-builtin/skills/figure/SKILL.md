@@ -230,6 +230,29 @@ coefplot, vertical drop(_cons) ///
 graph export "event_study.pdf", as(pdf) replace
 ```
 
+```r
+# R — event study (broom::tidy 简化版，从 fixest 模型直接抽系数)
+# Using fixest
+p_event <- iplot(event_study_model,
+                  main = "",
+                  xlab = "Time Relative to Treatment",
+                  ylab = "Coefficient Estimate")
+
+# Or custom ggplot
+event_coefs <- broom::tidy(event_study_model, conf.int = TRUE) %>%
+  filter(str_detect(term, "time_to_treat")) %>%
+  mutate(time = as.numeric(str_extract(term, "-?\\d+")))
+
+p_event <- ggplot(event_coefs, aes(x = time, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  geom_vline(xintercept = -0.5, linetype = "dashed", color = "gray40") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high)) +
+  labs(x = "Time Relative to Treatment", y = "Coefficient Estimate") +
+  theme_minimal()
+
+ggsave("output/figures/figure2_eventstudy.pdf", p_event, width = 8, height = 5)
+```
+
 ### 2. Coefficient Plot (Multiple Models)
 
 ```python
@@ -271,6 +294,16 @@ modelplot(list("OLS" = m1, "IV" = m2, "FE" = m3),
   labs(x = "Coefficient Estimate", y = "") +
   scale_color_manual(values = econ_colors[1:3]) +
   theme_econ()
+```
+
+```r
+# R — coefficient plot 单模型简化版（隐藏 Intercept）
+p_coef <- modelplot(main_model, coef_omit = "Intercept") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "")
+
+ggsave("output/figures/figure3_coefplot.pdf", p_coef, width = 6, height = 4)
 ```
 
 ### 3. Binned Scatter Plot (binscatter)
@@ -533,7 +566,43 @@ def plot_synth(years, treated, synthetic, treatment_year, title=""):
     plt.savefig("synth_plot.pdf")
 ```
 
-### 8. Multi-Panel Figures
+### 8. Pre/Post Group Means (DiD Descriptive Trends)
+
+事件研究图之前，每篇 DiD 论文都会先放一张**处理组 vs 对照组的均值随时间变化图**，带 95% CI ribbon 和 treatment 年份的虚线——下方为标准模板，照搬即可。
+
+```r
+library(ggplot2)
+
+trends_data <- analysis_data %>%
+  group_by(year, treatment_group) %>%
+  summarise(mean_outcome = mean(outcome, na.rm = TRUE),
+            se = sd(outcome, na.rm = TRUE) / sqrt(n()))
+
+p_trends <- ggplot(trends_data, aes(x = year, y = mean_outcome,
+                                     color = treatment_group,
+                                     linetype = treatment_group)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  geom_ribbon(aes(ymin = mean_outcome - 1.96*se,
+                  ymax = mean_outcome + 1.96*se,
+                  fill = treatment_group),
+              alpha = 0.2, color = NA) +
+  geom_vline(xintercept = treatment_year, linetype = "dashed", color = "gray40") +
+  annotate("text", x = treatment_year, y = Inf, label = "Treatment",
+           vjust = 2, hjust = 0.5, size = 3) +
+  scale_color_manual(values = c("Control" = "#1f77b4", "Treated" = "#ff7f0e")) +
+  scale_fill_manual(values = c("Control" = "#1f77b4", "Treated" = "#ff7f0e")) +
+  labs(x = "Year", y = "Outcome", color = "", fill = "", linetype = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank())
+
+ggsave("output/figures/figure1_trends.pdf", p_trends, width = 8, height = 5)
+```
+
+> 接入本 skill 的 journal-ready 基础设施时，把 `scale_color_manual / scale_fill_manual` 配色换成 `econ_colors[1:2]`、`theme_minimal() + theme(...)` 替换为 `theme_econ()`、`ggsave(...)` 替换为 `save_econ_fig(p_trends, "figure1_trends.pdf")` 即可，其余代码保持原样。
+
+### 9. Multi-Panel Figures
 
 ```python
 # Python — multi-panel layout

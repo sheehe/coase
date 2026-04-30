@@ -11,6 +11,7 @@ description: |
 
 若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
+- **规划阶段 · Descriptive Snapshot**: 生成 Table 1（描述性统计 + 处理组-对照组均衡表），路径记入 `planner/stage_8_descriptive_snapshot.md`。**强制使用** `modelsummary::datasummary()` / `datasummary_balance()`，见下文 "Descriptive & Balance Tables"。
 - **执行阶段 · Run Baseline**: 生成主回归 Main Results Table，LaTeX booktabs 或 Markdown 格式，填入 `executor/stage_1_run_baseline.md`。
 - **执行阶段 · Robustness**: 生成 Robustness Table 与 Mechanism-Supporting Table（若适用），填入 `executor/stage_2_explanation_robustness.md`。
 
@@ -31,6 +32,32 @@ This skill generates publication-quality regression tables, summary statistics t
 | `fixest::etable` | R | Fast tables from `fixest` regressions |
 | `stargazer` | R | Classic; widely used in econ |
 | `statsmodels` summary + manual | Python | Custom formatting |
+
+## Descriptive & Balance Tables (Table 1)
+
+几乎所有实证论文的 Table 1 不是描述性统计就是处理组均衡表。**强制使用** `modelsummary::datasummary()` 与 `datasummary_balance()`——下方为标准模板，照搬即可。
+
+```r
+library(modelsummary)
+
+# Summary statistics
+datasummary(
+  outcome + treatment + control1 + control2 ~
+    N + Mean + SD + Min + Max,
+  data = analysis_data,
+  output = "output/tables/table1_descriptives.tex",
+  title = "Summary Statistics",
+  notes = "Sample includes [description]. Data from [source]."
+)
+
+# Balance table (if applicable)
+datasummary_balance(
+  ~ treatment,
+  data = analysis_data,
+  output = "output/tables/table1_balance.tex",
+  title = "Balance Across Treatment Groups"
+)
+```
 
 ## Regression Tables
 
@@ -111,6 +138,34 @@ modelsummary(
     "Industry FE",  "No",   "No",   "Yes"
   ),
   output = "results.tex"
+)
+
+# Main Results 完整模板（含聚类 SE 说明 + FE 指示 GOF）
+modelsummary(
+  main_models,
+  output = "output/tables/table2_main.tex",
+  stars = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
+  coef_map = c(
+    "treatment" = "Treatment",
+    "control1" = "Control 1",
+    "control2" = "Control 2"
+  ),
+  gof_map = c("nobs", "r.squared", "FE: unit", "FE: year"),
+  title = "Effect of [Treatment] on [Outcome]",
+  notes = list(
+    "Standard errors clustered at [level] in parentheses.",
+    "* p<0.1, ** p<0.05, *** p<0.01"
+  )
+)
+
+# Robustness 表：只展示处理变量、隐藏 nuisance controls
+modelsummary(
+  robustness_models,
+  output = "output/tables/table3_robustness.tex",
+  stars = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
+  coef_omit = "control",  # Show only treatment
+  title = "Robustness Checks",
+  notes = "See notes to Table 2."
 )
 ```
 
