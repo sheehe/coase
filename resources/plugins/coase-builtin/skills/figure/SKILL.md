@@ -176,28 +176,27 @@ def plot_event_study(coefs, ses, periods, ref_period=-1,
 ```
 
 ```r
-# R — event study with fixest
-library(fixest)
+# R — event study (fixest + broom + ggplot2)
+# 关键约定：FILTER_KEY 必须匹配你 fixest 模型 term 里实际出现的字符串，
+# 否则 filter 抓空、estimate 退化为 logical，ggplot 会画出 y 轴只有 "TRUE" 的废图。
+library(fixest); library(broom); library(dplyr); library(ggplot2); library(stringr)
 
 es <- feols(y ~ i(rel_time, treat, ref = -1) | entity_id + year,
             data = df, cluster = ~entity_id)
+# i(rel_time, treat, ref=-1) 生成的 term 形如 "rel_time::-3:treat" → FILTER_KEY = "rel_time"
+# 若改用 i(year, treat) 或自定义 time_to_treat 列，把 FILTER_KEY 与正则同步换掉
+FILTER_KEY <- "rel_time"
+PERIOD_RX  <- "-?\\d+"
 
-# fixest iplot (quick)
-iplot(es, xlab = "Periods Relative to Treatment",
-      ylab = "Coefficient Estimate",
-      main = "Event Study: Dynamic Treatment Effects")
-
-# ggplot2 version (full control)
-library(broom)
 es_df <- tidy(es, conf.int = TRUE) %>%
-  filter(grepl("rel_time", term)) %>%
-  mutate(period = as.numeric(gsub(".*::(-?\\d+):.*", "\\1", term)))
+  filter(grepl(FILTER_KEY, term)) %>%
+  mutate(period = as.numeric(str_extract(term, PERIOD_RX))) %>%
+  bind_rows(tibble(period = -1, estimate = 0, conf.low = 0, conf.high = 0))
 
-# Add reference period
-es_df <- bind_rows(es_df,
-  tibble(period = -1, estimate = 0, conf.low = 0, conf.high = 0))
+# 防御：filter 抓空时立刻报错而不是画废图
+stopifnot(nrow(es_df) > 1, is.numeric(es_df$estimate))
 
-ggplot(es_df, aes(x = period, y = estimate)) +
+p_event <- ggplot(es_df, aes(x = period, y = estimate)) +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high),
               fill = econ_colors[1], alpha = 0.15) +
   geom_point(color = econ_colors[1], size = 2) +
@@ -207,10 +206,12 @@ ggplot(es_df, aes(x = period, y = estimate)) +
   labs(x = "Periods Relative to Treatment",
        y = "Coefficient Estimate",
        title = "Event Study: Dynamic Treatment Effects",
-       caption = "Notes: 95% confidence intervals shown. Standard errors clustered at entity level.") +
+       caption = "Notes: 95% CIs. SE clustered at entity level.") +
   theme_econ()
 
-save_econ_fig(last_plot(), "event_study.pdf")
+save_econ_fig(p_event, "event_study.pdf")
+
+# 快速预览（无需 ggplot 自定义）：iplot(es)
 ```
 
 ```stata
@@ -228,29 +229,6 @@ coefplot, vertical drop(_cons) ///
     note("Notes: 95% CIs shown. SEs clustered at entity level.") ///
     $graph_opts
 graph export "event_study.pdf", as(pdf) replace
-```
-
-```r
-# R — event study (broom::tidy 简化版，从 fixest 模型直接抽系数)
-# Using fixest
-p_event <- iplot(event_study_model,
-                  main = "",
-                  xlab = "Time Relative to Treatment",
-                  ylab = "Coefficient Estimate")
-
-# Or custom ggplot
-event_coefs <- broom::tidy(event_study_model, conf.int = TRUE) %>%
-  filter(str_detect(term, "time_to_treat")) %>%
-  mutate(time = as.numeric(str_extract(term, "-?\\d+")))
-
-p_event <- ggplot(event_coefs, aes(x = time, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-  geom_vline(xintercept = -0.5, linetype = "dashed", color = "gray40") +
-  geom_pointrange(aes(ymin = conf.low, ymax = conf.high)) +
-  labs(x = "Time Relative to Treatment", y = "Coefficient Estimate") +
-  theme_minimal()
-
-ggsave("output/figures/figure2_eventstudy.pdf", p_event, width = 8, height = 5)
 ```
 
 ### 2. Coefficient Plot (Multiple Models)
@@ -284,26 +262,27 @@ def plot_coefplot(models, model_names, var_names, var_labels=None):
 ```
 
 ```r
-# R — coefficient plot with modelsummary/modelplot
-library(modelsummary)
+# R — coefficient plot via modelsummary::modelplot
+library(modelsummary); library(ggplot2)
 
-modelplot(list("OLS" = m1, "IV" = m2, "FE" = m3),
-          coef_map = c("x1" = "Treatment", "x2" = "Income", "x3" = "Education"),
-          color = "model") +
+# 多模型对比（替换 m1/m2/m3 为你的 fixest/lm 对象）
+p_coef_multi <- modelplot(
+  list("OLS" = m1, "IV" = m2, "FE" = m3),
+  coef_map = c("x1" = "Treatment", "x2" = "Income", "x3" = "Education"),
+  color = "model"
+) +
   geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(x = "Coefficient Estimate", y = "") +
   scale_color_manual(values = econ_colors[1:3]) +
+  labs(x = "Coefficient Estimate", y = NULL) +
   theme_econ()
-```
+save_econ_fig(p_coef_multi, "coefplot_multi.pdf")
 
-```r
-# R — coefficient plot 单模型简化版（隐藏 Intercept）
-p_coef <- modelplot(main_model, coef_omit = "Intercept") +
+# 单模型简化版（隐藏 Intercept；main_model 替换为你的实际模型对象）
+p_coef_single <- modelplot(main_model, coef_omit = "Intercept") +
   geom_vline(xintercept = 0, linetype = "dashed") +
-  theme_minimal() +
-  labs(title = "")
-
-ggsave("output/figures/figure3_coefplot.pdf", p_coef, width = 6, height = 4)
+  labs(x = "Coefficient Estimate", y = NULL) +
+  theme_econ()
+save_econ_fig(p_coef_single, "coefplot.pdf")
 ```
 
 ### 3. Binned Scatter Plot (binscatter)
@@ -602,7 +581,54 @@ ggsave("output/figures/figure1_trends.pdf", p_trends, width = 8, height = 5)
 
 > 接入本 skill 的 journal-ready 基础设施时，把 `scale_color_manual / scale_fill_manual` 配色换成 `econ_colors[1:2]`、`theme_minimal() + theme(...)` 替换为 `theme_econ()`、`ggsave(...)` 替换为 `save_econ_fig(p_trends, "figure1_trends.pdf")` 即可，其余代码保持原样。
 
-### 9. Multi-Panel Figures
+### 9. Heterogeneity Bar Plot (Subgroup Coefficients)
+
+按某维度分组（地区、行业、规模等）分别跑回归后展示处理效应大小与 95% CI——典型样式：每个子组一根柱 + 误差棒 + 0 参考虚线。
+
+**中文字体注意**：若图例 / 横轴需要显示中文，必须显式注册系统字体并启用 `showtext`，否则 PDF 里中文会渲染成 `□□□□` 方框。
+
+```r
+# R — heterogeneity bar plot (subgroup coefficients with 95% CI)
+library(fixest); library(broom); library(dplyr); library(purrr); library(ggplot2)
+
+# 中文显示（仅在图中含中文时启用；纯英文图可跳过）
+# library(showtext); library(sysfonts)
+# font_add("CN", "C:/Windows/Fonts/msyh.ttc")  # Windows 微软雅黑；macOS 改 PingFang.ttc
+# showtext_auto()
+
+# 1) 按 group_var 拆分数据，对每个子样本拟合相同 spec
+group_var <- "region"   # 改成你的分组变量名
+het_models <- df %>%
+  split(.[[group_var]]) %>%
+  lapply(function(d) feols(y ~ treat | entity_id + year, data = d,
+                           cluster = ~entity_id))
+
+# 2) 抽 treat 系数。term 名要与你模型一致（这里假设回归量直接叫 "treat"）
+TREAT_TERM <- "treat"
+het_df <- imap_dfr(het_models, ~ tidy(.x, conf.int = TRUE) %>%
+                                  filter(term == TREAT_TERM) %>%
+                                  mutate(group = .y))
+
+stopifnot(nrow(het_df) >= 2, is.numeric(het_df$estimate))  # 防御：抓空立刻报错
+
+# 3) 画图
+p_het <- ggplot(het_df, aes(x = reorder(group, estimate), y = estimate,
+                            fill = group)) +
+  geom_col(width = 0.6, alpha = 0.85, show.legend = FALSE) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = rep(econ_colors, length.out = nrow(het_df))) +
+  labs(x = NULL, y = "Coefficient (Treatment)",
+       title = "Heterogeneity Analysis",
+       caption = "Notes: 95% CIs. SE clustered at entity level.") +
+  theme_econ() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+save_econ_fig(p_het, "heterogeneity.pdf")
+```
+
+### 10. Multi-Panel Figures
 
 ```python
 # Python — multi-panel layout
