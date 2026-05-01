@@ -12,10 +12,28 @@ description: |
 若当前会话由 Coase 研究工作流触发（`/full-research` / `/idea-to-results` / `/run-experiment`），本 skill 的输出必须按以下规则落入阶段文件，**不得自行新建目录或脱离工作流上下文**：
 
 - **规划阶段 · Descriptive Snapshot**: 生成 Table 1（描述性统计 + 处理组-对照组均衡表），路径记入 `planner/stage_8_descriptive_snapshot.md`。**强制使用** `modelsummary::datasummary()` / `datasummary_balance()`，见下文 "Descriptive & Balance Tables"。
-- **执行阶段 · Run Baseline**: 生成主回归 Main Results Table，LaTeX booktabs 或 Markdown 格式，填入 `executor/stage_1_run_baseline.md`。
-- **执行阶段 · Robustness**: 生成 Robustness Table 与 Mechanism-Supporting Table（若适用），填入 `executor/stage_2_explanation_robustness.md`。
+- **执行阶段 · Run Baseline**: 生成主回归 Main Results Table，CSV 格式（见下方契约），路径写入 `executor/stage_1_run_baseline.md`。
+- **执行阶段 · Robustness**: 生成 Robustness Table 与 Mechanism-Supporting Table（若适用），路径写入 `executor/stage_2_explanation_robustness.md`。
 
-若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
+### Executor 流程下的硬性输出契约（与 `executor_workflow/role-rules.md` 对齐）
+
+进入 executor R 容器执行时，下面三条**不可违反**，否则 orchestrator 派生不出 .md 表，下游 reviewer/writer 找不到文件：
+
+1. **CSV 是唯一交付格式**。**禁止** `.tex` / `.xlsx` / `.docx` 输出。需要 LaTeX 表时由 writer 从 CSV 现场渲染，executor 不落盘 tex。具体：禁止 `modelsummary(..., output = "*.tex")`、`stargazer(..., out = "*.tex")`、`library(openxlsx|xlsx|writexl)`、手写 booktabs。
+2. **路径与命名固定**：`executor/outputs/tables/table_{role}.csv`，`role ∈ {baseline, mechanism, robust, heterog, desc_stats, corr_matrix}`。迭代时**覆盖写同名文件**，禁止 `_v2` / `_new` / `_final` 后缀；规格迭代轨迹写入 `executor/specification_log.md`。
+3. **数值精度一次定死**：系数/SE 4 位小数，p 值 4 位，N 整数；写入 CSV 后**不得**在下游做数值后处理。
+
+Executor 模式标准写法：
+```r
+modelsummary(mods, output = "data.frame",
+             fmt = 4, estimate = "{estimate}{stars}",
+             statistic = "({std.error})",
+             stars = c('*' = .1, '**' = .05, '***' = .01),
+             gof_omit = "AIC|BIC|Log.|RMSE|R2 Adj|R2 Within") |>
+  data.table::fwrite("executor/outputs/tables/table_baseline.csv")
+```
+
+若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行——standalone 模式下 `.tex` / 任意路径都是合法的。
 
 ---
 

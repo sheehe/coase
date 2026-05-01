@@ -16,7 +16,14 @@ description: |
 - **执行阶段 · Run Baseline 辅助**: 主回归前的样本健康检查（样本量、缺失率、关键变量变异），简要纳入 `executor/stage_1_run_baseline.md`。
 - **执行阶段 · Robustness**: 分组一致性 / 子样本描述性对比，写入 `executor/stage_2_explanation_robustness.md`。
 
-若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
+### Executor R 容器下的硬性输出契约（与 `executor_workflow/role-rules.md` 对齐）
+
+进入 executor R 容器执行时**不可违反**：
+
+- **CSV 唯一交付格式**。下方 R 段中的 `output = "table1.tex"` / `"balance.tex"` / `"correlation.tex"` **不能直接照抄**进 executor R 脚本——会触发 role-rules 的 `.tex` 禁令。executor 模式必须改为 `output = "data.frame"` + `data.table::fwrite()`，路径走 `executor/outputs/tables/table_{role}.csv`，role ∈ `desc_stats` / `corr_matrix` / 等枚举。
+- **不准** `library(openxlsx|xlsx|writexl)` —— R 容器没装这些包。下方 Python 段的 `to_excel` / Stata 段的 `save("*.xlsx")` 仅在各自语言下有效，**不要**在 R 段套用。
+
+Standalone 模式（用户直接问、未走 workflow）下 `.tex` / `.xlsx` 都是合法的，下方正文照执行。
 
 ---
 

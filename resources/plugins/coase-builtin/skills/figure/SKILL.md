@@ -16,7 +16,15 @@ description: |
 - **规划阶段 · Descriptive Snapshot**: 生成 1-2 张最有帮助的描述性图形（因变量分布 / 处理组对照组比较 / 样本年份覆盖），路径记入 `planner/stage_8_descriptive_snapshot.md`。
 - **执行阶段 · Robustness**: 事件研究图 / 平行趋势图 / coefficient plot 等识别支持性图形，文件路径记入 `executor/stage_2_explanation_robustness.md`。
 
-若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行。
+### Executor 流程下的硬性输出契约（与 `executor_workflow/role-rules.md` 对齐）
+
+进入 executor R 容器执行时，下面三条**不可违反**，否则下游 reviewer/writer 找不到文件或图渲染失败：
+
+1. **图内文字一律英文**（labs 的 title/subtitle/caption/x/y/fill/color/shape/linetype，以及 annotate / geom_text）。原因：executor R 容器**没有安装任何 CJK 字体**，任何中文字符在 PNG/PDF 里都会渲染成 `□□□□`。**不要**尝试 `library(showtext)` / `sysfonts::font_add()` / `theme(text = element_text(family = "SimSun"))` —— 这些在容器里全部静默失败。下游的 writer 用 `\caption{中文图注}` 配 `\includegraphics` 就够了，正文中文 + 图内英文是经管论文通行格式。
+2. **必须 PNG + PDF 同名双件套**输出，路径 `executor/outputs/figures/{name}.{png,pdf}`。直接调用 executor_workflow 提供的 `save_fig(p, name)`（已封装 `ggsave(.png, dpi=300)` + `ggsave(.pdf, device=cairo_pdf)`），**不要**用本 skill 的 `save_econ_fig`（只导 PDF，路径 `figures/`，与 executor 契约不一致）。
+3. **不准**自行新建 `output/` `figures/` 等顶层目录，所有产出必须落在 `executor/outputs/figures/`。
+
+若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行——standalone 模式下 `save_econ_fig` 与 `figures/` 命名是合法的。
 
 ---
 
@@ -108,10 +116,13 @@ theme_econ <- function(base_size = 11, base_family = "serif") {
 # Grayscale-safe palette
 econ_colors <- c("#2c3e50", "#e74c3c", "#3498db", "#27ae60", "#f39c12", "#8e44ad")
 
-# Export function
+# Export function — standalone 模式同名 PNG + PDF 双件套
+# （executor 流程下用 executor_workflow 提供的 save_fig，路径强制 executor/outputs/figures/）
 save_econ_fig <- function(plot, filename, width = 7, height = 4.5) {
-  ggsave(filename, plot, width = width, height = height, dpi = 300,
-         device = cairo_pdf)  # vector PDF with embedded fonts
+  base <- sub("\\.(pdf|png)$", "", filename)  # 接受 "x.pdf" / "x.png" / "x" 三种写法
+  ggsave(paste0(base, ".png"), plot, width = width, height = height, dpi = 300)
+  ggsave(paste0(base, ".pdf"), plot, width = width, height = height,
+         device = cairo_pdf)
 }
 ```
 
@@ -585,16 +596,11 @@ ggsave("output/figures/figure1_trends.pdf", p_trends, width = 8, height = 5)
 
 按某维度分组（地区、行业、规模等）分别跑回归后展示处理效应大小与 95% CI——典型样式：每个子组一根柱 + 误差棒 + 0 参考虚线。
 
-**中文字体注意**：若图例 / 横轴需要显示中文，必须显式注册系统字体并启用 `showtext`，否则 PDF 里中文会渲染成 `□□□□` 方框。
+**关于中文标签**：在 executor 容器里图内文字一律英文（容器无 CJK 字体，showtext 静默失败，详见上方"Executor 流程下的硬性输出契约"）。Standalone 模式下若本机装了中文字体可以直接写中文 labs，cairo_pdf 会内嵌字体。下面模板按 executor 安全口径写英文。
 
 ```r
 # R — heterogeneity bar plot (subgroup coefficients with 95% CI)
 library(fixest); library(broom); library(dplyr); library(purrr); library(ggplot2)
-
-# 中文显示（仅在图中含中文时启用；纯英文图可跳过）
-# library(showtext); library(sysfonts)
-# font_add("CN", "C:/Windows/Fonts/msyh.ttc")  # Windows 微软雅黑；macOS 改 PingFang.ttc
-# showtext_auto()
 
 # 1) 按 group_var 拆分数据，对每个子样本拟合相同 spec
 group_var <- "region"   # 改成你的分组变量名
