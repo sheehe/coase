@@ -40,7 +40,10 @@ This skill generates publication-quality regression tables, summary statistics t
 ```r
 library(modelsummary)
 
-# Summary statistics
+# 输出路径不存在时 modelsummary 会直接报错，先建目录
+dir.create("output/tables", recursive = TRUE, showWarnings = FALSE)
+
+# Summary statistics —— 把左侧公式里的变量名换成你数据集里实际存在的列
 datasummary(
   outcome + treatment + control1 + control2 ~
     N + Mean + SD + Min + Max,
@@ -50,7 +53,7 @@ datasummary(
   notes = "Sample includes [description]. Data from [source]."
 )
 
-# Balance table (if applicable)
+# Balance table —— ~treatment 右侧必须是二值/分类变量
 datasummary_balance(
   ~ treatment,
   data = analysis_data,
@@ -109,48 +112,36 @@ esttab m3 m4 using "panel_b.tex", replace booktabs fragment ///
 ### R — modelsummary
 
 ```r
-# R — modelsummary (modern, flexible)
-library(modelsummary)
+# R — modelsummary (主回归 / 稳健性 / FE 指示，三合一标准模板)
+library(modelsummary); library(tibble)
+dir.create("output/tables", recursive = TRUE, showWarnings = FALSE)
 
+# 1) 拟合一组规格逐步加控制变量 / 固定效应（按你的实际变量名替换 x1/x2/x3）
 m1 <- lm(y ~ x1, data = df)
 m2 <- lm(y ~ x1 + x2, data = df)
 m3 <- lm(y ~ x1 + x2 + x3, data = df)
+main_models <- list("(1)" = m1, "(2)" = m2, "(3)" = m3)
+stopifnot(length(main_models) > 0)   # 防御：空列表会导出诡异空表
 
-# LaTeX output
+# 2) Main Results：coef_map 的左侧 key 必须与模型 term 字面一致，
+#    否则该行不会出现在表里（modelsummary 不会报错，只是悄悄丢掉）
 modelsummary(
-  list("(1)" = m1, "(2)" = m2, "(3)" = m3),
-  coef_map = c("x1" = "Treatment",
-               "x2" = "Control 1",
-               "x3" = "Control 2"),
-  gof_map = c("nobs", "r.squared", "adj.r.squared"),
-  stars = c('*' = .1, '**' = .05, '***' = .01),
-  title = "Main Results",
-  notes = "Robust standard errors in parentheses.",
-  output = "results.tex"    # also: .docx, .html, .png
-)
-
-# Add fixed effects indicators
-modelsummary(
-  list("(1)" = m1, "(2)" = m2, "(3)" = m3),
+  main_models,
+  output = "output/tables/table2_main.tex",
+  stars  = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
+  coef_map = c(
+    "x1" = "Treatment",
+    "x2" = "Control 1",
+    "x3" = "Control 2"
+  ),
+  # nobs / r.squared 通用；"FE: xxx" 这类 GOF 仅 fixest::feols 模型对象有，
+  # 用 lm/glm 时该行不会出现，需要换成 add_rows 手填 Yes/No
+  gof_map  = c("nobs", "r.squared", "adj.r.squared"),
   add_rows = tribble(
     ~term,          ~"(1)", ~"(2)", ~"(3)",
     "Year FE",      "No",   "Yes",  "Yes",
     "Industry FE",  "No",   "No",   "Yes"
   ),
-  output = "results.tex"
-)
-
-# Main Results 完整模板（含聚类 SE 说明 + FE 指示 GOF）
-modelsummary(
-  main_models,
-  output = "output/tables/table2_main.tex",
-  stars = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
-  coef_map = c(
-    "treatment" = "Treatment",
-    "control1" = "Control 1",
-    "control2" = "Control 2"
-  ),
-  gof_map = c("nobs", "r.squared", "FE: unit", "FE: year"),
   title = "Effect of [Treatment] on [Outcome]",
   notes = list(
     "Standard errors clustered at [level] in parentheses.",
@@ -158,12 +149,19 @@ modelsummary(
   )
 )
 
-# Robustness 表：只展示处理变量、隐藏 nuisance controls
+# 3) Robustness 表：只展示处理变量、隐藏 nuisance 控制项
+#    coef_omit 是 regex —— "control" 只会匹配 term 名包含 "control" 字符串的变量；
+#    如果你的控制变量叫 gdp_pc / pop / age（不含 "control"），下面这条不起作用，
+#    应改为正向白名单 coef_map = c("treatment" = "Treatment") 来强制只显示处理变量。
+robustness_models <- list("(1)" = m1, "(2)" = m2, "(3)" = m3)  # 替换为你的稳健性回归
+stopifnot(length(robustness_models) > 0)
+
 modelsummary(
   robustness_models,
   output = "output/tables/table3_robustness.tex",
-  stars = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
-  coef_omit = "control",  # Show only treatment
+  stars  = c('*' = 0.1, '**' = 0.05, '***' = 0.01),
+  coef_map = c("x1" = "Treatment"),  # 白名单：只展示 Treatment 一行
+  gof_map  = c("nobs", "r.squared"),
   title = "Robustness Checks",
   notes = "See notes to Table 2."
 )
