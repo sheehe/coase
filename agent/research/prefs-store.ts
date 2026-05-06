@@ -99,7 +99,7 @@ export function renderResearchPrefsForPrompt(
 
     const webSearchLine = prefs.webSearchEnabled
       ? '- Literature web search: **enabled**. You may use WebSearch / WebFetch to retrieve academic literature, reviews, author pages, citation databases and similar reference materials as needed.'
-      : '- Literature web search: **disabled**. Do not use WebSearch / WebFetch for academic literature, reviews, author pages, citation databases or any references; references must come only from already-downloaded literature and local resources. For literature-review tasks without local material, tell the user explicitly instead of going online. **This restriction targets literature only** — locating data sources, looking up data dictionaries, browsing policy / news / API documentation and other non-literature uses remain permitted.';
+      : '- Literature web search: **disabled**. Do not use WebSearch / WebFetch for academic literature, reviews, author pages, citation databases or any references; references must come only from already-downloaded literature and local resources. For literature-survey tasks without local material, tell the user explicitly instead of going online. **This restriction targets literature only** — locating data sources, looking up data dictionaries, browsing policy / news / API documentation and other non-literature uses remain permitted.';
 
     return [
       '[User research preferences (set in the "Research Preferences" panel — highest priority)]',
@@ -117,7 +117,7 @@ export function renderResearchPrefsForPrompt(
 
   const webSearchLine = prefs.webSearchEnabled
     ? '- 联网搜索文献：**开启**。可按需使用 WebSearch / WebFetch 检索学术文献、综述、作者主页、文献数据库等参考资料。'
-    : '- 联网搜索文献：**关闭**。不得使用 WebSearch / WebFetch 检索学术文献、综述、作者主页、引文数据库或任何参考文献，参考文献仅能来自已下载文献与本地资源；literature-review 类任务若无本地资料应明确告知用户而非联网补齐。**此限制只针对文献检索**：定位数据源、查询数据字典、查看政策 / 新闻 / API 文档等非文献用途仍允许联网。';
+    : '- 联网搜索文献：**关闭**。不得使用 WebSearch / WebFetch 检索学术文献、综述、作者主页、引文数据库或任何参考文献，参考文献仅能来自已下载文献与本地资源；文献综述类任务若无本地资料应明确告知用户而非联网补齐。**此限制只针对文献检索**：定位数据源、查询数据字典、查看政策 / 新闻 / API 文档等非文献用途仍允许联网。';
 
   return [
     '【用户研究偏好（由"研究设置"面板设定，最高优先级）】',

@@ -1,7 +1,7 @@
 // 把 critic panel（多 provider 并行调用）包装成 in-process MCP server，
 // 通过 Claude Agent SDK 的 `createSdkMcpServer` 暴露给 agent。
 //
-// 工作流里（idea-critic / paper-reviewer）会在 prompt 中指示 agent 调用
+// 工作流里（paper-reviewer skill）会在 prompt 中指示 agent 调用
 // 这个 tool。SDK 会把 tool 调用从 CLI 子进程 route 回父进程（Electron
 // main），本模块在父进程里执行 invokeCriticPanel（裸 Anthropic Messages
 // API 并行调用）并把聚合结果返回给 agent。
@@ -132,7 +132,7 @@ function summarizeResult(entries: CriticPanelEntry[], totalMs: number): string {
 
   lines.push(
     '---',
-    'Next step: 聚合以上独立回答，找出共识项、重大分歧、单一模型独有意见，按 idea-critic / paper-reviewer skill 要求的输出格式整理。',
+    'Next step: 聚合以上独立回答，找出共识项、重大分歧、单一模型独有意见，按 paper-reviewer skill 要求的输出格式整理。',
   );
   return lines.join('\n');
 }

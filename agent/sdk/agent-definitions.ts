@@ -10,8 +10,9 @@ import type { ResolvedLanguage } from '../../shared/app-prefs';
 import type { ResearchPrefs } from '../../shared/research-prefs';
 
 // 子 agent 定义和 hooks 都要跟语言走。skill 名是注册标识符，全语种都得保持
-// 字面相同（'literature-review'、'data-fetcher'…），翻译只动 description / prompt
-// 这种"喂给模型读"的自然语言部分，不能动 skills 数组里的 ID。
+// 字面相同（'planner_workflow'、'executor_workflow'、'paper-reviewer'、
+// 'full_research_workflow'），翻译只动 description / prompt 这种"喂给模型读"
+// 的自然语言部分，不能动 skills 数组里的 ID。
 //
 // 注意：root agent 的 system prompt 通过 client.ts 的 systemPromptAppend 注入
 // renderResearchPrefsForPrompt() 内容，但**子 agent 不继承** root systemPrompt
