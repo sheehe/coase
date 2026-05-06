@@ -245,5 +245,4 @@ misstable patterns
 - **/analyze**: Full analysis workflow that starts with descriptive statistics
 - **ols-regression**: Proceed to regression after describing your data
 - **matching**: Balance tables are critical for matching-based designs
-- **table**: Advanced formatting for publication-quality tables
 - **/plot**: Visualize distributions and correlations

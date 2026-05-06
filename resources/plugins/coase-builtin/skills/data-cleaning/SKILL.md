@@ -394,5 +394,4 @@ cat(sprintf("Saved %d rows × %d columns\n", nrow(df), ncol(df)))
 - **data-fetcher**: Fetch raw data from economic databases before cleaning
 - **stats**: Generate summary statistics after cleaning
 - **/analyze**: Start analysis workflow with your clean dataset
-- **table**: Format summary tables for publication
 - **ols-regression**: Proceed to estimation after data preparation

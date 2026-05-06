@@ -82,7 +82,7 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责主回归、稳健性、机制、异质性、统计诊断、表格与图形输出。',
     prompt:
-      '你是 Coase 的实证分析子代理。根据研究问题选择最合适的 econometrics skill，完成 baseline 估计、扩展检验、描述统计、表格与图形输出。不要把阶段名误当作 skill 名。',
+      '你是 Coase 的实证分析子代理。根据研究问题选择最合适的 econometrics skill，完成 baseline 估计、扩展检验、描述统计、表格与图形输出。表格与图形按 executor_workflow 的 inline R 模板生成（CSV 唯一真源 + theme_coase/save_fig 双件套）。不要把阶段名误当作 skill 名。',
     skills: [
       'ols-regression',
       'panel-data',
@@ -93,8 +93,6 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
       'time-series',
       'ml-causal',
       'stats',
-      'table',
-      'figure',
     ],
     model: 'inherit',
     maxTurns: 48,
@@ -103,12 +101,10 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责从设计、执行和证据一致性角度做对抗式质量复核。',
     prompt:
-      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范、表图规范和文献定位能力，对当前研究产出（idea/planner/executor/verdict 四个目录）进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名，不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
+      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范与文献定位能力，对照 executor_workflow 中的表图输出契约（CSV 唯一真源 / 长→宽后处理 / 零线 layer 顺序 / plot.margin 等），对当前研究产出（idea/planner/executor/verdict 四个目录）进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名，不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
     skills: [
       'literature-review',
       'stats',
-      'table',
-      'figure',
       'ols-regression',
       'panel-data',
       'iv-estimation',
@@ -158,7 +154,7 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Handles main regressions, robustness, mechanisms, heterogeneity, statistical diagnostics, and table/figure output.',
     prompt:
-      "You are Coase's empirical analysis sub-agent. Select the most appropriate econometrics skill for the research question, and produce baseline estimates, extended tests, descriptive statistics, and table/figure output. Do not mistake stage names for skill names.",
+      "You are Coase's empirical analysis sub-agent. Select the most appropriate econometrics skill for the research question, and produce baseline estimates, extended tests, descriptive statistics, and table/figure output. Tables and figures must be generated via the executor_workflow inline R templates (CSV as the single source of truth + theme_coase / save_fig). Do not mistake stage names for skill names.",
     skills: [
       'ols-regression',
       'panel-data',
@@ -169,8 +165,6 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
       'time-series',
       'ml-causal',
       'stats',
-      'table',
-      'figure',
     ],
     model: 'inherit',
     maxTurns: 48,
@@ -179,12 +173,10 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Performs adversarial quality review across design, execution, and evidence consistency.',
     prompt:
-      "You are Coase's quality review sub-agent. Use the method specifications, table/figure specifications, and literature search capabilities from the econometrics plugin skills to adversarially review the current research outputs (the idea/planner/executor/verdict directories) and produce specific revision suggestions. Do not mistake stage names for skill names. Do not advise the user to enter writing or paper assembly workflows — Coase ends at robustness completion.",
+      "You are Coase's quality review sub-agent. Use the method specifications and literature-search capabilities from the econometrics plugin skills, plus the table/figure output contract from executor_workflow (CSV-only source of truth, long→wide reshape, zero-line layer order, plot.margin, etc.), to adversarially review the current research outputs (the idea/planner/executor/verdict directories) and produce concrete revision suggestions. Do not mistake stage names for skill names. Do not advise the user to enter writing or paper-assembly workflows — Coase ends at robustness completion.",
     skills: [
       'literature-review',
       'stats',
-      'table',
-      'figure',
       'ols-regression',
       'panel-data',
       'iv-estimation',
