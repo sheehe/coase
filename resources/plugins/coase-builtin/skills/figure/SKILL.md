@@ -617,21 +617,38 @@ het_df <- imap_dfr(het_models, ~ tidy(.x, conf.int = TRUE) %>%
 
 stopifnot(nrow(het_df) >= 2, is.numeric(het_df$estimate))  # 防御：抓空立刻报错
 
-# 3) 画图
-p_het <- ggplot(het_df, aes(x = reorder(group, estimate), y = estimate,
-                            fill = group)) +
-  geom_col(width = 0.6, alpha = 0.85, show.legend = FALSE) +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-                width = 0.15, linewidth = 0.5) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
-  scale_fill_manual(values = rep(econ_colors, length.out = nrow(het_df))) +
-  labs(x = NULL, y = "Coefficient (Treatment)",
+# 3) 画图（横向版本 / 推荐）—— 多行长 label（"SOE=1\n(State-owned)" 这类）水平排不挤
+#    三条**必须**遵守：
+#      a. geom_vline(xintercept = 0) 必须放在 geom_col + geom_errorbar 之后，
+#         否则零参考线被柱条遮住，看不出系数符号 / 是否跨零。
+#      b. 多维度异质性（SOE / Polluting / Region / Size）不要混在一张图按 magnitude 全局排序，
+#         同维度两端会被打散。要么 facet_wrap(~ dimension, scales = "free_y")，
+#         要么 forcats::fct_inorder 显式排序把同维度两端排在一起。
+#      c. 多行 label 用 "\n" 时画布左侧 plot.margin 必须 ≥ 16pt，
+#         save_econ_fig 的 width 给到 8.5+，否则 label 会被裁断（症状：相邻两行 label 看起来重复）。
+p_het <- ggplot(het_df, aes(x = estimate,
+                            y = forcats::fct_reorder(group, estimate))) +
+  geom_col(width = 0.6, fill = econ_colors[3], color = "black", linewidth = 0.3) +
+  geom_errorbar(aes(xmin = conf.low, xmax = conf.high),
+                width = 0.2, linewidth = 0.4) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +    # 必须最后画
+  labs(x = "Coefficient (Treatment, with 95% CI)", y = NULL,
        title = "Heterogeneity Analysis",
        caption = "Notes: 95% CIs. SE clustered at entity level.") +
   theme_econ() +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  theme(plot.margin = margin(8, 12, 8, 16))
 
-save_econ_fig(p_het, "heterogeneity.pdf")
+save_econ_fig(p_het, "heterogeneity.pdf", w = 8.5, h = 5)
+
+# 多维度版本（强烈推荐）—— het_df 需要额外的 dimension 列（"SOE" / "Region" / "Industry" / "Size"）
+# p_het_facet <- ggplot(het_df, aes(x = estimate, y = group)) +
+#   geom_col(width = 0.6, fill = econ_colors[3], color = "black", linewidth = 0.3) +
+#   geom_errorbar(aes(xmin = conf.low, xmax = conf.high), width = 0.2, linewidth = 0.4) +
+#   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+#   facet_wrap(~ dimension, scales = "free_y", ncol = 1) +
+#   labs(x = "Coefficient (with 95% CI)", y = NULL) +
+#   theme_econ() + theme(plot.margin = margin(8, 12, 8, 16))
+# save_econ_fig(p_het_facet, "heterogeneity_faceted.pdf", w = 8.5, h = 7)
 ```
 
 ### 10. Multi-Panel Figures

@@ -167,7 +167,8 @@ theme_coase <- function(base_size = 11) {
       axis.text          = element_text(color = "black"),
       legend.position    = "top",
       legend.title       = element_blank(),
-      plot.margin        = margin(8, 12, 8, 8)
+      # 左 16pt 给长 y label 留空间（异质性图 / 横向条形图常见多行 label，左 8pt 会被裁断）
+      plot.margin        = margin(8, 12, 8, 16)
     )
 }
 theme_set(theme_coase())
@@ -176,7 +177,8 @@ theme_set(theme_coase())
 pal_gray <- c("#000000", "#7F7F7F", "#BFBFBF", "#404040")
 
 # 双格式落盘（PNG 300 DPI + PDF 矢量；含中文必须 cairo_pdf）
-save_fig <- function(p, name, w = 7, h = 5) {
+# w 默认 8 而不是 7：异质性 / coefplot / 横向条形图的 y label 容易超出 7 inch
+save_fig <- function(p, name, w = 8, h = 5) {
   ggsave(sprintf("executor/outputs/figures/%s.png", name),
          p, dpi = 300, width = w, height = h)
   ggsave(sprintf("executor/outputs/figures/%s.pdf", name),
@@ -210,15 +212,33 @@ p <- ggplot(dt, aes(x = x, y = y)) +
   labs(x = "X label", y = "Y label")
 save_fig(p, "fig_scatter_xy")
 
-# (d) 异质性柱状图：子样本系数 + 95% CI
-# agg 需先聚合成含 group / subgroup / est / lo / hi 的 data.table
-p <- ggplot(agg, aes(x = group, y = est, fill = subgroup)) +
-  geom_col(position = position_dodge(.7), width = .65) +
-  geom_errorbar(aes(ymin = lo, ymax = hi),
-                position = position_dodge(.7), width = .15) +
-  scale_fill_manual(values = pal_gray) +
-  labs(x = NULL, y = "Estimate")
-save_fig(p, "fig_heterog_bar")
+# (d) 异质性柱状图（横向 / 推荐）：子样本系数 + 95% CI
+# 数据：het_df 含 group (chr/factor) / est / lo / hi 四列；多维度异质性时建议加 dimension 列做 facet
+#
+# 三个**必须**遵守的渲染规范，否则成图反复出问题：
+#   1. geom_vline(xintercept = 0) **必须放在 geom_col + geom_errorbar 之后**，
+#      否则零参考线会被柱条遮住，看不出系数符号 / 是否跨零。
+#   2. 多维度异质性（SOE / Polluting / Region / Size...）不要混在一张图按 magnitude 全局排序，
+#      会让"同一维度的两端"被打散。要么 facet_wrap(~ dimension, scales = "free_y")，
+#      要么显式 forcats::fct_inorder 把同维度两端排在一起。
+#   3. y label 用 \n 换行写多行（如 "SOE=1\n(State-owned)"）时，必须确认 plot.margin 左侧 ≥ 16pt
+#      且 save_fig(w = 8.5+)，否则会被画布裁断（症状：相邻两行的 label 看起来都一样）。
+p <- ggplot(het_df, aes(x = est, y = forcats::fct_reorder(group, est))) +
+  geom_col(width = 0.6, fill = pal_gray[3], color = "black", linewidth = 0.3) +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0.2, linewidth = 0.4) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +    # 必须最后画
+  labs(x = "Coefficient (with 95% CI)", y = NULL)
+save_fig(p, "fig_heterog_bar", w = 8.5, h = 5)
+
+# (d') 多维度异质性（SOE / Polluting / Region / Size 各一个 panel） — 维度区分清晰，强烈建议
+# het_df 此时还需要 dimension 列（如 "SOE" / "Region" / "Industry" / "Size"）
+# p <- ggplot(het_df, aes(x = est, y = group)) +
+#   geom_col(width = 0.6, fill = pal_gray[3], color = "black", linewidth = 0.3) +
+#   geom_errorbar(aes(xmin = lo, xmax = hi), width = 0.2, linewidth = 0.4) +
+#   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+#   facet_wrap(~ dimension, scales = "free_y", ncol = 1) +
+#   labs(x = "Coefficient (with 95% CI)", y = NULL)
+# save_fig(p, "fig_heterog_bar_faceted", w = 8.5, h = 7)
 ```
 
 ### 6) 中文出图特别说明

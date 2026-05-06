@@ -139,7 +139,9 @@ theme_coase <- function(base_size = 11) {
       axis.text          = element_text(color = "black"),
       legend.position    = "top",
       legend.title       = element_blank(),
-      plot.margin        = margin(8, 12, 8, 8)
+      # Left margin 16pt to leave room for long y labels (heterogeneity / horizontal bar
+      # plots commonly carry multi-line labels; 8pt clips them).
+      plot.margin        = margin(8, 12, 8, 16)
     )
 }
 theme_set(theme_coase())
@@ -147,8 +149,9 @@ theme_set(theme_coase())
 # Palette: ≤4 categories use grayscale; >4 use viridis (scale_*_viridis_d(option = "D"))
 pal_gray <- c("#000000", "#7F7F7F", "#BFBFBF", "#404040")
 
-# Dual-format save (PNG 300 DPI + PDF vector; figures with CJK characters must use cairo_pdf)
-save_fig <- function(p, name, w = 7, h = 5) {
+# Dual-format save (PNG 300 DPI + PDF vector; figures with CJK characters must use cairo_pdf).
+# Default w = 8 (not 7): heterogeneity / coefplot / horizontal-bar y labels often exceed 7 inch.
+save_fig <- function(p, name, w = 8, h = 5) {
   ggsave(sprintf("executor/outputs/figures/%s.png", name),
          p, dpi = 300, width = w, height = h)
   ggsave(sprintf("executor/outputs/figures/%s.pdf", name),
@@ -182,15 +185,37 @@ p <- ggplot(dt, aes(x = x, y = y)) +
   labs(x = "X label", y = "Y label")
 save_fig(p, "fig_scatter_xy")
 
-# (d) Heterogeneity bar plot: subsample coefficients + 95% CI
-# `agg` must already be aggregated to a data.table with group / subgroup / est / lo / hi
-p <- ggplot(agg, aes(x = group, y = est, fill = subgroup)) +
-  geom_col(position = position_dodge(.7), width = .65) +
-  geom_errorbar(aes(ymin = lo, ymax = hi),
-                position = position_dodge(.7), width = .15) +
-  scale_fill_manual(values = pal_gray) +
-  labs(x = NULL, y = "Estimate")
-save_fig(p, "fig_heterog_bar")
+# (d) Heterogeneity bar plot (horizontal / recommended): subsample coefficients + 95% CI
+# Data: het_df with columns group (chr/factor) / est / lo / hi; for multi-dimensional
+# heterogeneity add a `dimension` column and use facet_wrap (see (d') below).
+#
+# Three rendering rules — violating them keeps producing the same broken figure:
+#   1. geom_vline(xintercept = 0) **must come AFTER geom_col + geom_errorbar**, otherwise
+#      the zero reference line is occluded by the bars and readers can't see whether
+#      the coefficient crosses zero.
+#   2. Don't pile multiple heterogeneity dimensions (SOE / Pollution / Region / Size...)
+#      into one chart sorted by magnitude — the two ends of each dimension get scattered.
+#      Use facet_wrap(~ dimension, scales = "free_y") OR explicit forcats::fct_inorder
+#      so the two halves of a dimension stay adjacent.
+#   3. If y labels carry "\n" line breaks (e.g. "SOE=1\n(State-owned)"), confirm
+#      plot.margin left ≥ 16pt and save_fig(w = 8.5+); otherwise the canvas clips them
+#      (symptom: two adjacent rows look like duplicate labels).
+p <- ggplot(het_df, aes(x = est, y = forcats::fct_reorder(group, est))) +
+  geom_col(width = 0.6, fill = pal_gray[3], color = "black", linewidth = 0.3) +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0.2, linewidth = 0.4) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +    # MUST be drawn last
+  labs(x = "Coefficient (with 95% CI)", y = NULL)
+save_fig(p, "fig_heterog_bar", w = 8.5, h = 5)
+
+# (d') Multi-dimensional heterogeneity (one panel per SOE / Pollution / Region / Size). Strongly preferred.
+# het_df also needs a `dimension` column ("SOE" / "Region" / "Industry" / "Size", ...).
+# p <- ggplot(het_df, aes(x = est, y = group)) +
+#   geom_col(width = 0.6, fill = pal_gray[3], color = "black", linewidth = 0.3) +
+#   geom_errorbar(aes(xmin = lo, xmax = hi), width = 0.2, linewidth = 0.4) +
+#   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+#   facet_wrap(~ dimension, scales = "free_y", ncol = 1) +
+#   labs(x = "Coefficient (with 95% CI)", y = NULL)
+# save_fig(p, "fig_heterog_bar_faceted", w = 8.5, h = 7)
 ```
 
 ### 6) CJK-character figures — special note
