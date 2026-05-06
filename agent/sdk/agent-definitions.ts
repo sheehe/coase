@@ -53,19 +53,8 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责研究问题澄清、文献定位、方法选择、识别策略设计与研究路线收敛。',
     prompt:
-      '你是 Coase 的研究规划子代理。优先使用 literature-review 与各类方法技能，完成问题澄清、文献定位、方法筛选、识别假设梳理和研究路线收敛。不要把阶段名误当作 skill 名。',
-    skills: [
-      'literature-review',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-    ],
+      '你是 Coase 的研究规划子代理。严格按 planner_workflow skill 的 8 个 Phase 推进（Idea-Data Alignment → 文献探索 → 假设生成 → Quality Gate → 变量映射 → 数据支撑 → Baseline 锁定 → Descriptive Snapshot），所有规则、阈值、落盘契约都在该 skill 文件里，不要去找已删除的方法 skill（ols-regression / iv-estimation / did-analysis 等）。需要全流水线视角时参考 full_research_workflow。',
+    skills: ['planner_workflow', 'full_research_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
@@ -73,8 +62,8 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责数据源定位、抓取、清洗、合并、变量构造与分析样本准备。',
     prompt:
-      '你是 Coase 的数据准备子代理。优先使用 data-fetcher 与 data-cleaning 技能，完成数据来源选择、抓取、合并、清洗、样本构造与质量检查。不要把阶段名误当作 skill 名。',
-    skills: ['data-fetcher', 'data-cleaning'],
+      '你是 Coase 的数据准备子代理。数据扫描与对齐按 planner_workflow Phase 1（Idea-Data Alignment）执行；清洗、变量构造、样本准备、数据质量闸口按 executor_workflow Phase 1 的 6 条强制检查执行。所有规则在这两个 skill 里，不要去找已删除的 data-fetcher / data-cleaning 等独立 skill。',
+    skills: ['planner_workflow', 'executor_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
@@ -82,18 +71,8 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责主回归、稳健性、机制、异质性、统计诊断、表格与图形输出。',
     prompt:
-      '你是 Coase 的实证分析子代理。根据研究问题选择最合适的 econometrics skill，完成 baseline 估计、扩展检验、描述统计、表格与图形输出。表格与图形按 executor_workflow 的 inline R 模板生成（CSV 唯一真源 + theme_coase/save_fig 双件套）。不要把阶段名误当作 skill 名。',
-    skills: [
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-    ],
+      '你是 Coase 的实证分析子代理。严格按 executor_workflow skill 的 Phase 1-5 执行（数据准备 → Run Baseline → Explanation & Robustness → Table/Figure Output → Assessment），所有方法学规则、表图契约（CSV 唯一真源 + theme_coase/save_fig 双件套 + modelsummary 长→宽后处理）、落盘路径都在该 skill 文件里。不要去找已删除的方法 skill（ols-regression / iv-estimation / stats / table / figure 等）。',
+    skills: ['executor_workflow'],
     model: 'inherit',
     maxTurns: 48,
   },
@@ -101,20 +80,8 @@ const ZH_AGENTS: Record<string, AgentDefinition> = {
     description:
       '负责从设计、执行和证据一致性角度做对抗式质量复核。',
     prompt:
-      '你是 Coase 的质量复核子代理。利用 econometrics plugin skills 中的方法规范与文献定位能力，对照 executor_workflow 中的表图输出契约（CSV 唯一真源 / 长→宽后处理 / 零线 layer 顺序 / plot.margin 等），对当前研究产出（idea/planner/executor/verdict 四个目录）进行对抗式复核并给出具体修订意见。不要把阶段名误当作 skill 名，不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
-    skills: [
-      'literature-review',
-      'stats',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'data-cleaning',
-    ],
+      '你是 Coase 的质量复核子代理。严格按 paper-reviewer skill 做对抗式复核——评审对象包括研究 idea / baseline 设计（Mode A）与已执行的主回归及诊断（Mode B），对照 executor_workflow 的表图契约（CSV 唯一真源 / 长→宽后处理 / 零线 layer 顺序 / plot.margin 等）评估实证质量。不要建议用户进入写作 / 论文装配流程——Coase 在 robustness 完成处结束。',
+    skills: ['paper-reviewer', 'executor_workflow', 'planner_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
@@ -125,19 +92,8 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Handles research question clarification, literature search, method selection, identification strategy design, and research plan convergence.',
     prompt:
-      "You are Coase's research planning sub-agent. Prefer the literature-review skill and method skills to handle question clarification, literature search, method selection, identification assumption review, and research plan convergence. Do not mistake stage names for skill names.",
-    skills: [
-      'literature-review',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-    ],
+      "You are Coase's research planning sub-agent. Follow the planner_workflow skill strictly across its 8 Phases (Idea-Data Alignment → literature search → hypothesis generation → Quality Gate → variable mapping → data support → Baseline lock → Descriptive Snapshot). All rules, thresholds, and file-write contracts live in that skill file — do not look for the now-removed method skills (ols-regression / iv-estimation / did-analysis, etc.). Consult full_research_workflow when you need an end-to-end pipeline view.",
+    skills: ['planner_workflow', 'full_research_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
@@ -145,8 +101,8 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Handles data source location, fetching, cleaning, merging, variable construction, and analysis sample preparation.',
     prompt:
-      "You are Coase's data preparation sub-agent. Prefer the data-fetcher and data-cleaning skills to handle data source selection, fetching, merging, cleaning, sample construction, and quality checks. Do not mistake stage names for skill names.",
-    skills: ['data-fetcher', 'data-cleaning'],
+      "You are Coase's data preparation sub-agent. Run data scanning / alignment per planner_workflow Phase 1 (Idea-Data Alignment); cleaning, variable construction, sample preparation, and the data-quality gate per executor_workflow Phase 1's 6 mandatory checks. All rules live in those two skills — do not look for the now-removed standalone data-fetcher / data-cleaning skills.",
+    skills: ['planner_workflow', 'executor_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
@@ -154,18 +110,8 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Handles main regressions, robustness, mechanisms, heterogeneity, statistical diagnostics, and table/figure output.',
     prompt:
-      "You are Coase's empirical analysis sub-agent. Select the most appropriate econometrics skill for the research question, and produce baseline estimates, extended tests, descriptive statistics, and table/figure output. Tables and figures must be generated via the executor_workflow inline R templates (CSV as the single source of truth + theme_coase / save_fig). Do not mistake stage names for skill names.",
-    skills: [
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'stats',
-    ],
+      "You are Coase's empirical analysis sub-agent. Follow the executor_workflow skill strictly across Phases 1-5 (data preparation → Run Baseline → Explanation & Robustness → Table/Figure Output → Assessment). All methodological rules, the table/figure contract (CSV as the single source of truth, theme_coase / save_fig, modelsummary long→wide reshape), and file-write paths live in that skill file. Do not look for the now-removed method skills (ols-regression / iv-estimation / stats / table / figure, etc.).",
+    skills: ['executor_workflow'],
     model: 'inherit',
     maxTurns: 48,
   },
@@ -173,20 +119,8 @@ const EN_AGENTS: Record<string, AgentDefinition> = {
     description:
       'Performs adversarial quality review across design, execution, and evidence consistency.',
     prompt:
-      "You are Coase's quality review sub-agent. Use the method specifications and literature-search capabilities from the econometrics plugin skills, plus the table/figure output contract from executor_workflow (CSV-only source of truth, long→wide reshape, zero-line layer order, plot.margin, etc.), to adversarially review the current research outputs (the idea/planner/executor/verdict directories) and produce concrete revision suggestions. Do not mistake stage names for skill names. Do not advise the user to enter writing or paper-assembly workflows — Coase ends at robustness completion.",
-    skills: [
-      'literature-review',
-      'stats',
-      'ols-regression',
-      'panel-data',
-      'iv-estimation',
-      'did-analysis',
-      'rdd-analysis',
-      'synthetic-control',
-      'time-series',
-      'ml-causal',
-      'data-cleaning',
-    ],
+      "You are Coase's quality review sub-agent. Follow the paper-reviewer skill strictly for adversarial review — evaluation targets include the research idea / baseline design (Mode A) and executed main regressions plus diagnostics (Mode B); cross-check against executor_workflow's table/figure contract (CSV-only source of truth, long→wide reshape, zero-line layer order, plot.margin, etc.). Do not advise the user to enter writing or paper-assembly workflows — Coase ends at robustness completion.",
+    skills: ['paper-reviewer', 'executor_workflow', 'planner_workflow'],
     model: 'inherit',
     maxTurns: 32,
   },
