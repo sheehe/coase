@@ -13,6 +13,17 @@ description: Search, summarize, and synthesize economics literature; position yo
 
 ---
 
+## 联网搜索文献开关
+
+若 system prompt 中显示 `web_search_enabled: false`（或出现"联网搜索文献：关闭"硬约束句），**完全跳过 Step 2 的所有联网检索教程**（Google Scholar / EconLit / NBER / SSRN / Connected Papers 等），直接进入 Step 3 处理上下文已经提供的本地 PDF（一般在 `references/` 目录）：
+
+- 如果有本地 PDF：按 Step 3 的 Quick-Read Protocol 读完每篇，按 Paper Summary Template 写出综述。
+- 如果**完全没有本地资料**：在落盘文件（如 `planner/stage_2_literature.md`）顶部明确写"本地无可用文献，按用户研究偏好未联网补齐"，然后基于研究问题本身写一段领域常识性的背景段落即可，不要尝试用 WebSearch / WebFetch 绕过限制——这两个工具在文献场景下已被 PreToolUse hook 硬拒绝。
+
+非文献用途（数据源定位、数据字典、政策 / 新闻 / API 文档）不受此开关影响，可继续用 WebFetch 直接访问目标 URL。
+
+---
+
 # Literature-Review
 
 ## Purpose

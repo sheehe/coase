@@ -180,11 +180,11 @@ export async function createChatQuery({
     mcpServers: {
       'coase-critic-panel': buildCriticPanelMcpServer(),
     },
-    hooks: getCoaseHooks(language),
+    hooks: getCoaseHooks(language, researchPrefs),
     includeHookEvents: true,
     agentProgressSummaries: true,
     promptSuggestions: true,
-    agents: getCoaseAgents(language),
+    agents: getCoaseAgents(language, researchPrefs),
     model: provider.model,
     executable: process.execPath as 'node',
     pathToClaudeCodeExecutable: CLAUDE_CODE_CLI_PATH,

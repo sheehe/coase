@@ -130,11 +130,18 @@ E. GO/NO-GO DECISION
 
 **Goal**: based on the Idea–Data Alignment result, decide on viable research directions.
 
-Recommended approach:
+> **Literature web-search switch**: if the system prompt shows `web_search_enabled: false` (or contains the "Literature web search: disabled" hard constraint), **the entire Phase 2 must not call WebSearch / WebFetch for literature** — both tools are blocked by a PreToolUse hook in literature contexts. Switch to the "Local-first mode" below.
+
+Recommended approach (default / web search enabled):
 - Distill 2–3 keyword combinations per research direction
 - Search relevant literature (5–10 papers per keyword group)
 - Expand the citation network for the most relevant 2–3 papers (depth 1)
 - Synthesize: main findings of existing research, research gap, available identification strategies, fit with the data
+
+Local-first mode (literature web search disabled):
+- Use only the local PDFs listed in the "Available references (references/)" context section; reuse the core findings / identification strategies / data variables already extracted in the earlier "Read references" sub-step
+- Synthesis: derive findings from local literature only; state the gap as "Based on the local literature sample, the research gap is likely X, pending online verification"; assess fit with the data
+- If references/ is entirely empty: write at the top of stage_2_literature.md "No local literature available; not fetched online per user preference", leave the literature table as a placeholder, still output direction recommendations grounded in the research question itself, **and do not try to bypass the restriction**
 
 **Output**: list of key papers (author, year, title, core finding, identification strategy), gap analysis, recommended 2–3 directions (ranked by feasibility), the identification strategy that best fits each direction.
 

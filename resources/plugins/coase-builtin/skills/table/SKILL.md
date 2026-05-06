@@ -22,16 +22,68 @@ description: |
 1. **CSV 是唯一交付格式**。**禁止** `.tex` / `.xlsx` / `.docx` 输出。需要 LaTeX 表时由 writer 从 CSV 现场渲染，executor 不落盘 tex。具体：禁止 `modelsummary(..., output = "*.tex")`、`stargazer(..., out = "*.tex")`、`library(openxlsx|xlsx|writexl)`、手写 booktabs。
 2. **路径与命名固定**：`executor/outputs/tables/table_{role}.csv`，`role ∈ {baseline, mechanism, robust, heterog, desc_stats, corr_matrix}`。迭代时**覆盖写同名文件**，禁止 `_v2` / `_new` / `_final` 后缀；规格迭代轨迹写入 `executor/specification_log.md`。
 3. **数值精度一次定死**：系数/SE 4 位小数，p 值 4 位，N 整数；写入 CSV 后**不得**在下游做数值后处理。
+4. **`coef_map` 必填**：当模型公式包含**中文 / 空格 / 标点 / 反引号 / `get("...")`** 形式的变量名时，必须用 `coef_map` 显式映射回可读名字；否则 modelsummary 的 `term` 字段会留下 `get("SA指数_abs")` 这种 R 表达式字面量，下游 .md 直接暴露给读者，非常难看。
+5. **长 → 宽后处理（必做）**：modelsummary 的 `output = "data.frame"` 是**长格式**（`part / term / statistic` 三列元信息 + 每模型一列）。**不能直接 `fwrite`**——orchestrator 派生 .md 时会原样把这三列泄漏给读者，且 std.error 行的 statistic 字段会出现 `({std.error})` 字面量。必须按下面"Executor 模式标准写法"做完整后处理后再落盘。
 
-Executor 模式标准写法：
+Executor 模式标准写法（**整段照抄**，仅替换模型对象与 `coef_map`）：
 ```r
-modelsummary(mods, output = "data.frame",
-             fmt = 4, estimate = "{estimate}{stars}",
-             statistic = "({std.error})",
-             stars = c('*' = .1, '**' = .05, '***' = .01),
-             gof_omit = "AIC|BIC|Log.|RMSE|R2 Adj|R2 Within") |>
-  data.table::fwrite("executor/outputs/tables/table_baseline.csv")
+library(modelsummary); library(data.table)
+dir.create("executor/outputs/tables", recursive = TRUE, showWarnings = FALSE)
+
+# 1) 拟合模型；list 的 names 即为最终表的列标题
+mods <- list(
+  "(1) 仅 SA + FE"           = m1,
+  "(2) + Size+Lev+ROA"       = m2,
+  "(3) + Growth+HHI+ListAge" = m3,
+  "(4) 完整控制变量"         = m4
+)
+stopifnot(length(mods) > 0)
+
+# 2) 生成长格式 dataframe（modelsummary 中间产物，含 part/term/statistic 元列）
+raw <- modelsummary(
+  mods,
+  output    = "data.frame",
+  fmt       = 4,
+  estimate  = "{estimate}{stars}",
+  statistic = "({std.error})",
+  stars     = c('*' = .1, '**' = .05, '***' = .01),
+  coef_map  = c(
+    # 中文 / 含特殊字符变量名必须显式映射；
+    # 公式里写 get("xx") 时，key 也要是 'get("xx")' 字面量。
+    'get("SA指数_abs")' = "SA指数 (绝对值)",
+    "Size"    = "Size",
+    "Lev"     = "Lev",
+    "ROA"     = "ROA",
+    "Growth"  = "Growth",
+    "HHI"     = "HHI",
+    "ListAge" = "ListAge"
+  ),
+  gof_omit  = "AIC|BIC|Log.|RMSE|R2 Adj|R2 Within"
+) |> as.data.table()
+
+# 3) 长 → 宽美化（不做这步会让 .md 里出现 part/term/statistic 三列元信息）
+#    a. 估计部分每两行一组（coef + std.error）：std.error 行的 term 置空，避免重复
+#    b. 删除 part / statistic 两列元信息
+idx_est <- which(raw$part == "estimates")
+if (length(idx_est) > 0) {
+  se_rows <- idx_est[seq(2L, length(idx_est), by = 2L)]
+  raw[se_rows, term := ""]
+}
+raw[, c("part", "statistic") := NULL]
+
+# 4) 落 CSV（唯一真源，orchestrator 自动派生同名 .md）
+fwrite(raw, "executor/outputs/tables/table_baseline.csv")
 ```
+
+> **空白稀疏化提醒**：上面 4 个规格里 (1) 没纳入 Size/Lev/ROA，对应 .md 里那几列就会留空格——这是预期行为。但若稳健性表里 6+ 列、每列控制变量都不一样，最终表会非常稀疏。建议把"控制变量集合"通过 `add_rows` 写成 Yes/No 行，而不是真把所有变量平铺。例：
+> ```r
+> add_rows = tibble::tribble(
+>   ~term,            ~"(1)", ~"(2)", ~"(3)", ~"(4)",
+>   "基础控制变量",    "No",   "Yes",  "Yes",  "Yes",
+>   "扩展控制变量",    "No",   "No",   "Yes",  "Yes"
+> )
+> ```
+> 然后用 `coef_map` 白名单**只保留处理变量**：`coef_map = c('get("SA指数_abs")' = "SA指数")`。
 
 若用户未指定工作流（直接提问使用本方法），忽略本节，按下方正文自由执行——standalone 模式下 `.tex` / 任意路径都是合法的。
 

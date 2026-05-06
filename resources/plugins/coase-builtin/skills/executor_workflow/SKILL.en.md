@@ -93,16 +93,35 @@ mods <- list(
 
 ### 3) Tables (CSV is the single source of truth — set numeric precision once)
 
+> **Critical**: `modelsummary(output = "data.frame")` returns a **long format** with three metadata columns (`part / term / statistic`) plus one column per model. A direct `fwrite` leaks all three columns into the derived `.md`, the std.error rows literally show `({std.error})` as a string in the `statistic` column, and any non-syntactic variable name (CJK characters, `get("...")`) appears as raw R syntax in the table. Steps (a), (b), (c) below are **mandatory**.
+
 ```r
-modelsummary(
+library(data.table)
+
+# (a) coef_map is mandatory: map CJK / get("...") names back to readable labels
+raw <- modelsummary(
   mods,
   output    = "data.frame",
   fmt       = 4,                                          # coefficients/SE 4 digits
   estimate  = "{estimate}{stars}",
   statistic = "({std.error})",
   stars     = c('*' = .1, '**' = .05, '***' = .01),
+  coef_map  = c(
+    'get("SA_index_abs")' = "SA index (abs)",  # if formula uses get("xx"), key must include get(...)
+    "Size" = "Size", "Lev" = "Lev", "ROA" = "ROA"
+  ),
   gof_omit  = "AIC|BIC|Log.|RMSE|R2 Adj|R2 Within"
-) |> fwrite("executor/outputs/tables/table_baseline.csv")
+) |> as.data.table()
+
+# (b) Long → wide cleanup: blank the term cell on std.error rows so the variable name doesn't repeat
+idx_est <- which(raw$part == "estimates")
+if (length(idx_est) > 0) {
+  raw[idx_est[seq(2L, length(idx_est), by = 2L)], term := ""]
+}
+
+# (c) Drop the part / statistic metadata columns before writing
+raw[, c("part", "statistic") := NULL]
+fwrite(raw, "executor/outputs/tables/table_baseline.csv")
 ```
 
 ### 4) Unified figure spec (must use theme_coase + save_fig)

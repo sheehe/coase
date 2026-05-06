@@ -121,16 +121,35 @@ mods <- list(
 
 ### 3) 表格（CSV 唯一真源 — 数值精度一次决定）
 
+> **关键**：modelsummary `output = "data.frame"` 是**长格式**（含 `part / term / statistic` 三列元信息 + 每模型一列）。直接 `fwrite` 会让下游 .md 把这三列原样泄漏给读者，且 std.error 行的 `statistic` 字段会出现 `({std.error})` 字面量；当变量名是中文 / `get("...")` 时还会让 R 表达式裸奔到表里。**必须**做下面 (a) (b) (c) 三步。
+
 ```r
-modelsummary(
+library(data.table)
+
+# (a) 必填 coef_map：把中文 / get("...") 变量名翻译成可读字符串
+raw <- modelsummary(
   mods,
   output    = "data.frame",
   fmt       = 4,                                          # 系数/SE 4 位
   estimate  = "{estimate}{stars}",
   statistic = "({std.error})",
   stars     = c('*' = .1, '**' = .05, '***' = .01),
+  coef_map  = c(
+    'get("SA指数_abs")' = "SA指数 (绝对值)",  # 公式里写 get("xx") 时 key 也要带 get(...)
+    "Size" = "Size", "Lev" = "Lev", "ROA" = "ROA"
+  ),
   gof_omit  = "AIC|BIC|Log.|RMSE|R2 Adj|R2 Within"
-) |> fwrite("executor/outputs/tables/table_baseline.csv")
+) |> as.data.table()
+
+# (b) 长 → 宽美化：std.error 行的 term 置空（避免变量名重复显示）
+idx_est <- which(raw$part == "estimates")
+if (length(idx_est) > 0) {
+  raw[idx_est[seq(2L, length(idx_est), by = 2L)], term := ""]
+}
+
+# (c) 删除 part / statistic 元信息列后再落盘
+raw[, c("part", "statistic") := NULL]
+fwrite(raw, "executor/outputs/tables/table_baseline.csv")
 ```
 
 ### 4) 图统一规格（必须用 theme_coase + save_fig）

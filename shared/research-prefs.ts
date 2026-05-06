@@ -15,8 +15,18 @@ export interface ResearchPrefs {
    */
   researchPurpose: ResearchPurpose;
   /**
-   * 是否允许 agent 调用 WebSearch 工具联网搜索参考文献 / 网页资料。
-   * 关闭后会从 SDK 工具清单中剔除 WebSearch，agent 只能使用已下载文献与本地资源。
+   * 是否允许 agent 联网检索参考文献。关闭时实际通过两层硬约束生效（见
+   * agent/sdk/agent-definitions.ts）：
+   * 1. PreToolUse hook 在工具调用前直接 deny — WebSearch 一律拒绝；
+   *    WebFetch 仅当目标 URL 命中学术 / 引文站点白名单（cnki / wanfang /
+   *    scholar.google / semanticscholar / jstor / ssrn / nber / repec /
+   *    arxiv / sciencedirect / springer / wiley / aeaweb / researchgate /
+   *    doi.org 等）时拒绝，其他 host 放行。
+   * 2. 同步把硬约束句注入 root systemPrompt 与可能触发文献检索的子 agent
+   *    （research_planner / quality_reviewer）的 AgentDefinition.prompt，
+   *    让模型在 hook deny 前就主动避开。
+   * 这只针对文献检索：定位数据源、查数据字典、看政策 / 新闻 / API 文档等
+   * 非文献用途仍允许通过 WebFetch 直接访问目标 URL。
    */
   webSearchEnabled: boolean;
 }
